@@ -1,0 +1,37 @@
+geometry_filename cylinder.geometry
+
+mesh_size 1
+
+order 2 3 3
+
+initial 0.0 0.0 0.0
+
+wind n[0]*0.5*(u[1]+v[1])+n[1]*0.5*(u[2]+v[2])>=0.0
+
+constants rho=1.0;mu=0.002
+
+# north east south west cylinder > 9396:9446 9446:9471 9471:9521 9521:9546 9546:9609
+
+# boundary > indices variable type value
+boundary 9446:9471 0 d 0.0
+boundary 9521:9546 1 d 1.0
+boundary 9396:9446,9471:9521,9546:9609 1 0.0
+boundary 9396:9446,9471:9521,9521:9546,9546:9609 2 0.0
+
+# flux > equation variable direction differential power constant method
+flux 0 1   x 0   1   rho      i
+flux 0 2   y 0   1   rho      i
+
+flux 1 0   x 0   1   -1       i
+#flux 1 1   x 0   2   -rho     u
+#flux 1 1,2 y 0,0 1,1 -rho     uu
+flux 1 1   x x   1   2*mu/rho i
+flux 1 1   y y   1   mu/rho   i
+flux 1 2   y x   1   mu/rho   i
+
+flux 2 0   y 0   1   -1       i
+#flux 2 2,1 x 0,0 1,1 -rho     uu
+#flux 2 2   y 0   2   -rho     u
+flux 2 1   x y   1   mu/rho   i
+flux 2 2   x x   1   mu/rho   i
+flux 2 2   y y   1   2*mu/rho i
