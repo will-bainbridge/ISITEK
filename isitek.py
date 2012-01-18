@@ -70,11 +70,13 @@ def read_input_file(input_filename):
 	geometry_filename = []
 	order = []
 	boundary = []
-	constants = []
-	flux = []
-	mesh_size = []
-	wind = []
 	initial = []
+	term = []
+	wind = []
+	iterations = []
+	mesh_size = []
+
+	constant = []
 
 	file = open(input_filename,'r')
 
@@ -98,14 +100,14 @@ def read_input_file(input_filename):
 		if len(lineparts) >= 2 and lineparts[0] == 'initial':
 			initial = lineparts[1:]
 
-		if len(lineparts) >= 2 and lineparts[0] == 'constants':
-			constants = lineparts[1]
+		if len(lineparts) >= 2 and lineparts[0] == 'constant':
+			constant = lineparts[1]
 
-		if len(lineparts) >= 6 and lineparts[0] == 'flux':
-			flux.append(Struct(
+		if len(lineparts) >= 6 and lineparts[0] == 'term':
+			term.append(Struct(
 				equation = int(lineparts[1]) ,
 				variable = [ int(x) for x in lineparts[2].split(',') ] ,
-				direction = 0*(lineparts[3] == 'x') + 1*(lineparts[3] == 'y') ,
+				direction = lineparts[3] ,
 				differential = [ tuple( sum([ x == y for x in z ]) for y in 'xy' ) for z in lineparts[4].split(',') ] ,
 				power = [ int(x) for x in lineparts[5].split(',') ] ,
 				constant = lineparts[6] ,
@@ -114,26 +116,29 @@ def read_input_file(input_filename):
 		if len(lineparts) >= 2 and lineparts[0] == 'wind':
 			wind = eval( 'lambda n,u,v:' + lineparts[1] , {'numpy':numpy} , {} )
 
+		if len(lineparts) >= 2 and lineparts[0] == 'iterations':
+			iterations = int(lineparts[1])
+
 		if len(lineparts) >= 2 and lineparts[0] == 'mesh_size':
 			mesh_size = int(lineparts[1])
 
 	file.close()
 
-	if len(constants):
-		constants = dict([ (y[0],float(y[1])) for y in [ x.split('=') for x in constants.split(';') ] ])
+	if len(constant):
+		constant = dict([ (y[0],float(y[1])) for y in [ x.split('=') for x in constant.split(';') ] ])
 	else:
-		constants = {}
+		constant = {}
 
-	if len(flux):
-		for i in range(0,len(flux)):
-			flux[i].constant = eval(flux[i].constant,{},constants)
+	if len(term):
+		for i in range(0,len(term)):
+			term[i].constant = eval(term[i].constant,{},constant)
 
 	if len(initial):
 		replace = {'pi':'numpy.pi','cos(':'numpy.cos(','sin(':'numpy.sin('}
 		for i in range(0,len(initial)):
-			initial[i] = eval( 'lambda x,y:' + string_multiple_replace(initial[i],replace) , {'numpy':numpy} , constants )
+			initial[i] = eval( 'lambda x,y:' + string_multiple_replace(initial[i],replace) , {'numpy':numpy} , constant )
 
-	return geometry_filename,order,boundary,initial,flux,wind,mesh_size
+	return geometry_filename,order,boundary,initial,term,wind,iterations,mesh_size
 
 #------------------------------------------------------------------------------#
 		
@@ -431,7 +436,7 @@ def calculate_element_matrices():
 		if do.pre or (do.re and any(b)):
 
 			# rotation to face coordinates
-			R = numpy.array([[face[f].normal[0],face[f].normal[1]],[-face[f].normal[1],face[f].normal[0]]])
+			R = numpy.array([[face[f].normal[0],-face[f].normal[1]],[face[f].normal[1],face[f].normal[0]]])
 			R /= numpy.sqrt(numpy.dot(face[f].normal,face[f].normal))
 
 			# face locations
@@ -477,8 +482,8 @@ def calculate_element_matrices():
 								dA[k+i*order[v],j] = basis(
 										numpy.array(face[f].centre[0]),
 										numpy.array(face[f].centre[1]),
-										face[f],face_taylor[j],[0,k])
-								# TODO # change [0,k] here for different BCs
+										face[f],face_taylor[j],
+										[ sum(temp) for temp in zip([0,k],boundary[b[v][i]].condition) ])
 
 					dB = numpy.zeros((nb[v]*order[v],nb[v]))
 					for i in range(0,nb[v]): dB[i*order[v],i] = 1.0
@@ -544,6 +549,7 @@ def generate_system():
 	ng = len(gauss_weights)
 	nh = len(hammer_weights)
 	np = [ len(x) for x in element[0].unknown ]
+	nt = len(term)
 	nv = len(order)
 
 	max_np = max(np)
@@ -573,17 +579,17 @@ def generate_system():
 	
 	for e in range(0,ne):
 
-		# number of sides
-		ns = len(element[e].face)
+		# number of faces
+		nf = len(element[e].face)
 
 		# adjacent elements
-		adj = - numpy.ones(ns,dtype=int)
-		for i in range(0,ns):
+		adj = - numpy.ones(nf,dtype=int)
+		for i in range(0,nf):
 			temp = numpy.array(face[element[e].face[i]].border)
 			temp = temp[temp != e]
 			if len(temp): adj[i] = temp[0]
 		n_adj = sum(adj >= 0)
-		i_adj = numpy.arange(0,ns)[adj >= 0]
+		i_adj = numpy.arange(0,nf)[adj >= 0]
 
 		# local matrices to add to the system
 		L.i = numpy.zeros((sum_np,(1+n_adj)*sum_np),dtype=int)
@@ -593,7 +599,7 @@ def generate_system():
 
 		# indices into the local matrices
 		index_e = [ numpy.arange(sum(np[:v]),sum(np[:v+1]))[numpy.newaxis] for v in range(0,nv) ]
-		index_a = [ [] for i in range(0,ns) ]
+		index_a = [ [] for i in range(0,nf) ]
 		for i in range(0,n_adj):
 			index_a[i_adj[i]] = [ numpy.array([
 				range(sum(np[:v]),sum(np[:v+1])) +
@@ -604,42 +610,44 @@ def generate_system():
 		M = dot_sequence( element[e].P[powers_taylor[0,0]].T , numpy.diag(element[e].W) , element[e].P[powers_taylor[0,0]] )
 		inv_M = [ numpy.linalg.inv(M[0:np[v],0:np[v]]) for v in range(0,nv) ]
 
-		# loop over fluxes
-		for term in flux:
+		# loop over terms
+		for t in range(0,nt):
 
-			nt = len(term.variable)
-
-			# numbers of equations
-			npe = np[term.equation]
+			# numbers of variables in the term product sequence
+			ns = len(term[t].variable)
 
 			# direction index
-			direction = powers_taylor[1-term.direction,term.direction]
+			direction = powers_taylor[int(term[t].direction == 'x'),int(term[t].direction == 'y')]
 
 			# powers
-			P = numpy.array(term.power)[numpy.newaxis].T
+			P = numpy.array(term[t].power)[numpy.newaxis].T
 
 			# equation matrix
-			A = - term.constant * dot_sequence( inv_M[term.equation] , element[e].P[direction][:,0:npe].T , numpy.diag(element[e].W) )
+			A = - term[t].constant * dot_sequence( inv_M[term[t].equation] ,
+					element[e].P[direction][:,0:np[term[t].equation]].T , numpy.diag(element[e].W) )
 
 			# calculate the coefficients and values
-			B = [ [] for t in range(0,nt) ]
-			X = numpy.zeros((nt,nh))
-			for t,v,differential in zip(range(0,nt),term.variable,term.differential):
-				B[t] = element[e].P[powers_taylor[differential]][:,0:np[v]]
-				X[t,:] = numpy.dot( B[t] , u[element[e].unknown[v]] )
+			B = [ [] for s in range(0,ns) ]
+			X = numpy.zeros((ns,nh))
+			for s,v in zip(range(0,ns),term[t].variable):
+				B[s] = element[e].P[powers_taylor[term[t].differential[s]]][:,0:np[v]]
+				X[s,:] = numpy.dot( B[s] , u[element[e].unknown[v]] )
 
 			# add to the local jacobian
 			Y = X ** P
-			for t,v in zip(range(0,nt),term.variable):
+			for s,v in zip(range(0,ns),term[t].variable):
 				temp = numpy.copy(Y)
-				temp[t,:] = P[t] * X[t,:] ** (P[t]-1)
-				L.x[index_e[term.equation].T,index_e[v]] += dot_sequence( A , numpy.diag(numpy.prod(temp,axis=0)) , B[t] )
+				temp[s,:] = P[s] * X[s,:] ** (P[s]-1)
+				L.x[index_e[term[t].equation].T,index_e[v]] += dot_sequence( A , numpy.diag(numpy.prod(temp,axis=0)) , B[s] )
 
 			# add to the function vector
-			F[element[e].unknown[term.equation]] += numpy.dot( A , numpy.prod(Y,axis=0) )
+			F[element[e].unknown[term[t].equation]] += numpy.dot( A , numpy.prod(Y,axis=0) )
+
+			# continue if not a flux term
+			if term[t].direction != 'x' and term[t].direction != 'y': continue
 
 			# face components
-			for i in range(0,ns):
+			for i in range(0,nf):
 
 				f = element[e].face[i]
 				a = adj[i]
@@ -652,7 +660,7 @@ def generate_system():
 				if a >= 0: j = numpy.arange(0,len(element[a].face))[numpy.array(element[a].face) == f]
 
 				# wind
-				if a >= 0 and ('u' in term.method):
+				if a >= 0 and ('u' in term[t].method):
 					ui = [ dot_sequence( gauss_weights , element[e].Q[i][:,0:np[v]] , u[element[e].unknown[v]] ) for v in range(0,nv) ]
 					uo = [ dot_sequence( gauss_weights , element[a].Q[j][:,0:np[v]] , u[element[a].unknown[v]] ) for v in range(0,nv) ]
 					w = wind( normal , ui , uo )
@@ -660,57 +668,57 @@ def generate_system():
 					w = True
 
 				# equation matrix
-				A = normal[term.direction] * term.constant * dot_sequence( inv_M[term.equation] ,
-						element[e].Q[i][:,0:npe].T , numpy.diag(0.5*gauss_weights) )
+				A = normal[term[t].direction == 'y'] * term[t].constant * dot_sequence( inv_M[term[t].equation] ,
+						element[e].Q[i][:,0:np[term[t].equation]].T , numpy.diag(0.5*gauss_weights) )
 
 				# calculate the coefficients and values
-				B = [ [] for t in range(0,nt) ]
-				X = numpy.zeros((nt,ng))
-				for t,v,differential,method in zip(range(0,nt),term.variable,term.differential,term.method):
+				B = [ [] for s in range(0,ns) ]
+				X = numpy.zeros((ns,ng))
+				for s,v in zip(range(0,ns),term[t].variable):
 
 					# where there is an adjacent element
 					if a >= 0:
 
 						# interpolated flux
-						if method == 'i' or len(b[v]):
+						if term[t].method[s] == 'i' or len(b[v]):
 							if face[f].border[0] == e: temp = numpy.array(range(0,2*np[v]))
 							else: temp = numpy.array(range(np[v],2*np[v])+range(0,np[v]))
-							B[t] = face[f].Q[v][powers_taylor[differential]][:,temp]
+							B[s] = face[f].Q[v][powers_taylor[term[t].differential[s]]][:,temp]
 
 						# averaged flux
-						elif method == 'a':
-							B[t] = 0.5*numpy.append(element[e].Q[i][:,0:np[v]],element[a].Q[j][:,0:np[v]],axis=1)
+						elif term[t].method[s] == 'a':
+							B[s] = 0.5*numpy.append(element[e].Q[i][:,0:np[v]],element[a].Q[j][:,0:np[v]],axis=1)
 
 						# upwind flux
-						elif method == 'u':
+						elif term[t].method[s] == 'u':
 
-							B[t] = numpy.zeros((ng,2*np[v]))
-							if w: B[t][:,0:np[v]] += element[e].Q[i][:,0:np[v]]
-							else: B[t][:,np[v]:2*np[v]] += element[a].Q[j][:,0:np[v]]
+							B[s] = numpy.zeros((ng,2*np[v]))
+							if w: B[s][:,0:np[v]] += element[e].Q[i][:,0:np[v]]
+							else: B[s][:,np[v]:2*np[v]] += element[a].Q[j][:,0:np[v]]
 
 						# values
-						X[t,:] = numpy.dot( B[t] , numpy.append(u[element[e].unknown[v]],u[element[a].unknown[v]]) )
+						X[s,:] = numpy.dot( B[s] , numpy.append(u[element[e].unknown[v]],u[element[a].unknown[v]]) )
 
 					# interpolated flux where there is no adjacent element
 					else:
-						B[t] = face[f].Q[v][powers_taylor[differential]][:,0:np[v]]
-						X[t,:] = numpy.dot( B[t] , u[element[e].unknown[v]] )
+						B[s] = face[f].Q[v][powers_taylor[term[t].differential[s]]][:,0:np[v]]
+						X[s,:] = numpy.dot( B[s] , u[element[e].unknown[v]] )
 
 					# interpolated flux at boundaries
 					if len(b[v]):
 						for k in range(0,len(b[v])):
-							X[t,:] += boundary[b[v][k]].value * face[f].Q[v][powers_taylor[differential]][:,(1+(a>=0))*np[v]+k]
+							X[s,:] += boundary[b[v][k]].value * face[f].Q[v][powers_taylor[term[t].differential[s]]][:,(1+(a>=0))*np[v]+k]
 				
 				# add to the local jacobian
 				Y = X ** P
-				for t,v in zip(range(0,nt),term.variable):
+				for s,v in zip(range(0,ns),term[t].variable):
 					temp = numpy.copy(Y)
-					temp[t,:] = P[t] * X[t,:] ** (P[t]-1)
-					L.x[index_e[term.equation].T,index_a[i][v] if a >= 0 else index_e[v]] += dot_sequence(
-							A , numpy.diag(numpy.prod(temp,axis=0)) , B[t] )
+					temp[s,:] = P[s] * X[s,:] ** (P[s]-1)
+					L.x[index_e[term[t].equation].T,index_a[i][v] if a >= 0 else index_e[v]] += dot_sequence(
+							A , numpy.diag(numpy.prod(temp,axis=0)) , B[s] )
 
 				# add to the function vector
-				F[element[e].unknown[term.equation]] += numpy.dot( A , numpy.prod(Y,axis=0) )
+				F[element[e].unknown[term[t].equation]] += numpy.dot( A , numpy.prod(Y,axis=0) )
 
 		# add dense local jacobian to csr global jacobian
 		J.p[J.np:J.np+L.i.shape[0]] = numpy.arange(J.ni,J.ni+L.i.size,L.i.shape[1])
@@ -797,10 +805,11 @@ with Timer('reading input from "%s"' % input_filename):
 		initial = input_data[3]
 	if do.solve:
 		for i in range(0,len(boundary)): boundary[i].value = input_data[2][i].value
-		flux = input_data[4]
+		term = input_data[4]
 		wind = input_data[5]
+		iterations = input_data[6]
 	if do.display:
-		mesh_size = input_data[6]
+		mesh_size = input_data[7]
 
 with Timer('generating constants'):
 	(gauss_locations,gauss_weights,
@@ -836,13 +845,10 @@ if do.solve:
 			for v in range(0,nv):
 				index[v][element[e].unknown[v]] = True
 
-		unit = numpy.zeros(u.shape)
-		#for e in range(0,ne): unit[element[e].unknown[0][0]] = 1.0
-
-		for iteration in range(0,1):
+		for i in range(0,iterations):
 			J,f = generate_system()
 			print '    ' + ' '.join([ '%.4e' % numpy.max(numpy.abs(f[i])) for i in index ])
-			u += scipy.sparse.linalg.spsolve(J,-f-unit)
+			u += scipy.sparse.linalg.spsolve(J,-f)
 
 if do.display:
 	with Timer('saving display to "%s"' % display_filename):
