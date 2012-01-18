@@ -240,14 +240,27 @@ def assign_boundaries():
 #------------------------------------------------------------------------------#
 
 def generate_unknowns():
+
 	nv = len(order)
 	np = order*(order+1)/2
 	nu = 0
+
+	# number by element then variable
+	# > gives a more diagonally dominant system
 	for e in range(0,len(element)):
-		element[e].unknown = [[]]*nv
+		element[e].unknown = [ [] for v in range(0,nv) ]
 		for v in range(0,nv):
 			element[e].unknown[v] = range(nu,nu+np[v])
 			nu += np[v]
+
+	## number by variable then element
+	## > gives a system with visible blocks corresponding to equations
+	#for e in range(0,len(element)): element[e].unknown = [ [] for v in range(0,nv) ]
+	#for v in range(0,nv):
+	#	for e in range(0,len(element)):
+	#		element[e].unknown[v] = range(nu,nu+np[v])
+	#		nu += np[v]
+
 	return numpy.zeros(nu)
 
 #------------------------------------------------------------------------------#
@@ -560,13 +573,15 @@ def generate_system():
 	L = Struct(i=[],x=[])
 
 	# csr system jacobian
-	J = Struct(np=0,p=[],ni=0,i=[],x=[])
-	for e in range(0,ne): J.ni += sum_np_sq
-	for f in range(0,nf): J.ni += (len(face[f].border) == 2)*2*sum_np_sq
+	J = Struct(p=[],i=[],x=[])
 	J.p = numpy.zeros(u.shape[0]+1,dtype=int)
-	J.i = numpy.zeros(J.ni,dtype=int)
-	J.x = numpy.zeros(J.ni)
-	J.ni = 0
+	for e in range(0,ne):
+		temp = sum_np
+		for f in element[e].face: temp += sum_np*(len(face[f].border) == 2)
+		J.p[numpy.array(sum(element[e].unknown,[]))+1] = temp
+	J.p = numpy.cumsum(J.p)
+	J.i = numpy.zeros(J.p[-1],dtype=int)
+	J.x = numpy.zeros(J.p[-1])
 
 	# function vector
 	F = numpy.zeros(u.shape)
@@ -721,14 +736,11 @@ def generate_system():
 				F[element[e].unknown[term[t].equation]] += numpy.dot( A , numpy.prod(Y,axis=0) )
 
 		# add dense local jacobian to csr global jacobian
-		J.p[J.np:J.np+L.i.shape[0]] = numpy.arange(J.ni,J.ni+L.i.size,L.i.shape[1])
-		J.np += L.i.shape[0]
-		J.i[J.ni:J.ni+L.i.size] = L.i.flatten()
-		J.x[J.ni:J.ni+L.i.size] = L.x.flatten()
-		J.ni += L.i.size
+		index = sum( nodegrid( J.p[sum(element[e].unknown,[])] , numpy.arange(0,L.i.shape[1]) ) ).flatten()
+		J.i[index] = L.i.flatten()
+		J.x[index] = L.x.flatten()
 
 	# return the global system
-	J.p[J.np] = J.ni
 	return [ scipy.sparse.csr_matrix((J.x,J.i,J.p)) , F ]
 
 #------------------------------------------------------------------------------#
