@@ -256,71 +256,31 @@ def generate_constants(order):
 
 	#nh = 7
 	#hammer_locations = numpy.array([
-	#	[0.101286507323456,0.101286507323456],
-	#	[0.797426958353087,0.101286507323456],
-	#	[0.101286507323456,0.797426958353087],
-	#	[0.470142064105115,0.470142064105115],
-	#	[0.059715871789770,0.470142064105115],
-	#	[0.470142064105115,0.059715871789770],
+	#	[0.101286507323456,0.101286507323456],[0.797426958353087,0.101286507323456],[0.101286507323456,0.797426958353087],
+	#	[0.470142064105115,0.470142064105115],[0.059715871789770,0.470142064105115],[0.470142064105115,0.059715871789770],
 	#	[0.333333333333333,0.333333333333333]])
 	#hammer_weights = 0.5 * numpy.array([
-	#	0.125939180544827,
-	#	0.125939180544827,
-	#	0.125939180544827,
-	#	0.132394152788506,
-	#	0.132394152788506,
-	#	0.132394152788506,
+	#	0.125939180544827,0.125939180544827,0.125939180544827,0.132394152788506,0.132394152788506,0.132394152788506,
 	#	0.225000000000000])
 
 	#nh = 9
 	#hammer_locations = numpy.array([
-	#	[0.437525248383384,0.437525248383384],
-	#	[0.124949503233232,0.437525248383384],
-	#	[0.437525248383384,0.124949503233232],
-	#	[0.165409927389841,0.037477420750088],
-	#	[0.037477420750088,0.165409927389841],
-	#	[0.797112651860071,0.165409927389841],
-	#	[0.165409927389841,0.797112651860071],
-	#	[0.037477420750088,0.797112651860071],
-	#	[0.797112651860071,0.037477420750088]])
+	#	[0.437525248383384,0.437525248383384],[0.124949503233232,0.437525248383384],[0.437525248383384,0.124949503233232],
+	#	[0.165409927389841,0.037477420750088],[0.037477420750088,0.165409927389841],[0.797112651860071,0.165409927389841],
+	#	[0.165409927389841,0.797112651860071],[0.037477420750088,0.797112651860071],[0.797112651860071,0.037477420750088]])
 	#hammer_weights = 0.5 * numpy.array([
-	#	0.205950504760887,
-	#	0.205950504760887,
-	#	0.205950504760887,
-	#	0.063691414286223,
-	#	0.063691414286223,
-	#	0.063691414286223,
-	#	0.063691414286223,
-	#	0.063691414286223,
-	#	0.063691414286223])
+	#	0.205950504760887,0.205950504760887,0.205950504760887,0.063691414286223,0.063691414286223,0.063691414286223,
+	#	0.063691414286223,0.063691414286223,0.063691414286223])
 
 	nh = 12
 	hammer_locations = numpy.array([
-		[0.063089014491502,0.063089014491502],
-		[0.873821971016996,0.063089014491502],
-		[0.063089014491502,0.873821971016996],
-		[0.249286745170910,0.249286745170910],
-		[0.501426509658179,0.249286745170910],
-		[0.249286745170910,0.501426509658179],
-		[0.310352451033785,0.053145049844816],
-		[0.053145049844816,0.310352451033785],
-		[0.636502499121399,0.310352451033785],
-		[0.310352451033785,0.636502499121399],
-		[0.053145049844816,0.636502499121399],
-		[0.636502499121399,0.053145049844816]])
+		[0.063089014491502,0.063089014491502],[0.873821971016996,0.063089014491502],[0.063089014491502,0.873821971016996],
+		[0.249286745170910,0.249286745170910],[0.501426509658179,0.249286745170910],[0.249286745170910,0.501426509658179],
+		[0.310352451033785,0.053145049844816],[0.053145049844816,0.310352451033785],[0.636502499121399,0.310352451033785],
+		[0.310352451033785,0.636502499121399],[0.053145049844816,0.636502499121399],[0.636502499121399,0.053145049844816]])
 	hammer_weights = 0.5 * numpy.array([
-		0.050844906370207,
-		0.050844906370207,
-		0.050844906370207,
-		0.116786275726379,
-		0.116786275726379,
-		0.116786275726379,
-		0.082851075618374,
-		0.082851075618374,
-		0.082851075618374,
-		0.082851075618374,
-		0.082851075618374,
-		0.082851075618374])
+		0.050844906370207,0.050844906370207,0.050844906370207,0.116786275726379,0.116786275726379,0.116786275726379,
+		0.082851075618374,0.082851075618374,0.082851075618374,0.082851075618374,0.082851075618374,0.082851075618374])
 
 	taylor_coefficients = numpy.array([])
 	taylor_powers = numpy.zeros((0,2),dtype=int)
@@ -393,7 +353,6 @@ def calculate_element_matrices():
 	if do.pre:
 		for e in range(0,ne):
 			element[e].V = numpy.zeros((max_np,max_np))
-			#element[e].P = [ numpy.zeros(((len(element[e].face)-2)*nh,max_np)) for i in range(0,max_np) ]
 			element[e].P = numpy.zeros((max_np,(len(element[e].face)-2)*nh,max_np))
 			element[e].Q = [ numpy.zeros((ng,max_np)) for i in range(0,len(element[e].face)) ]
 			element[e].W = numpy.zeros((len(element[e].face)-2)*nh)
@@ -543,75 +502,6 @@ def calculate_element_matrices():
 				# transform differentials to x and y
 				T = derivative_transform_matrix(numpy.linalg.inv(R),order[v])
 				for j in range(0,ng): face[f].Q[v][:,j] = numpy.dot( T , face[f].Q[v][:,j] )
-
-			# ---------------------------- #
-
-			## interpolation order rounded up
-			#mi = na*np + nb
-			#oi = numpy.ceil(0.5*(numpy.sqrt(8*mi+1)-1)).astype('int')
-			#ni = oi*(oi+1)/2
-
-			#max_mi = max(mi)
-			#max_ni = max(ni)
-
-			## face centre -> element centre taylor series
-			#dx = numpy.array(element[a[0]].centre) - numpy.array(face[f].centre)
-			#taylor_e = taylor_coefficients[0:max_ni] * (dx[0] ** taylor_powers[0:max_ni,0]) * (dx[1] ** taylor_powers[0:max_ni,1])
-			#if na == 2:
-			#	dx = numpy.array(element[a[1]].centre) - numpy.array(face[f].centre)
-			#	taylor_a = taylor_coefficients[0:max_ni] * numpy.power(dx[0],taylor_powers[0:max_ni,0]) * numpy.power(dx[1],taylor_powers[0:max_ni,1])
-
-			## face centre -> integration points taylor series
-			#dx = x - numpy.ones((ng,1))*face[f].centre
-			#taylor_x = ( (numpy.ones((ng,1))*taylor_coefficients[0:max_ni]) *
-			#		(dx[:,0]*numpy.ones((max_ni,1))).T ** (numpy.ones((ng,1))*taylor_powers[0:max_ni,0]) *
-			#		(dx[:,1]*numpy.ones((max_ni,1))).T ** (numpy.ones((ng,1))*taylor_powers[0:max_ni,1]) )
-
-			## interpolant matrix
-			#A = numpy.zeros((max_mi,max_ni))
-			#for j in range(0,max_np):
-			#	index = (taylor_powers[0:max_ni,0] - taylor_powers[j,0] >= 0) & (taylor_powers[0:max_ni,1] - taylor_powers[j,1] >= 0)
-			#	A[j,index] = taylor_e[0:sum(index)]
-			#	if na == 2:
-			#		A[j+max_np,index] = taylor_a[0:sum(index)]
-
-			## gradient matrix
-			#B = numpy.zeros((max_mi,max_mi))
-			#B[0:max_np,0:max_np] = element[a[0]].V
-			#if na == 2:
-			#	B[max_np:2*max_np,max_np:2*max_np] = element[a[1]].V
-
-			#for v in range(0,nv):
-
-			#	# boundary part of the interpolant matrix
-			#	for j in range(0,nb[v]):
-			#		t = powers_taylor[boundary[b[v][j]].condition]
-			#		# fix the centre
-			#		# A[j+na*np,t] = 1.0
-			#		# fix the average
-			#		index = (taylor_powers[0:max_ni,0] - taylor_powers[t,0] >= 0) & (taylor_powers[0:max_ni,1] - taylor_powers[t,1] >= 0)
-			#		A[j+na*max_np,index] = 0.5 * numpy.dot( gauss_weights , taylor_x[:,0:sum(index)] )
-
-			#	# boundary part of the gradient matrix
-			#	for j in range(0,nb[v]):
-			#		B[j+na*max_np,j+na*max_np] = 1.0
-
-			#	# indices to get smaller system for the given variable order
-			#	index = [ numpy.array(range(0,np[v]) +
-			#		range(max_np,max_np+(na-1)*np[v]) +
-			#		range(na*max_np,na*max_np+nb[v]))[numpy.newaxis] ,
-			#		numpy.arange(0,ni[v])[numpy.newaxis] ]
-
-			#	# conditioned solve
-			#	R = numpy.linalg.inv(B[index[0].T,index[0]])
-			#	s = 0.5*(element[a[0]].size + element[a[1]].size) if na == 2 else element[a[0]].size
-			#	S = numpy.diag(1.0/s ** numpy.sum(taylor_powers[0:ni[v]],axis=1))
-			#	D = numpy.dot( S , numpy.linalg.pinv( dot_sequence( R , A[index[0].T,index[1]] , S ) ) )
-
-			#	# interpolated gradients at integration locations
-			#	for j in range(0,np[v]):
-			#		index = (taylor_powers[0:ni[v],0] - taylor_powers[j,0] >= 0) & (taylor_powers[0:ni[v],1] - taylor_powers[j,1] >= 0)
-			#		face[f].Q[v][j] = dot_sequence( taylor_x[:,0:sum(index)] , D[index,:] )
 
 #------------------------------------------------------------------------------#
 
@@ -868,18 +758,6 @@ def write_display_file(display_filename,n):
 			file.write( '\n\n'.join([ '\n'.join([ ' '.join(['%e']*(2+nv)) % tuple(mesh[:,i,j]) for j in range(0,n+1) ]) for i in range(0,n+1) ]) + '\n\n\n' )
 			
 	file.close()
-
-	#file = open(display_filename + '.face','w')
-	#ng = len(gauss_weights)
-	#for f in range(0,len(face)):
-	#	mesh = numpy.zeros((ng,2+nv))
-	#	mesh[:,0:2] = 0.5*(1.0-gauss_locations[numpy.newaxis].T)*node[face[f].node[0]].x + 0.5*(1.0+gauss_locations[numpy.newaxis].T)*node[face[f].node[1]].x
-	#	for v in range(0,nv):
-	#		value = numpy.array([ u[element[e].unknown[v]] for e in face[f].border ]).flatten()
-	#		for b in face[f].boundary[v]: value = numpy.append(value,boundary[b].value)
-	#		mesh[:,2+v] = numpy.dot( face[f].Q[v][0] , value )
-	#	file.write( '\n'.join([ ' '.join(['%e']*(2+nv)) % tuple(mesh[i,:]) for i in range(0,ng) ]) + '\n\n\n' )
-	#file.close()
 
 #------------------------------------------------------------------------------#
 
