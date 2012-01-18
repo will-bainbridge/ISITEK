@@ -136,7 +136,7 @@ def read_input_file(input_filename):
 	if len(initial):
 		replace = {'pi':'numpy.pi','cos(':'numpy.cos(','sin(':'numpy.sin('}
 		for i in range(0,len(initial)):
-			initial[i] = eval( 'lambda x,y:' + string_multiple_replace(initial[i],replace) , {'numpy':numpy} , constant )
+			initial[i] = eval( 'lambda x,y: numpy.ones(x.shape)*(' + string_multiple_replace(initial[i],replace) + ')' , {'numpy':numpy} , constant )
 
 	return geometry_filename,order,boundary,initial,term,wind,iterations,mesh_size
 
@@ -837,12 +837,9 @@ if do.solve:
 
 	with Timer('iterating',True):
 
-		ne = len(element)
-		nv = len(order)
-
-		index = [ numpy.zeros(u.shape,dtype=bool) for v in range(0,nv) ]
-		for e in range(0,ne):
-			for v in range(0,nv):
+		index = [ numpy.zeros(u.shape,dtype=bool) for v in range(0,len(order)) ]
+		for e in range(0,len(element)):
+			for v in range(0,len(order)):
 				index[v][element[e].unknown[v]] = True
 
 		for i in range(0,iterations):
