@@ -436,7 +436,7 @@ def calculate_element_matrices():
 		if do.pre or (do.re and any(b)):
 
 			# rotation to face coordinates
-			R = numpy.array([[face[f].normal[0],-face[f].normal[1]],[face[f].normal[1],face[f].normal[0]]])
+			R = numpy.array([[-face[f].normal[0],-face[f].normal[1]],[face[f].normal[1],-face[f].normal[0]]])
 			R /= numpy.sqrt(numpy.dot(face[f].normal,face[f].normal))
 
 			# face locations
