@@ -94,7 +94,7 @@ def read_input_file(input_filename):
 			boundary.append(Struct(
 				face = sum([ list(z) if len(z) == 1 else range(*z) for z in [ tuple( int(y) for y in x.split(':') ) for x in lineparts[1].split(',') ] ],[]) ,
 				variable = int(lineparts[2]) ,
-				condition = tuple(sum([ x == y for x in lineparts[3] ]) for y in 'xy') ,
+				condition = tuple(sum([ x == y for x in lineparts[3] ]) for y in 'nt') ,
 				value = float(lineparts[4]) if len(lineparts) >= 5 else 0.0 ))
 
 		if len(lineparts) >= 2 and lineparts[0] == 'initial':
