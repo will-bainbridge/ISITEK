@@ -13,4 +13,4 @@ ISITEK is provided under the terms of the Eclipse Public License v1.0. See LICEN
 DESCRIPTION
 -----------
 
-* ISITEK is a 2D unstructured discontinuous galerkin PDE solver, written in (numeric and scientific) python.
+* ISITEK is a 2D unstructured discontinuous galerkin PDE solver.
