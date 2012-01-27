@@ -182,7 +182,7 @@ void initialise_system(int n_variables, int *variable_order, int n_elements, str
 
 //////////////////////////////////////////////////////////////////
 
-void calculate_system(int n_variables, int *variable_order, int n_elements, struct ELEMENT *element, int n_boundaries, struct BOUNDARY *boundary, int n_terms, struct TERM *term, int n_u, double *u, SPARSE system, double *residual)
+void calculate_system(int n_variables, int *variable_order, int n_elements, struct ELEMENT *element, int n_terms, struct TERM *term, int n_u, double *u, SPARSE system, double *residual)
 {
 	int a, d, e, i, j, k, p, q, t, v;
 

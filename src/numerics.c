@@ -295,9 +295,9 @@ void update_face_numerics(int n_variables_old, int n_variables, int *variable_or
 	// differentials
 	int condition[2], none[2] = {0,0};
 
-	// integration weights and locations in cartesian (x) and tranformed (y) coordinates
-	double **x, **y, *w;
-	double **x_adj[MAX_FACE_N_BORDERS], ***y_adj, *w_adj[MAX_FACE_N_BORDERS];
+	// integration locations in cartesian (x) and tranformed (y) coordinates
+	double **x, **y;
+	double **x_adj[MAX_FACE_N_BORDERS], ***y_adj;
 	exit_if_false(y = allocate_double_matrix(NULL,2,n_gauss),"allocating y");
 	exit_if_false(y_adj = allocate_double_tensor(NULL,MAX_FACE_N_BORDERS,2,n_hammer*(MAX_ELEMENT_N_FACES-2)),"allocating y_adj");
 
@@ -385,7 +385,6 @@ void update_face_numerics(int n_variables_old, int n_variables, int *variable_or
 				for(j = 0; j < 2; j ++) y[i][g] += R[i][j]*(x[j][g] - face[f].centre[j]);
 			}
 		}
-		w = face[f].W;
 
 		// numbers of element integration locations
 		for(a = 0; a < face[f].n_borders; a ++) n_points[a] = n_hammer*(face[f].border[a]->n_faces-2);
@@ -404,7 +403,6 @@ void update_face_numerics(int n_variables_old, int n_variables, int *variable_or
 					for(j = 0; j < 2; j ++) y_adj[a][i][h] += R[i][j]*(x_adj[a][j][h] - face[f].centre[j]);
 				}
 			}
-			w_adj[a] = face[f].border[a]->W;
 		}
 
 		// for all variables

@@ -24,7 +24,7 @@ void update_face_numerics(int n_variables_old, int n_variables, int *variable_or
 void initialise_values(int n_variables, int *variable_order, int n_elements, struct ELEMENT *element, double *initial, double *u);
 void initialise_system(int n_variables, int *variable_order, int n_elements, struct ELEMENT *element, int n_u, SPARSE *system);
 
-void calculate_system(int n_variables, int *variable_order, int n_elements, struct ELEMENT *element, int n_boundaries, struct BOUNDARY *boundary, int n_terms, struct TERM *term, int n_u, double *u, SPARSE system, double *residual);
+void calculate_system(int n_variables, int *variable_order, int n_elements, struct ELEMENT *element, int n_terms, struct TERM *term, int n_u, double *u, SPARSE system, double *residual);
 
 void write_case(FILE *file, int n_variables, int *variable_order, int n_nodes, struct NODE *node, int n_faces, struct FACE *face, int n_elements, struct ELEMENT *element, int n_boundaries, struct BOUNDARY *boundary);
 void read_case(FILE *file, int *n_variables, int **variable_order, int *n_nodes, struct NODE **node, int *n_faces, struct FACE **face, int *n_elements, struct ELEMENT **element, int *n_boundaries, struct BOUNDARY **boundary);
@@ -173,7 +173,7 @@ int main(int argc, char *argv[])
 		for(inner_iteration = 0; inner_iteration < n_inner_iterations; inner_iteration ++)
 		{
 			// generate system
-			calculate_system(n_variables, variable_order, n_elements, element, n_boundaries, boundary, n_terms, term, n_u, u, system, residual);
+			calculate_system(n_variables, variable_order, n_elements, element, n_terms, term, n_u, u, system, residual);
 			//
 
 			// solve
