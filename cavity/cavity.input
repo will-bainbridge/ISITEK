@@ -1,74 +1,74 @@
 #------------------------------------------------------------------------------#
 
-geometry_filename cavity.tri.geometry
-
-mesh_size 1
-
-iterations 1
-
-order 3
-
-boundary 604:618 0 d 0
-boundary 618:632 0 d 0
-boundary 632:646 0 n -2
-boundary 646:660 0 d 0
-
-term 0 0 x x 1 0.05 i
-term 0 0 y y 1 0.05 i
-term 0 0 x 0 1 -1.0 u
-term 0 0 y 0 1 -1.0 u
-term 0 0 0 0 0 -1.0 0
-
-wind n[0]+n[1]>=0.0
-
-initial 0.25*(1-cos(2*pi*x))*(1-cos(2*pi*y))
-
-#------------------------------------------------------------------------------#
-
 #geometry_filename cavity.tri.geometry
-##geometry_filename cavity.quad.geometry
 #
 #mesh_size 1
 #
 #iterations 1
 #
-#order 2 3 3
+#order 3
 #
-#initial 1.0 0.0 0.0
+#boundary 604:618 0 d 0
+#boundary 618:632 0 d 0
+#boundary 632:646 0 n -2
+#boundary 646:660 0 d 0
 #
-#wind n[0]*0.5*(u[1]+v[1])+n[1]*0.5*(u[2]+v[2])>=0.0
+#term 0 0 x x 1 0.05 i
+#term 0 0 y y 1 0.05 i
+#term 0 0 x 0 1 -1.0 u
+#term 0 0 y 0 1 -1.0 u
+#term 0 0 0 0 0 -1.0 0
 #
-## north east south west > cavity.tri.geometry  > 604:618 618:632 632:646 646:660
-##                         cavity.quad.geometry > 364:378 378:392 392:406 406:420
+#wind n[0]+n[1]>=0.0
 #
-## boundary > indices variable type value
-#boundary 604:618 1 d 1.0
-#boundary 618:632,632:646,646:660 1 d 0.0
-#boundary 604:618,618:632,632:646,646:660 2 d 0.0
-##boundary 364:378 1 d 1.0
-##boundary 378:392,392:406,406:420 1 d 0.0
-##boundary 364:378,378:392,392:406,406:420 2 d 0.0
-#
-#constant rho=1.0;mu=0.002;g=9.81
-#
-## term > equation variables direction differentials powers constant method
-#term 0 1   x 0   1   rho      i
-#term 0 2   y 0   1   rho      i
-#
-#term 1 0   x 0   1   -1       i
-##term 1 1   x 0   2   -rho     u
-##term 1 1,2 y 0,0 1,1 -rho     uu
-#term 1 1   x x   1   2*mu/rho i
-#term 1 1   y y   1   mu/rho   i
-#term 1 2   y x   1   mu/rho   i
-#
-#term 2 0   y 0   1   -1       i
-##term 2 2,1 x 0,0 1,1 -rho     uu
-##term 2 2   y 0   2   -rho     u
-#term 2 1   x y   1   mu/rho   i
-#term 2 2   x x   1   mu/rho   i
-#term 2 2   y y   1   2*mu/rho i
-#
-##term 2 0   0 0   0   -g       0
+#initial 0.25*(1-cos(2*pi*x))*(1-cos(2*pi*y))
+
+#------------------------------------------------------------------------------#
+
+geometry_filename cavity.tri.geometry
+#geometry_filename cavity.quad.geometry
+
+mesh_size 1
+
+iterations 8
+
+order 2 3 3
+
+initial 1.0 0.0 0.0
+
+wind n[0]*0.5*(u[1]+v[1])+n[1]*0.5*(u[2]+v[2])>=0.0
+
+# north east south west > cavity.tri.geometry  > 604:618 618:632 632:646 646:660
+#                         cavity.quad.geometry > 364:378 378:392 392:406 406:420
+
+# boundary > indices variable type value
+boundary 604:618 1 d 1.0
+boundary 618:632,632:646,646:660 1 d 0.0
+boundary 604:618,618:632,632:646,646:660 2 d 0.0
+#boundary 364:378 1 d 1.0
+#boundary 378:392,392:406,406:420 1 d 0.0
+#boundary 364:378,378:392,392:406,406:420 2 d 0.0
+
+constant rho=1.0;mu=0.002;g=9.81
+
+# term > equation variables direction differentials powers constant method
+term 0 1   x 0   1   rho      i
+term 0 2   y 0   1   rho      i
+
+term 1 0   x 0   1   -1       i
+term 1 1   x 0   2   -rho     u
+term 1 1,2 y 0,0 1,1 -rho     uu
+term 1 1   x x   1   2*mu/rho i
+term 1 1   y y   1   mu/rho   i
+term 1 2   y x   1   mu/rho   i
+
+term 2 0   y 0   1   -1       i
+term 2 2,1 x 0,0 1,1 -rho     uu
+term 2 2   y 0   2   -rho     u
+term 2 1   x y   1   mu/rho   i
+term 2 2   x x   1   mu/rho   i
+term 2 2   y y   1   2*mu/rho i
+
+#term 2 0   0 0   0   -g       0
 
 #------------------------------------------------------------------------------#

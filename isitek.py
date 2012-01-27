@@ -558,7 +558,6 @@ def initialise_unknowns():
 def generate_system():
 
 	ne = len(element)
-	nf = len(face)
 	ng = len(gauss_weights)
 	nh = len(hammer_weights)
 	np = [ len(x) for x in element[0].unknown ]
@@ -586,12 +585,6 @@ def generate_system():
 	# function vector
 	F = numpy.zeros(u.shape)
 
-	# differentiating matrices
-	D = [ numpy.zeros((max_np,max_np)) for i in range(0,max_np) ]
-	for i in range(0,max_np):
-		index = ( (taylor_powers[0:max_np,0] - taylor_powers[i,0] >= 0) & (taylor_powers[0:max_np,1] - taylor_powers[i,1] >= 0) )
-		D[i][0:sum(index),index] = numpy.eye(sum(index))
-	
 	for e in range(0,ne):
 
 		# number of faces
@@ -621,10 +614,6 @@ def generate_system():
 				range((i+1)*sum_np+sum(np[:v]),(i+1)*sum_np+sum(np[:v+1])) ])
 				for v in range(0,nv) ]
 
-		# mass matrices
-		M = dot_sequence( element[e].P[powers_taylor[0,0]].T , numpy.diag(element[e].W) , element[e].P[powers_taylor[0,0]] )
-		inv_M = [ numpy.linalg.inv(M[0:np[v],0:np[v]]) for v in range(0,nv) ]
-
 		# loop over terms
 		for t in range(0,nt):
 
@@ -638,8 +627,7 @@ def generate_system():
 			P = numpy.array(term[t].power)[numpy.newaxis].T
 
 			# equation matrix
-			A = - term[t].constant * dot_sequence( inv_M[term[t].equation] ,
-					element[e].P[direction][:,0:np[term[t].equation]].T , numpy.diag(element[e].W) )
+			A = - term[t].constant * dot_sequence( element[e].P[direction][:,0:np[term[t].equation]].T , numpy.diag(element[e].W) )
 
 			# calculate the coefficients and values
 			B = [ [] for s in range(0,ns) ]
@@ -683,7 +671,7 @@ def generate_system():
 					w = True
 
 				# equation matrix
-				A = normal[term[t].direction == 'y'] * term[t].constant * dot_sequence( inv_M[term[t].equation] ,
+				A = normal[term[t].direction == 'y'] * term[t].constant * dot_sequence(
 						element[e].Q[i][:,0:np[term[t].equation]].T , numpy.diag(0.5*gauss_weights) )
 
 				# calculate the coefficients and values
