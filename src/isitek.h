@@ -6,6 +6,7 @@
 
 #include "fetch.h"
 #include "memory.h"
+#include "sparse.h"
 #include "structure.h"
 
 // error handling

@@ -126,3 +126,32 @@ void initialise_values(int n_variables, int *variable_order, int n_elements, str
 }
 
 //////////////////////////////////////////////////////////////////
+
+void initialise_system(int n_variables, int *variable_order, int n_elements, struct ELEMENT *element, int n_u, SPARSE *system)
+{
+	int e, i, v;
+
+	int *row_n_non_zeros = (int *)malloc(n_u * sizeof(int)), n_non_zeros;
+	exit_if_false(row_n_non_zeros != NULL,"allocating row numbers of non-zeros");
+
+	int sum_n_basis = 0;
+	for(v = 0; v < n_variables; v ++) sum_n_basis += ORDER_TO_N_BASIS(variable_order[v]);
+
+	for(e = 0; e < n_elements; e ++)
+	{
+		n_non_zeros = sum_n_basis;
+		for(i = 0; i < element[e].n_faces; i ++)
+			n_non_zeros += sum_n_basis * (element[e].face[i]->n_borders == 2);
+
+		for(v = 0; v < n_variables; v ++)
+			for(i = 0; i < ORDER_TO_N_BASIS(variable_order[v]); i ++)
+				row_n_non_zeros[element[e].unknown[v][i]] = n_non_zeros;
+	}
+	
+	exit_if_false(*system = sparse_allocate(*system, n_u),"allocating the system");
+	exit_if_false(*system = sparse_allocate_rows(*system, row_n_non_zeros),"allocating the rows");
+
+	free(row_n_non_zeros);
+}
+
+//////////////////////////////////////////////////////////////////

@@ -269,7 +269,7 @@ int fetch_value(FILE *file, char *label, char type, void *value)
 	FETCH fetch = fetch_new(format,1);
 	if(fetch == NULL) return FETCH_MEMORY_ERROR;
 
-	if(fetch_read(file, label, fetch) != 1) return FETCH_FAIL;
+	if(fetch_read(file, label, fetch) != 1) { fetch_destroy(fetch); return FETCH_FAIL; }
 
 	fetch_get(fetch, 0, 0, value);
 
@@ -291,7 +291,7 @@ int fetch_vector(FILE *file, char *label, char type, int n, void *value)
 	FETCH fetch = fetch_new(format,1);
 	if(fetch == NULL) return FETCH_MEMORY_ERROR;
 
-	if(fetch_read(file,label,fetch) != 1) return FETCH_FAIL;
+	if(fetch_read(file,label,fetch) != 1) { free(format); fetch_destroy(fetch); return FETCH_FAIL; }
 
 	int i;
 	void *d = fetch->data[0];

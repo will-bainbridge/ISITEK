@@ -22,6 +22,7 @@ void update_element_numerics(int n_variables_old, int n_variables, int *variable
 void update_face_numerics(int n_variables_old, int n_variables, int *variable_order_old, int *variable_order, int n_faces, struct FACE *face, int n_boundaries_old, struct BOUNDARY *boundary_old);
 
 void initialise_values(int n_variables, int *variable_order, int n_elements, struct ELEMENT *element, double *initial, double *u);
+void initialise_system(int n_variables, int *variable_order, int n_elements, struct ELEMENT *element, int n_u, SPARSE *system);
 
 void write_case(FILE *file, int n_variables, int *variable_order, int n_nodes, struct NODE *node, int n_faces, struct FACE *face, int n_elements, struct ELEMENT *element, int n_boundaries, struct BOUNDARY *boundary);
 void read_case(FILE *file, int *n_variables, int **variable_order, int *n_nodes, struct NODE **node, int *n_faces, struct FACE **face, int *n_elements, struct ELEMENT **element, int *n_boundaries, struct BOUNDARY **boundary);
@@ -153,24 +154,29 @@ int main(int argc, char *argv[])
 	update_face_numerics(n_variables_old, n_variables, variable_order_old, variable_order, n_faces, face, n_boundaries_old, boundary_old);
 	update_element_numerics(n_variables_old, n_variables, variable_order_old, variable_order, n_elements, element);
 
-	// initialise
+	// initialise the values
 	if(fetch_vector(input_file,"variable_initial_value",'d',n_variables,initial) == FETCH_SUCCESS)
 		initialise_values(n_variables, variable_order, n_elements, element, initial, u);
+
+	// initialise the system
+	SPARSE system = NULL;
+	initialise_system(n_variables, variable_order, n_elements, element, n_u, &system);
 
 	// iterate
 	n_outer_iterations += outer_iteration;
 	for(; outer_iteration < n_outer_iterations; outer_iteration ++)
 	{
-		//for(inner_iteration = 0; inner_iteration < n_inner_iterations; inner_iteration ++)
-		//{
-		//	// generate system
-		//	// solve
-		//}
+		for(inner_iteration = 0; inner_iteration < n_inner_iterations; inner_iteration ++)
+		{
+			// generate system
+			// solve
+		}
 
 		generate_numbered_file_path(data_numbered_file_path, data_file_path, outer_iteration + 1);
 		FILE *data_file = fopen(data_numbered_file_path,"w");
 		exit_if_false(data_file != NULL,"opening data file");
 		write_data(data_file, n_u, u, outer_iteration + 1);
+		fclose(data_file);
 	}
 
 	// save to case file
@@ -195,12 +201,16 @@ int main(int argc, char *argv[])
 	destroy_boundaries(n_boundaries,boundary);
 	destroy_terms(n_terms,term);
 
+	free(initial);
+
 	free(variable_order_old);
 	free(variable_order);
 	destroy_matrix((void *)variable_name);
 
 	free(u_old);
 	free(u);
+
+	sparse_destroy(system);
 
 	return 0;
 }

@@ -3,8 +3,8 @@
 
 typedef struct s_SPARSE * SPARSE;
 
-SPARSE sparse_allocate(SPARSE sparse, int n);
-SPARSE sparse_allocate_rows(SPARSE sparse, int *nnz);
+SPARSE sparse_allocate(SPARSE sparse, int n_rows);
+SPARSE sparse_allocate_rows(SPARSE sparse, int *n_non_zeros);
 void sparse_destroy(SPARSE sparse);
 void sparse_print(SPARSE sparse);
 void sparse_set_row(SPARSE sparse, int row, int *index, double *value);

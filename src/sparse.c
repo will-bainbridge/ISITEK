@@ -19,32 +19,31 @@ struct s_SPARSE
 
 //////////////////////////////////////////////////////////////////
 
-SPARSE sparse_allocate(SPARSE sparse, int n)
+SPARSE sparse_allocate(SPARSE sparse, int n_rows)
 {
 	SPARSE new;
 
 	new = (SPARSE)realloc(sparse,sizeof(struct s_SPARSE));
 	if(new == NULL) return NULL;
 
-	new->n = n;
+	if(sparse == NULL) { new->row = new->index = NULL; new->value = NULL; }
 
-	new->row = (int *)realloc(new->row,(n+1)*sizeof(int));
+	new->n = n_rows;
+
+	new->row = (int *)realloc(new->row,(n_rows+1)*sizeof(int));
 	if(new->row == NULL) return NULL;
-
-	sparse->index = NULL;
-	sparse->value = NULL;
 
 	return new;
 }
 
 //////////////////////////////////////////////////////////////////
 
-SPARSE sparse_allocate_rows(SPARSE sparse, int *nnz)
+SPARSE sparse_allocate_rows(SPARSE sparse, int *n_non_zeros)
 {
 	int i;
 
 	sparse->row[0] = 0;
-	for(i = 0; i < sparse->n; i ++) sparse->row[i+1] = sparse->row[i] + nnz[i];
+	for(i = 0; i < sparse->n; i ++) sparse->row[i+1] = sparse->row[i] + n_non_zeros[i];
 
 	int n = sparse->row[sparse->n];
 
