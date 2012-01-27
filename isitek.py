@@ -643,6 +643,7 @@ def generate_system():
 				temp[s,:] = P[s] * X[s,:] ** (P[s]-1)
 				L.x[index_e[term[t].equation].T,index_e[v]] += dot_sequence( A , numpy.diag(numpy.prod(temp,axis=0)) , B[s] )
 
+
 			# add to the function vector
 			F[element[e].unknown[term[t].equation]] += numpy.dot( A , numpy.prod(Y,axis=0) )
 

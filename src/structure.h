@@ -61,7 +61,7 @@ struct TERM
 	int *variable;
 	int *differential;
 	int *power;
-	char method;
+	char *method;
 	double constant;
 };
 

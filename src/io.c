@@ -27,7 +27,7 @@ void boundary_read_case(FILE *file, struct FACE *face, struct BOUNDARY *boundary
 #define MAX_N_TERMS 20
 #define MAX_TERM_N_VARIABLES 10
 #define TERM_LABEL "term"
-#define TERM_FORMAT "cissscd"
+#define TERM_FORMAT "cissssd"
 
 //////////////////////////////////////////////////////////////////
 
@@ -398,7 +398,7 @@ void element_read_case(FILE *file, int n_variables, int *n_basis, int n_gauss, i
 	exit_if_false(fread(&(element->n_faces), sizeof(int), 1, file) == 1,"reading the number of element faces");
 	exit_if_false(element->face = allocate_element_face(element),"allocating element faces");
 	exit_if_false(fread(index, sizeof(int), element->n_faces, file) == element->n_faces,"reading the element faces");
-	for(i = 0; i < element->n_faces; i ++) element->face[i] = &face[i];
+	for(i = 0; i < element->n_faces; i ++) element->face[i] = &face[index[i]];
 	exit_if_false(element->orient = allocate_element_orient(element),"allocating element orientations");
 	exit_if_false(fread(element->orient, sizeof(int), element->n_faces, file) == element->n_faces,"reading the element orientations");
 
@@ -688,6 +688,7 @@ void terms_input(FILE *file, int *n_terms, struct TERM **term)
 		exit_if_false(t[n].variable = allocate_term_variable(&t[n]),"allocating term variables");
 		exit_if_false(t[n].differential = allocate_term_differential(&t[n]),"allocating term differentials");
 		exit_if_false(t[n].power = allocate_term_power(&t[n]),"allocating term powers");
+		exit_if_false(t[n].method = allocate_term_method(&t[n]),"allocating term method");
 
 		//copy over
 		for(j = 0; j < t[n].n_variables; j ++)
@@ -697,8 +698,8 @@ void terms_input(FILE *file, int *n_terms, struct TERM **term)
 			t[n].power[j] = pows[j];
 		}
 
-		//constant
-		fetch_get(fetch, i, 5, &t[n].method);
+		//method
+		fetch_get(fetch, i, 5, t[n].method);
 
 		//constant
 		fetch_get(fetch, i, 6, &t[n].constant);

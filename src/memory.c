@@ -473,6 +473,11 @@ int * allocate_term_power(struct TERM *term)
 	return (int *)realloc(term->power, term->n_variables * sizeof(int));
 }
 
+char * allocate_term_method(struct TERM *term)
+{
+	return (char *)realloc(term->method, (term->n_variables + 1) * sizeof(char));
+}
+
 void destroy_terms(int n_terms, struct TERM *term)
 {
 	int i;
@@ -481,6 +486,7 @@ void destroy_terms(int n_terms, struct TERM *term)
 		free(term[i].variable);
 		free(term[i].differential);
 		free(term[i].power);
+		free(term[i].method);
 	}
 	free(term);
 }
