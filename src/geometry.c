@@ -39,7 +39,7 @@ void process_geometry(int n_nodes, struct NODE *node, int n_faces, struct FACE *
 
 		for(i = 1; i < element[e].n_faces; i ++)
 		{
-			vertex = element[e].face[index]->node[!element[e].orient[i-1]];
+			vertex = element[e].face[index]->node[!element[e].orient[index]];
 
 			for(j = 0; j < element[e].n_faces; j ++)
 			{
@@ -47,7 +47,7 @@ void process_geometry(int n_nodes, struct NODE *node, int n_faces, struct FACE *
 				if(element[e].face[j]->node[0] == vertex || element[e].face[j]->node[1] == vertex)
 				{
 					index = j;
-					element[e].orient[i] = element[e].face[j]->node[1] == vertex;
+					element[e].orient[j] = element[e].face[j]->node[1] == vertex;
 					break;
 				}
 			}
@@ -94,8 +94,8 @@ void process_geometry(int n_nodes, struct NODE *node, int n_faces, struct FACE *
 
 		face[f].size = sqrt(dx[0]*dx[0] + dx[1]*dx[1]);
 
-		face[f].normal[0] = - dx[1]/face[f].size;
-		face[f].normal[1] = + dx[0]/face[f].size;
+		face[f].normal[0] = + dx[1]/face[f].size;
+		face[f].normal[1] = - dx[0]/face[f].size;
 
 		for(i = 0; i < 2; i ++) dx[i] = face[f].centre[i] = 0.5*(face[f].node[1]->x[i] + face[f].node[0]->x[i]);
 

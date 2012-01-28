@@ -75,7 +75,7 @@ void sparse_print(SPARSE sparse)
 	{
 		for(j = sparse->row[i]; j < sparse->row[i+1]; j ++)
 		{
-			printf("%5i %5i %+15.10e\n",i,sparse->index[j],sparse->value[j]);
+			printf("%5i %5i %+.10e\n",i,sparse->index[j],sparse->value[j]);
 		}
 	}
 }

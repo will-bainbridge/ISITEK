@@ -307,11 +307,11 @@ void calculate_system(int n_variables, int *variable_order, int n_elements, stru
 
 				for(p = 0; p < n_points; p ++)
 				{
-					point_multiple[p] = term[t].power[i] * term[t].constant * element[e].W[p];
+					point_multiple[p] = - term[t].power[i] * term[t].constant * element[e].W[p];
 					for(j = 0; j < term[t].n_variables; j ++) point_multiple[p] *= pow( point_value[i][p] , term[t].power[j] - (i == j) );
 				}
 
-				for(j = 0; j < n_basis[q]; j ++) for(p = 0; p < n_points; p ++) A[j][p] = - element[e].P[x][j][p] * point_multiple[p];
+				for(j = 0; j < n_basis[q]; j ++) for(p = 0; p < n_points; p ++) A[j][p] = element[e].P[x][j][p] * point_multiple[p];
 
 				dgemm_(&trans[1],&trans[0],&n_basis[v],&n_basis[q],&n_points,
 						&one,
@@ -325,7 +325,7 @@ void calculate_system(int n_variables, int *variable_order, int n_elements, stru
 			// residual
 			for(p = 0; p < n_points; p ++)
 			{
-				point_multiple[p] = term[t].constant * element[e].W[p];
+				point_multiple[p] = - term[t].constant * element[e].W[p];
 				for(i = 0; i < term[t].n_variables; i ++) point_multiple[p] *= pow( point_value[i][p] , term[t].power[i] );
 			}
 			dgemv_(&trans[1],&n_points,&n_basis[q],
@@ -377,7 +377,8 @@ void calculate_system(int n_variables, int *variable_order, int n_elements, stru
 
 					for(p = 0; p < n_gauss; p ++)
 					{
-						point_multiple[p] = - element[e].face[a]->normal[x] * term[t].power[i] * term[t].constant * element[e].face[a]->W[p];
+						point_multiple[p] = element[e].orient[a] * element[e].face[a]->normal[x] *
+							term[t].power[i] * term[t].constant * element[e].face[a]->W[p];
 						for(j = 0; j < term[t].n_variables; j ++) point_multiple[p] *= pow( point_value[i][p] , term[t].power[j] - (i == j) );
 					}
 
@@ -403,7 +404,7 @@ void calculate_system(int n_variables, int *variable_order, int n_elements, stru
 				// residual
 				for(p = 0; p < n_gauss; p ++)
 				{
-					point_multiple[p] = element[e].face[a]->normal[x] * term[t].constant * element[e].face[a]->W[p];
+					point_multiple[p] = element[e].orient[a] * element[e].face[a]->normal[x] * term[t].constant * element[e].face[a]->W[p];
 					for(i = 0; i < term[t].n_variables; i ++) point_multiple[p] *= pow( point_value[i][p] , term[t].power[i] );
 				}
 				dgemv_(&trans[1],&n_gauss,&n_basis[q],
@@ -422,9 +423,6 @@ void calculate_system(int n_variables, int *variable_order, int n_elements, stru
 			residual[local_row[i]] = local_residual[i];
 		}
 	}
-
-	//sparse_print(system);
-	//for(i = 0; i < n_u; i ++) printf("%+15.10e\n",residual[i]);
 
 	free(n_basis);
 	free(adjacent);

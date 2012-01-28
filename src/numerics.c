@@ -83,7 +83,7 @@ void update_element_integration(int n_variables_old, int n_variables, int *varia
 		{
 			for(j = 0; j < 2; j ++)
 			{
-				if(element[e].face[i]->node[j] == element[e].face[1]->node[0] || element[e].face[i]->node[j] == element[e].face[1]->node[1]) continue;
+				if(element[e].face[i]->node[j] == element[e].face[0]->node[0] || element[e].face[i]->node[j] == element[e].face[0]->node[1]) continue;
 
 				for(k = 0; k < n_vertices; k ++) if(element[e].face[i]->node[j] == vertex[k]) break;
 
@@ -96,7 +96,7 @@ void update_element_integration(int n_variables_old, int n_variables, int *varia
 		// locations and weights
 		for(i = 0; i < n_vertices; i ++)
 		{
-			for(j = 0; j < 2; j ++) for(k = 0; k < 2; k ++) dx[j][k] = element[e].face[1]->node[j == o]->x[k] - vertex[i]->x[k];
+			for(j = 0; j < 2; j ++) for(k = 0; k < 2; k ++) dx[j][k] = element[e].face[0]->node[j == o]->x[k] - vertex[i]->x[k];
 
 			size = dx[0][0]*dx[1][1] - dx[0][1]*dx[1][0];
 
@@ -109,7 +109,7 @@ void update_element_integration(int n_variables_old, int n_variables, int *varia
 						hammer_locations[n_hammer-1][1][h]*dx[1][j];
 				}
 
-				element[e].W[h] = hammer_weights[n_hammer-1][h] * size;
+				element[e].W[i*n_hammer+h] = hammer_weights[n_hammer-1][h] * size;
 			}
 		}
 	}
@@ -368,8 +368,8 @@ void update_face_numerics(int n_variables_old, int n_variables, int *variable_or
 		exit_if_false(face[f].Q = allocate_face_q(&face[f],n_variables,n_basis,n_gauss),"allocating face Q");
 
 		// rotation to face coordinates
-		R[0][0] = - face[f].normal[0]; R[0][1] = - face[f].normal[1];
-		R[1][0] = + face[f].normal[1]; R[1][1] = - face[f].normal[0];
+		R[0][0] = + face[f].normal[0]; R[0][1] = + face[f].normal[1];
+		R[1][0] = - face[f].normal[1]; R[1][1] = + face[f].normal[0];
 		det_R = R[0][0]*R[1][1] - R[0][1]*R[1][0];
 		inv_R[0][0] = + R[1][1]/det_R; inv_R[0][1] = - R[0][1]/det_R;
 		inv_R[1][0] = - R[1][0]/det_R; inv_R[1][1] = + R[0][0]/det_R;
@@ -437,7 +437,6 @@ void update_face_numerics(int n_variables_old, int n_variables, int *variable_or
 				for(i = 0; i < n_int_bases; i ++)
 					basis(n_points[a],&Q[i][sum_n_points[a]],y_adj[a],face[f].centre,face[f].size,face_taylor[i],none);
 
-
 			// centre of face in form which can be passed to basis
 			for(i = 0; i < 2; i ++) centre[i][0] = face[f].centre[i];
 
@@ -462,7 +461,6 @@ void update_face_numerics(int n_variables_old, int n_variables, int *variable_or
 					condition[1] = bnd[b]->condition[1] + i;
 					for(j = 0; j < n_int_bases; j ++)
 						basis(1,&A[j][i+n_adj_bases],centre,face[f].centre,face[f].size,face_taylor[j],condition);
-
 				}
 
 				for(i = 0; i < variable_order[v]; i ++) for(j = 0; j < n_int_terms; j ++) B[j][i+n_adj_bases] = 0.0;
@@ -488,10 +486,12 @@ void update_face_numerics(int n_variables_old, int n_variables, int *variable_or
 
 			/*// print
 			int k;
+			printf("face %i variable %i\n",f,v);
 			for(i = 0; i < n_basis[v]; i ++) {
-				for(j = 0; j < n_int_terms; j ++) {
-					for(k = 0; k < n_gauss; k ++) {
-					printf("%+.4e ",face[f].Q[v][i][j][k]);
+				for(k = 0; k < n_gauss; k ++) {
+					for(j = 0; j < n_int_terms; j ++) {
+					printf("%+.2e  ",face[f].Q[v][i][j][k]);
+					//printf("%+.2e  ",D[i][j][k]);
 					} printf("\n");
 				} printf("\n");
 			} printf("\n");
