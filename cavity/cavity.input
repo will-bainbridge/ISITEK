@@ -25,50 +25,55 @@
 
 #------------------------------------------------------------------------------#
 
-geometry_filename cavity.tri.geometry
-#geometry_filename cavity.quad.geometry
+case_file_path cavity.case
+geometry_file_path cavity.tri.geometry
 
-mesh_size 1
+data_file_path cavity.?.data
+#initial_data_file_path cavity.1.data
+number_of_outer_iterations 1
+number_of_inner_iterations 1
 
-iterations 8
+display_file_path cavity.c.display
+display_mesh_size 1
 
-order 2 3 3
+number_of_variables 3
+variable_name P U V
+variable_order 2 3 3
+variable_initial_value 1.0 0.0 0.0
 
-initial 1.0 0.0 0.0
+#constants rho=1.0;mu=0.002;g=9.81;
 
-wind n[0]*0.5*(u[1]+v[1])+n[1]*0.5*(u[2]+v[2])>=0.0
+# wind > 0 > normal-x
+#      > 1 > normal-y
+#      > 2 > variable-0 inner
+#      > 3 > variable-0 outer
+#      > 4 > variable-1 inner
+#      > 5 > ...
+#wind $0*0.5*($4+$5)+$1*0.5*($6+$7)>=0.0
 
-# north east south west > cavity.tri.geometry  > 604:618 618:632 632:646 646:660
-#                         cavity.quad.geometry > 364:378 378:392 392:406 406:420
+# boundary > indices variable condition value
+boundary 604:617 1 d 1.0
+boundary 618:631,632:645,646:659 1 d 0.0
+boundary 604:617,618:631,632:645,646:659 2 d 0.0
 
-# boundary > indices variable type value
-boundary 604:618 1 d 1.0
-boundary 618:632,632:646,646:660 1 d 0.0
-boundary 604:618,618:632,632:646,646:660 2 d 0.0
-#boundary 364:378 1 d 1.0
-#boundary 378:392,392:406,406:420 1 d 0.0
-#boundary 364:378,378:392,392:406,406:420 2 d 0.0
+# term > type equation variables differentials powers method constant
+term x 0 1   0   1   i  +1.0
+term y 0 2   0   1   i  +1.0
+ 
+term x 1 0   0   1   i  -1.0
+#term x 1 1   0   2   u  -1.0
+#term y 1 1,2 0,0 1,1 uu -1.0
+term x 1 1   x   1   i  +0.01
+term y 1 1   y   1   i  +0.005
+term y 1 2   x   1   i   +0.005
 
-constant rho=1.0;mu=0.005;g=9.81
+term y 2 0   0   1   i  -1.0
+#term x 1 1   0   2   u  -1.0
+#term y 1 1,2 0,0 1,1 u  -1.0
+term x 2 1   y   1   i  +0.005
+term x 2 2   x   1   i  +0.005
+term y 2 2   y   1   i  +0.01
 
-# term > equation variables direction differentials powers constant method
-term 0 1   x 0   1   rho      i
-term 0 2   y 0   1   rho      i
-
-term 1 0   x 0   1   -1       i
-#term 1 1   x 0   2   -rho     u
-#term 1 1,2 y 0,0 1,1 -rho     uu
-term 1 1   x x   1   2*mu/rho i
-term 1 1   y y   1   mu/rho   i
-term 1 2   y x   1   mu/rho   i
-
-term 2 0   y 0   1   -1       i
-#term 2 2,1 x 0,0 1,1 -rho     uu
-#term 2 2   y 0   2   -rho     u
-term 2 1   x y   1   mu/rho   i
-term 2 2   x x   1   mu/rho   i
-term 2 2   y y   1   2*mu/rho i
-
-#term 2 0   0 0   0   -g       0
+#term s 2 0   0   0   -  -9.81
 
 #------------------------------------------------------------------------------#
