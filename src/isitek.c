@@ -160,11 +160,13 @@ int main(int argc, char *argv[])
 	if(fetch_vector(input_file,"variable_initial_value",'d',n_variables,initial) == FETCH_SUCCESS)
 		initialise_values(n_variables, variable_order, n_elements, element, initial, u);
 
-	// initialise the system and residuals
+	// initialise the system and solution vectors
 	SPARSE system = NULL;
 	initialise_system(n_variables, variable_order, n_elements, element, n_u, &system);
 	double *residual = (double *)malloc(n_u * sizeof(double));
 	exit_if_false(residual != NULL,"allocating the residuals");
+	double *du = (double *)malloc(n_u * sizeof(double));
+	exit_if_false(du != NULL,"allocating du");
 
 	// iterate
 	n_outer_iterations += outer_iteration;
@@ -174,9 +176,10 @@ int main(int argc, char *argv[])
 		{
 			// generate system
 			calculate_system(n_variables, variable_order, n_elements, element, n_terms, term, n_u, u, system, residual);
-			//
 
 			// solve
+			sparse_solve_umfpack(system, du, residual);
+			for(i = 0; i < n_u; i ++) u[i] -= du[i];
 		}
 
 		generate_numbered_file_path(data_numbered_file_path, data_file_path, outer_iteration + 1);
@@ -191,6 +194,9 @@ int main(int argc, char *argv[])
 	exit_if_false(case_file != NULL,"opening case file");
 	write_case(case_file, n_variables, variable_order, n_nodes, node, n_faces, face, n_elements, element, n_boundaries, boundary);
 	fclose(case_file);
+
+	for(i = 0; i < n_variables; i ++) printf("%lf ",u[element[0].unknown[i][0]]);
+	printf("\n");
 
 	// display
 
@@ -219,6 +225,7 @@ int main(int argc, char *argv[])
 
 	sparse_destroy(system);
 	free(residual);
+	free(du);
 
 	return 0;
 }

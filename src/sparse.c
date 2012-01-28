@@ -5,7 +5,7 @@
 #include <math.h>
 
 #include "sparse.h"
-//#include "umfpack.h"
+#include "umfpack.h"
 
 //////////////////////////////////////////////////////////////////
 
@@ -98,19 +98,49 @@ void sparse_set_row(SPARSE sparse, int row, int *index, double *value)
 
 //////////////////////////////////////////////////////////////////
 
-/*int sparse_solve_umfpack(SPARSE sparse, double *x, double *b)
+int sparse_solve_umfpack(SPARSE sparse, double *x, double *b)
 {
+	double info[UMFPACK_INFO], control[UMFPACK_CONTROL];
 	void *symbolic, *numeric;
+	int status;
 
-	umfpack_di_symbolic(sparse->n, sparse->n, sparse->row, sparse->index, sparse->value, &symbolic, NULL, NULL);
+	umfpack_di_defaults(control);
+	control[UMFPACK_PRL] = 6;
 
-	umfpack_di_numeric(sparse->row, sparse->index, sparse->value, symbolic, &numeric, NULL, NULL);
+	umfpack_di_report_matrix(sparse->n, sparse->n, sparse->row, sparse->index, sparse->value, 1, control);
+
+	status = umfpack_di_symbolic(sparse->n, sparse->n, sparse->row, sparse->index, sparse->value, &symbolic, control, info);
+	if(status < 0) 
+	{
+		umfpack_di_report_info(control, info);
+		umfpack_di_report_status(control, status);
+		printf("umfpack_di_symbolic failed");
+		return SPARSE_SOLVE_ERROR;
+	}
+
+	status = umfpack_di_numeric(sparse->row, sparse->index, sparse->value, symbolic, &numeric, control, info);
+	if (status < 0)
+	{
+		umfpack_di_report_info(control, info);
+		umfpack_di_report_status(control, status);
+		printf("umfpack_di_numeric failed");
+		return SPARSE_SOLVE_ERROR;
+	}
+
 	umfpack_di_free_symbolic(&symbolic);
 
-	umfpack_di_solve(UMFPACK_At, sparse->row, sparse->index, sparse->value, x, b, numeric, NULL, NULL);
+	status = umfpack_di_solve(UMFPACK_At, sparse->row, sparse->index, sparse->value, x, b, numeric, control, info);
+	umfpack_di_report_info(control, info);
+	umfpack_di_report_status(control, status);
+	if (status < 0)
+	{
+		printf("umfpack_di_solve failed") ;
+		return SPARSE_SOLVE_ERROR;
+	}
+
 	umfpack_di_free_numeric(&numeric);
 
 	return SPARSE_SUCCESS;
-}*/
+}
 
 //////////////////////////////////////////////////////////////////
