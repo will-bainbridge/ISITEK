@@ -727,3 +727,32 @@ void terms_input(FILE *file, int *n_terms, struct TERM **term)
 }
 
 //////////////////////////////////////////////////////////////////
+
+void write_display(FILE *file, int n_variables, int n_elements, struct ELEMENT *element, int n_u, double *u)
+{
+	int e, f, i, j, v;
+
+	for(e = 0; e < n_elements; e ++)
+	{
+		for(f = 0; f < element[e].n_faces; f ++)
+		{
+			for(i = 0; i < 2; i ++)
+			{
+				for(j = 0; j < 2; j ++) fprintf(file,"%+.10e ",element[e].centre[j]);
+				for(v = 0; v < n_variables; v ++) fprintf(file,"%+.10e ",u[element[e].unknown[v][0]]);
+				fprintf(file,"\n");
+			}
+			fprintf(file,"\n");
+
+			for(i = 0; i < element[e].face[f]->n_nodes; i ++)
+			{
+				for(j = 0; j < 2; j ++) fprintf(file,"%+.10e ",element[e].face[f]->node[i]->x[j]);
+				for(v = 0; v < n_variables; v ++) fprintf(file,"%+.10e ",u[element[e].unknown[v][0]]);
+				fprintf(file,"\n");
+			}
+			fprintf(file,"\n\n");
+		}
+	}
+}
+
+//////////////////////////////////////////////////////////////////

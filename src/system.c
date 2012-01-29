@@ -155,8 +155,12 @@ void initialise_values(int n_variables, int *variable_order, int n_elements, str
 
 void initialise_system(int n_variables, int *variable_order, int n_elements, struct ELEMENT *element, int n_u, SPARSE *system)
 {
-	int e, i, v;
+	int e, i, j, k, v;
 
+	// allocate the system
+	exit_if_false(*system = sparse_allocate(*system, n_u),"allocating the system");
+
+	// allocate the rows
 	int *row_n_non_zeros = (int *)malloc(n_u * sizeof(int)), n_non_zeros;
 	exit_if_false(row_n_non_zeros != NULL,"allocating row numbers of non-zeros");
 
@@ -174,10 +178,34 @@ void initialise_system(int n_variables, int *variable_order, int n_elements, str
 				row_n_non_zeros[element[e].unknown[v][i]] = n_non_zeros;
 	}
 	
-	exit_if_false(*system = sparse_allocate(*system, n_u),"allocating the system");
 	exit_if_false(*system = sparse_allocate_rows(*system, row_n_non_zeros),"allocating the rows");
 
 	free(row_n_non_zeros);
+
+	// set the row indices
+	int *row_index = (int *)malloc(sum_n_basis * MAX_ELEMENT_N_FACES * sizeof(int));
+	exit_if_false(row_index != NULL,"allocating row indices");
+	for(e = 0; e < n_elements; e ++)
+	{
+		n_non_zeros = 0;
+
+		for(v = 0; v < n_variables; v ++)
+			for(i = 0; i < ORDER_TO_N_BASIS(variable_order[v]); i ++)
+				row_index[n_non_zeros++] = element[e].unknown[v][i];
+
+		for(i = 0; i < element[e].n_faces; i ++)
+			for(j = 0; j < element[e].face[i]->n_borders; j ++)
+				if(element[e].face[i]->border[j] != &element[e])
+					for(v = 0; v < n_variables; v ++)
+						for(k = 0; k < ORDER_TO_N_BASIS(variable_order[v]); k ++)
+							row_index[n_non_zeros++] = element[e].face[i]->border[j]->unknown[v][k];
+
+		for(v = 0; v < n_variables; v ++)
+			for(i = 0; i < ORDER_TO_N_BASIS(variable_order[v]); i ++)
+				sparse_set_row_indices(*system, element[e].unknown[v][i], row_index);
+	}
+
+	free(row_index);
 }
 
 //////////////////////////////////////////////////////////////////
@@ -308,7 +336,7 @@ void calculate_system(int n_variables, int *variable_order, int n_elements, stru
 				for(p = 0; p < n_points; p ++)
 				{
 					point_multiple[p] = - term[t].power[i] * term[t].constant * element[e].W[p];
-					for(j = 0; j < term[t].n_variables; j ++) point_multiple[p] *= pow( point_value[i][p] , term[t].power[j] - (i == j) );
+					for(j = 0; j < term[t].n_variables; j ++) point_multiple[p] *= pow( point_value[j][p] , term[t].power[j] - (i == j) );
 				}
 
 				for(j = 0; j < n_basis[q]; j ++) for(p = 0; p < n_points; p ++) A[j][p] = element[e].P[x][j][p] * point_multiple[p];
@@ -379,7 +407,7 @@ void calculate_system(int n_variables, int *variable_order, int n_elements, stru
 					{
 						point_multiple[p] = element[e].orient[a] * element[e].face[a]->normal[x] *
 							term[t].power[i] * term[t].constant * element[e].face[a]->W[p];
-						for(j = 0; j < term[t].n_variables; j ++) point_multiple[p] *= pow( point_value[i][p] , term[t].power[j] - (i == j) );
+						for(j = 0; j < term[t].n_variables; j ++) point_multiple[p] *= pow( point_value[j][p] , term[t].power[j] - (i == j) );
 					}
 
 					for(j = 0; j < n_basis[q]; j ++) for(p = 0; p < n_gauss; p ++) A[j][p] = element[e].Q[a][j][p] * point_multiple[p];
@@ -419,7 +447,7 @@ void calculate_system(int n_variables, int *variable_order, int n_elements, stru
 		// add to the global system
 		for(i = 0; i < sum_n_basis; i ++)
 		{
-			sparse_set_row(system, local_row[i], local_index, local_value[i]);
+			sparse_set_row_values(system, local_row[i], local_value[i]);
 			residual[local_row[i]] = local_residual[i];
 		}
 	}
@@ -438,6 +466,20 @@ void calculate_system(int n_variables, int *variable_order, int n_elements, stru
 	destroy_matrix((void *)point_value);
 	free(point_multiple);
 	destroy_matrix((void *)A);
+}
+
+//////////////////////////////////////////////////////////////////
+
+void calculate_maximum_residuals(int n_variables, int *variable_order, int n_elements, struct ELEMENT *element, double *residual, double *max_residual)
+{
+	int e, i, v;
+
+	for(v = 0; v < n_variables; v ++) max_residual[v] = 0.0;
+
+	for(e = 0; e < n_elements; e ++)
+		for(v = 0; v < n_variables; v ++)
+			for(i = 0; i < ORDER_TO_N_BASIS(variable_order[v]); i ++)
+				max_residual[v] = MAX(max_residual[v],fabs(residual[element[e].unknown[v][i]]));
 }
 
 //////////////////////////////////////////////////////////////////

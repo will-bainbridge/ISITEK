@@ -1,5 +1,5 @@
 COMPILER	= gcc
-FLAG		= -g -Wall
+FLAG		= -O2 -Wall
 
 HOMEPATH	= $(shell pwd)
 BUILDPATH	= $(HOMEPATH)/src
@@ -11,9 +11,9 @@ INCLUDE		+= -I$(THIRDPATH)/UMFPACK/Include -I$(THIRDPATH)/AMD/Include -I$(THIRDP
 LIBRARY		+= -L$(THIRDPATH)/UMFPACK/Lib -L$(THIRDPATH)/AMD/Lib -lumfpack -lamd
 
 #LIBRARY		+= -llapack -lblas
-#LIBRARY		+= -L$(THIRDPATH)/GotoBLAS2 -Wl,-R$(THIRDPATH)/GotoBLAS2 -lgoto2
+LIBRARY		+= -L$(THIRDPATH)/GotoBLAS2 -Wl,-R$(THIRDPATH)/GotoBLAS2 -lgoto2
 
-LIBRARY		+= -lm -lrt -lgfortran -lblas -llapack
+LIBRARY		+= -lm -lrt
 
 #------------------------------------------------------------------------------#
 

@@ -25,6 +25,7 @@ void initialise_values(int n_variables, int *variable_order, int n_elements, str
 void initialise_system(int n_variables, int *variable_order, int n_elements, struct ELEMENT *element, int n_u, SPARSE *system);
 
 void calculate_system(int n_variables, int *variable_order, int n_elements, struct ELEMENT *element, int n_terms, struct TERM *term, int n_u, double *u, SPARSE system, double *residual);
+void calculate_maximum_residuals(int n_variables, int *variable_order, int n_elements, struct ELEMENT *element, double *residual, double *max_residual);
 
 void write_case(FILE *file, int n_variables, int *variable_order, int n_nodes, struct NODE *node, int n_faces, struct FACE *face, int n_elements, struct ELEMENT *element, int n_boundaries, struct BOUNDARY *boundary);
 void read_case(FILE *file, int *n_variables, int **variable_order, int *n_nodes, struct NODE **node, int *n_faces, struct FACE **face, int *n_elements, struct ELEMENT **element, int *n_boundaries, struct BOUNDARY **boundary);
@@ -33,6 +34,8 @@ void generate_numbered_file_path(char *file_path, char *base_path, int number);
 
 void read_data(FILE *file, int *n_u, double **u, int *number);
 void write_data(FILE *file, int n_u, double *u, int number);
+
+void write_display(FILE *file, int n_variables, int n_elements, struct ELEMENT *element, int n_u, double *u);
 
 //////////////////////////////////////////////////////////////////
 
@@ -48,10 +51,13 @@ int main(int argc, char *argv[])
 	exit_if_false(input_file != NULL,"opening input file");
 
 	// allocate the file paths
-	char *case_file_path, *data_file_path, *data_numbered_file_path;
+	char *geometry_file_path, *case_file_path, *data_file_path, *data_numbered_file_path, *display_file_path, *display_numbered_file_path;
+	exit_if_false(geometry_file_path = (char *)malloc(MAX_STRING_LENGTH * sizeof(char)),"allocating geometry file path");
 	exit_if_false(case_file_path = (char *)malloc(MAX_STRING_LENGTH * sizeof(char)),"allocating case file path");
 	exit_if_false(data_file_path = (char *)malloc(MAX_STRING_LENGTH * sizeof(char)),"allocating data file path");
 	exit_if_false(data_numbered_file_path = (char *)malloc(MAX_STRING_LENGTH * sizeof(char)),"allocating data numbered file path");
+	exit_if_false(display_file_path = (char *)malloc(MAX_STRING_LENGTH * sizeof(char)),"allocating display file path");
+	exit_if_false(display_numbered_file_path = (char *)malloc(MAX_STRING_LENGTH * sizeof(char)),"allocating display numbered file path");
 
 	// get the case file path from the input file
 	exit_if_false(fetch_value(input_file,"case_file_path",'s',case_file_path) == FETCH_SUCCESS,"reading case_file_path from the input file");
@@ -120,14 +126,11 @@ int main(int argc, char *argv[])
 	else
 	{
 	 	// get geometry file path from input file
-		char *geometry_file_path = (char *)malloc(MAX_STRING_LENGTH * sizeof(char));
-		exit_if_false(geometry_file_path != NULL,"allocating geometry_file_path");
 		exit_if_false(fetch_value(input_file,"geometry_file_path",'s',geometry_file_path) == FETCH_SUCCESS,"reading geometry_file_path from the input file");
 
 		// open the geometry file
 		FILE *geometry_file = fopen(geometry_file_path,"r");
 		exit_if_false(geometry_file != NULL,"opening geometry file");
-		free(geometry_file_path);
 
 	 	// read and process geometry
 		read_geometry(geometry_file, &n_nodes, &node, &n_faces, &face, &n_elements, &element);
@@ -163,8 +166,9 @@ int main(int argc, char *argv[])
 	// initialise the system and solution vectors
 	SPARSE system = NULL;
 	initialise_system(n_variables, variable_order, n_elements, element, n_u, &system);
-	double *residual = (double *)malloc(n_u * sizeof(double));
+	double *residual = (double *)malloc(n_u * sizeof(double)), *max_residual = (double *)malloc(n_variables * sizeof(double));
 	exit_if_false(residual != NULL,"allocating the residuals");
+	exit_if_false(max_residual != NULL,"allocating the maximum residuals");
 	double *du = (double *)malloc(n_u * sizeof(double));
 	exit_if_false(du != NULL,"allocating du");
 
@@ -174,12 +178,14 @@ int main(int argc, char *argv[])
 	{
 		for(inner_iteration = 0; inner_iteration < n_inner_iterations; inner_iteration ++)
 		{
-			// generate system
 			calculate_system(n_variables, variable_order, n_elements, element, n_terms, term, n_u, u, system, residual);
 
-			// solve
 			sparse_solve_umfpack(system, du, residual);
 			for(i = 0; i < n_u; i ++) u[i] -= du[i];
+
+			calculate_maximum_residuals(n_variables, variable_order, n_elements, element, residual, max_residual);
+			for(i = 0; i < n_variables; i ++) printf("%.10e ",max_residual[i]);
+			printf("\n");
 		}
 
 		generate_numbered_file_path(data_numbered_file_path, data_file_path, outer_iteration + 1);
@@ -195,17 +201,25 @@ int main(int argc, char *argv[])
 	write_case(case_file, n_variables, variable_order, n_nodes, node, n_faces, face, n_elements, element, n_boundaries, boundary);
 	fclose(case_file);
 
-	for(i = 0; i < n_variables; i ++) printf("%lf ",u[element[0].unknown[i][0]]);
-	printf("\n");
-
 	// display
+	if(fetch_value(input_file,"display_file_path",'s',display_file_path) == FETCH_SUCCESS)
+	{
+		generate_numbered_file_path(display_numbered_file_path, display_file_path, outer_iteration);
+		FILE *display_file = fopen(display_numbered_file_path,"w");
+		exit_if_false(display_file != NULL,"opening display file");
+		write_display(display_file, n_variables, n_elements, element, n_u, u);
+		fclose(display_file);
+	}
 
 	// clean up
 	fclose(input_file);
 
+	free(geometry_file_path);
 	free(case_file_path);
 	free(data_file_path);
 	free(data_numbered_file_path);
+	free(display_file_path);
+	free(display_numbered_file_path);
 
 	destroy_nodes(n_nodes,node);
 	destroy_faces(n_faces,face,n_variables);
@@ -225,6 +239,7 @@ int main(int argc, char *argv[])
 
 	sparse_destroy(system);
 	free(residual);
+	free(max_residual);
 	free(du);
 
 	return 0;

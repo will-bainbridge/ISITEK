@@ -14,8 +14,12 @@ struct s_SPARSE
 	int n; //number of rows
 	int *row; //row pointers (length n+1)
 	int *index; //column indices (length nnz)
+	int *order; //column insert order (length nnz)
 	double *value; //values (length nnz)
 };
+
+void heap_sort(int *index, int *value, int n);
+void sift_down(int *index, int *value, int lower, int upper);
 
 //////////////////////////////////////////////////////////////////
 
@@ -26,7 +30,7 @@ SPARSE sparse_allocate(SPARSE sparse, int n_rows)
 	new = (SPARSE)realloc(sparse,sizeof(struct s_SPARSE));
 	if(new == NULL) return NULL;
 
-	if(sparse == NULL) { new->row = new->index = NULL; new->value = NULL; }
+	if(sparse == NULL) { new->row = new->index = new->order = NULL; new->value = NULL; }
 
 	new->n = n_rows;
 
@@ -50,6 +54,9 @@ SPARSE sparse_allocate_rows(SPARSE sparse, int *n_non_zeros)
 	sparse->index = (int *)realloc(sparse->index,n*sizeof(int));
 	if(sparse->index == NULL) return NULL;
 
+	sparse->order = (int *)realloc(sparse->order,n*sizeof(int));
+	if(sparse->order == NULL) return NULL;
+
 	sparse->value = (double *)realloc(sparse->value,n*sizeof(double));
 	if(sparse->value == NULL) return NULL;
 
@@ -62,6 +69,7 @@ void sparse_destroy(SPARSE sparse)
 {
 	free(sparse->row);
 	free(sparse->index);
+	free(sparse->order);
 	free(sparse->value);
 	free(sparse);
 }
@@ -82,18 +90,26 @@ void sparse_print(SPARSE sparse)
 
 //////////////////////////////////////////////////////////////////
 
-void sparse_set_row(SPARSE sparse, int row, int *index, double *value)
+void sparse_set_row_indices(SPARSE sparse, int row, int *index)
 {
-	int i, r, n;
+	int i, r = sparse->row[row], n = sparse->row[row+1] - r;
 
-	r = sparse->row[row];
-	n = sparse->row[row+1] - r;
+	for(i = 0; i < n; i ++) sparse->order[r+i] = i;
 
-	for(i = 0; i < n; i ++)
-	{
-		sparse->index[r+i] = index[i];
-		sparse->value[r+i] = value[i];
-	}
+	heap_sort(index, &sparse->order[r], n);
+
+	for(i = 0; i < n; i ++) sparse->index[r+i] = index[i];
+
+	for(i = 0; i < n; i ++) index[sparse->order[r+i]] = sparse->index[r+i];
+}
+
+//////////////////////////////////////////////////////////////////
+
+void sparse_set_row_values(SPARSE sparse, int row, double *value)
+{
+	int i, r = sparse->row[row], n = sparse->row[row+1] - r;
+
+	for(i = 0; i < n; i ++) sparse->value[r+i] = value[sparse->order[r+i]];
 }
 
 //////////////////////////////////////////////////////////////////
@@ -105,7 +121,6 @@ int sparse_solve_umfpack(SPARSE sparse, double *x, double *b)
 	int status;
 
 	umfpack_di_defaults(control);
-	control[UMFPACK_PRL] = 6;
 
 	umfpack_di_report_matrix(sparse->n, sparse->n, sparse->row, sparse->index, sparse->value, 1, control);
 
@@ -141,6 +156,48 @@ int sparse_solve_umfpack(SPARSE sparse, double *x, double *b)
 	umfpack_di_free_numeric(&numeric);
 
 	return SPARSE_SUCCESS;
+}
+
+//////////////////////////////////////////////////////////////////
+
+void heap_sort(int *index, int *value, int n)
+{
+	int i;
+	int itemp, vtemp;
+
+	for(i = n/2; i >= 1; i--) sift_down(index - 1, value - 1, i, n);
+
+	for(i = n; i >= 2; i--)
+	{
+		itemp = index[0];      vtemp = value[0];
+		index[0] = index[i-1]; value[0] = value[i-1];
+		index[i-1] = itemp;    value[i-1] = vtemp;
+
+		sift_down(index - 1, value - 1, 1, i - 1);
+	}
+}
+
+//////////////////////////////////////////////////////////////////
+
+void sift_down(int *index, int *value, int lower, int upper)
+{
+	int i = lower, c = lower, lastindex = upper/2;
+	int itemp, vtemp;
+
+	itemp = index[i]; vtemp = value[i];
+
+	while(c <= lastindex)
+	{
+		c = 2*i;
+		if((c + 1 <= upper) && (index[c + 1] > index[c])) c++;
+
+		if(itemp >= index[c]) break;
+
+		index[i] = index[c]; value[i] = value[c];
+		i = c;
+	}
+
+	index[i] = itemp; value[i] = vtemp;
 }
 
 //////////////////////////////////////////////////////////////////
