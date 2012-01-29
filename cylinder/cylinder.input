@@ -31,24 +31,24 @@ boundary 9396:9445,9471:9520,9521:9545,9546:9608 2 d 0.0
 
 #------------------------------------------------------------------------------#
 
-# term > equation variable direction differential power constant method
+# term > eqaution type variables differentials powers methods constant
 
-term x 0 1   0   1   i  +1.0
-term y 0 2   0   1   i  +1.0
-
-term x 1 0   0   1   i  -1.0
-term x 1 1,1 0,0 1,1 ii -1.0
-term y 1 1,2 0,0 1,1 ii -1.0
-term x 1 1   x   1   i  +0.04
-term y 1 1   y   1   i  +0.02
-term y 1 2   x   1   i  +0.02
-
-term y 2 0   0   1   i  -1.0
-term x 2 2,1 0,0 1,1 ii -1.0
-term y 2 2,2 0,0 1,1 ii -1.0
-term x 2 1   y   1   i  +0.02
-term x 2 2   x   1   i  +0.02
-term y 2 2   y   1   i  +0.04
+term 0 x 1   0   1   i  +1.0
+term 0 y 2   0   1   i  +1.0
+       
+term 1 x 0   0   1   i  -1.0
+term 1 x 1,1 0,0 1,1 ii -1.0
+term 1 y 1,2 0,0 1,1 ii -1.0
+term 1 x 1   x   1   i  +0.04
+term 1 y 1   y   1   i  +0.02
+term 1 y 2   x   1   i  +0.02
+       
+term 2 y 0   0   1   i  -1.0
+term 2 x 2,1 0,0 1,1 ii -1.0
+term 2 y 2,2 0,0 1,1 ii -1.0
+term 2 x 1   y   1   i  +0.02
+term 2 x 2   x   1   i  +0.02
+term 2 y 2   y   1   i  +0.04
 
 #------------------------------------------------------------------------------#
 

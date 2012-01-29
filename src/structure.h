@@ -55,13 +55,14 @@ struct BOUNDARY
 
 struct TERM
 {
-	char type;
 	int equation;
+	char type;
 	int n_variables;
 	int *variable;
 	int *differential;
 	int *power;
 	char *method;
+	double implicit;
 	double constant;
 };
 

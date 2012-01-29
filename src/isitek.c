@@ -24,7 +24,7 @@ void update_face_numerics(int n_variables_old, int n_variables, int *variable_or
 void initialise_values(int n_variables, int *variable_order, int n_elements, struct ELEMENT *element, double *initial, double *u);
 void initialise_system(int n_variables, int *variable_order, int n_elements, struct ELEMENT *element, int n_u, SPARSE *system);
 
-void calculate_system(int n_variables, int *variable_order, int n_elements, struct ELEMENT *element, int n_terms, struct TERM *term, int n_u, double *u, SPARSE system, double *residual);
+void calculate_system(int n_variables, int *variable_order, int n_elements, struct ELEMENT *element, int n_terms, struct TERM *term, double *u_old, double *u, SPARSE system, double *residual);
 void calculate_maximum_residuals(int n_variables, int *variable_order, int n_elements, struct ELEMENT *element, double *residual, double *max_residual);
 
 void write_case(FILE *file, int n_variables, int *variable_order, int n_nodes, struct NODE *node, int n_faces, struct FACE *face, int n_elements, struct ELEMENT *element, int n_boundaries, struct BOUNDARY *boundary);
@@ -94,12 +94,12 @@ int main(int argc, char *argv[])
 
 	// iteration counters
 	int outer_iteration = 0, inner_iteration;
-	int n_outer_iterations, n_inner_iterations;
+	int n_outer_iterations, n_inner_iterations, data_n_outer_iterations, display_n_outer_iterations;
 	exit_if_false(fetch_value(input_file,"number_of_inner_iterations",'i',&n_inner_iterations) == FETCH_SUCCESS,"reading number_of_inner_iterations from the input file");
 	exit_if_false(fetch_value(input_file,"number_of_outer_iterations",'i',&n_outer_iterations) == FETCH_SUCCESS,"reading number_of_outer_iterations from the input file");
 
-	// open the case file
-	FILE *case_file = fopen(case_file_path,"r");
+	// files
+	FILE *case_file = fopen(case_file_path,"r"), *data_file, *geometry_file, *display_file;
 
 	// read the case file
 	if(case_file != NULL)
@@ -114,10 +114,9 @@ int main(int argc, char *argv[])
 		// read initial data file if it exists
 		if(fetch_value(input_file,"initial_data_file_path",'s',data_file_path) == FETCH_SUCCESS)
 		{
-			FILE *initial_data_file = fopen(data_file_path,"r");
-			exit_if_false(initial_data_file != NULL,"opening the initial data file");
-			read_data(initial_data_file, &n_u_old, &u_old, &outer_iteration);
-			fclose(initial_data_file);
+			exit_if_false(data_file = fopen(data_file_path,"r"),"opening the initial data file");
+			read_data(data_file, &n_u_old, &u_old, &outer_iteration);
+			fclose(data_file);
 			exit_if_false(n_u_old == n,"case and initial data files do not match");
 		}
 	}
@@ -128,18 +127,16 @@ int main(int argc, char *argv[])
 	 	// get geometry file path from input file
 		exit_if_false(fetch_value(input_file,"geometry_file_path",'s',geometry_file_path) == FETCH_SUCCESS,"reading geometry_file_path from the input file");
 
-		// open the geometry file
-		FILE *geometry_file = fopen(geometry_file_path,"r");
-		exit_if_false(geometry_file != NULL,"opening geometry file");
-
 	 	// read and process geometry
+		exit_if_false(geometry_file = fopen(geometry_file_path,"r"),"opening geometry file");
 		read_geometry(geometry_file, &n_nodes, &node, &n_faces, &face, &n_elements, &element);
 		fclose(geometry_file);
 		process_geometry(n_nodes, node, n_faces, face, n_elements, element);
 	}
 
-	// get the data file path
+	// get the data file path and output regularity
 	exit_if_false(fetch_value(input_file,"data_file_path",'s',data_file_path) == FETCH_SUCCESS,"reading data_file_path from the input file");
+	if(fetch_value(input_file,"data_number_of_outer_iterations",'i',&data_n_outer_iterations) != FETCH_SUCCESS) data_n_outer_iterations = n_outer_iterations + outer_iteration;
 
 	// read boundaries and equation terms from input_file
 	boundaries_input(input_file, n_faces, face, &n_boundaries, &boundary);
@@ -159,26 +156,41 @@ int main(int argc, char *argv[])
 	update_face_numerics(n_variables_old, n_variables, variable_order_old, variable_order, n_faces, face, n_boundaries_old, boundary_old);
 	update_element_numerics(n_variables_old, n_variables, variable_order_old, variable_order, n_elements, element);
 
+	// save to case file
+	exit_if_false(case_file = fopen(case_file_path,"w"),"opening case file");
+	write_case(case_file, n_variables, variable_order, n_nodes, node, n_faces, face, n_elements, element, n_boundaries, boundary);
+	fclose(case_file);
+
 	// initialise the values
 	if(fetch_vector(input_file,"variable_initial_value",'d',n_variables,initial) == FETCH_SUCCESS)
 		initialise_values(n_variables, variable_order, n_elements, element, initial, u);
 
+	// display
+	if(
+			fetch_value(input_file,"display_file_path",'s',display_file_path) != FETCH_SUCCESS ||
+			fetch_value(input_file,"display_number_of_outer_iterations",'i',&display_n_outer_iterations) != FETCH_SUCCESS
+	  ) display_n_outer_iterations = 0;
+
 	// initialise the system and solution vectors
 	SPARSE system = NULL;
 	initialise_system(n_variables, variable_order, n_elements, element, n_u, &system);
-	double *residual = (double *)malloc(n_u * sizeof(double)), *max_residual = (double *)malloc(n_variables * sizeof(double));
-	exit_if_false(residual != NULL,"allocating the residuals");
-	exit_if_false(max_residual != NULL,"allocating the maximum residuals");
-	double *du = (double *)malloc(n_u * sizeof(double));
-	exit_if_false(du != NULL,"allocating du");
+	double *residual, *max_residual, *du;
+	exit_if_false(residual = (double *)malloc(n_u * sizeof(double)),"allocating the residuals");
+	exit_if_false(max_residual = (double *)malloc(n_variables * sizeof(double)),"allocating the maximum residuals");
+	exit_if_false(du = (double *)malloc(n_u * sizeof(double)),"allocating du");
+	exit_if_false(u_old = (double *)realloc(u_old, n_u * sizeof(double)),"re-allocating u_old");
 
 	// iterate
 	n_outer_iterations += outer_iteration;
 	for(; outer_iteration < n_outer_iterations; outer_iteration ++)
 	{
+		printf("iteration %i\n", outer_iteration);
+
+		for(i = 0; i < n_u; i ++) u_old[i] = u[i];
+
 		for(inner_iteration = 0; inner_iteration < n_inner_iterations; inner_iteration ++)
 		{
-			calculate_system(n_variables, variable_order, n_elements, element, n_terms, term, n_u, u, system, residual);
+			calculate_system(n_variables, variable_order, n_elements, element, n_terms, term, u_old, u, system, residual);
 
 			sparse_solve_umfpack(system, du, residual);
 			for(i = 0; i < n_u; i ++) u[i] -= du[i];
@@ -188,27 +200,20 @@ int main(int argc, char *argv[])
 			printf("\n");
 		}
 
-		generate_numbered_file_path(data_numbered_file_path, data_file_path, outer_iteration + 1);
-		FILE *data_file = fopen(data_numbered_file_path,"w");
-		exit_if_false(data_file != NULL,"opening data file");
-		write_data(data_file, n_u, u, outer_iteration + 1);
-		fclose(data_file);
-	}
-
-	// save to case file
-	case_file = fopen(case_file_path,"w");
-	exit_if_false(case_file != NULL,"opening case file");
-	write_case(case_file, n_variables, variable_order, n_nodes, node, n_faces, face, n_elements, element, n_boundaries, boundary);
-	fclose(case_file);
-
-	// display
-	if(fetch_value(input_file,"display_file_path",'s',display_file_path) == FETCH_SUCCESS)
-	{
-		generate_numbered_file_path(display_numbered_file_path, display_file_path, outer_iteration);
-		FILE *display_file = fopen(display_numbered_file_path,"w");
-		exit_if_false(display_file != NULL,"opening display file");
-		write_display(display_file, n_variables, n_elements, element, n_u, u);
-		fclose(display_file);
+		if(data_n_outer_iterations && outer_iteration % data_n_outer_iterations == 0)
+		{
+			generate_numbered_file_path(data_numbered_file_path, data_file_path, outer_iteration);
+			exit_if_false(data_file = fopen(data_numbered_file_path,"w"),"opening data file");
+			write_data(data_file, n_u, u, outer_iteration);
+			fclose(data_file);
+		}
+		if(display_n_outer_iterations && outer_iteration % display_n_outer_iterations == 0)
+		{
+			generate_numbered_file_path(display_numbered_file_path, display_file_path, outer_iteration);
+			exit_if_false(display_file = fopen(display_numbered_file_path,"w"),"opening display file");
+			write_display(display_file, n_variables, n_elements, element, n_u, u);
+			fclose(display_file);
+		}
 	}
 
 	// clean up

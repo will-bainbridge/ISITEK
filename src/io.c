@@ -27,7 +27,7 @@ void boundary_read_case(FILE *file, struct FACE *face, struct BOUNDARY *boundary
 #define MAX_N_TERMS 20
 #define MAX_TERM_N_VARIABLES 10
 #define TERM_LABEL "term"
-#define TERM_FORMAT "cissssd"
+#define TERM_FORMAT "icssssdd"
 
 //////////////////////////////////////////////////////////////////
 
@@ -631,12 +631,12 @@ void terms_input(FILE *file, int *n_terms, struct TERM **term)
 
 	for(i = 0; i < n_fetch; i ++)
 	{
-		//type
-		fetch_get(fetch, i, 0, &t[n].type);
-		warn_if_false(t[n].type == 's' || t[n].type == 'x' || t[n].type == 'y',"skipping term with unrecognised type");
-
 		//equation
-		fetch_get(fetch, i, 1, &t[n].equation);
+		fetch_get(fetch, i, 0, &t[n].equation);
+
+		//type
+		fetch_get(fetch, i, 1, &t[n].type);
+		warn_if_false(t[n].type == 's' || t[n].type == 'x' || t[n].type == 'y',"skipping term with unrecognised type");
 
 		//get the variable, differential and power strings
 		fetch_get(fetch, i, 2, var_string);
@@ -702,7 +702,10 @@ void terms_input(FILE *file, int *n_terms, struct TERM **term)
 		fetch_get(fetch, i, 5, t[n].method);
 
 		//constant
-		fetch_get(fetch, i, 6, &t[n].constant);
+		fetch_get(fetch, i, 6, &t[n].implicit);
+
+		//constant
+		fetch_get(fetch, i, 7, &t[n].constant);
 
 		//increment the number of terms
 		n ++;

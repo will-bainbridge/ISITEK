@@ -210,7 +210,7 @@ void initialise_system(int n_variables, int *variable_order, int n_elements, str
 
 //////////////////////////////////////////////////////////////////
 
-void calculate_system(int n_variables, int *variable_order, int n_elements, struct ELEMENT *element, int n_terms, struct TERM *term, int n_u, double *u, SPARSE system, double *residual)
+void calculate_system(int n_variables, int *variable_order, int n_elements, struct ELEMENT *element, int n_terms, struct TERM *term, double *u_old, double *u, SPARSE system, double *residual)
 {
 	int a, d, e, i, j, k, p, q, t, v;
 
@@ -247,9 +247,11 @@ void calculate_system(int n_variables, int *variable_order, int n_elements, stru
 	exit_if_false(local_adjacent = allocate_integer_tensor(NULL,MAX_ELEMENT_N_FACES,n_variables,max_n_basis),"allocating adjcent local indices");
 
 	// working arrays
-	double *basis_value, **point_value, *point_multiple;
+	double *basis_value, *basis_value_old, **point_value, **point_value_old, *point_multiple;
 	exit_if_false(basis_value = (double *)malloc((2*max_n_basis + MAX_FACE_N_BOUNDARIES) * sizeof(double)),"allocating basis values");
+	exit_if_false(basis_value_old = (double *)malloc((2*max_n_basis + MAX_FACE_N_BOUNDARIES) * sizeof(double)),"allocating old basis values");
 	exit_if_false(point_value = allocate_double_matrix(NULL,max_term_n_variables,MAX(n_gauss,(MAX_ELEMENT_N_FACES-1)*n_hammer)),"allocating point values");
+	exit_if_false(point_value_old = allocate_double_matrix(NULL,max_term_n_variables,MAX(n_gauss,(MAX_ELEMENT_N_FACES-1)*n_hammer)),"allocating old point values");
 	exit_if_false(point_multiple = (double *)malloc(MAX(n_gauss,(MAX_ELEMENT_N_FACES-1)*n_hammer) * sizeof(double)),"allocating point multiples");
 
 	int lda = MAX(n_gauss,(MAX_ELEMENT_N_FACES-1)*n_hammer);
@@ -319,13 +321,24 @@ void calculate_system(int n_variables, int *variable_order, int n_elements, stru
 			{
 				v = term[t].variable[i]; d = term[t].differential[i];
 
-				for(j = 0; j < n_basis[v]; j ++) basis_value[j] = u[element[e].unknown[v][j]];
+				for(j = 0; j < n_basis[v]; j ++)
+				{
+					basis_value[j] = u[element[e].unknown[v][j]];
+					basis_value_old[j] = u_old[element[e].unknown[v][j]];
+				}
+
 				dgemv_(&trans[0],&n_points,&n_basis[v],
 						&one,
 						element[e].P[d][0],&n_points,
 						basis_value,&unit,
 						&zero,
 						point_value[i],&unit);
+				dgemv_(&trans[0],&n_points,&n_basis[v],
+						&one,
+						element[e].P[d][0],&n_points,
+						basis_value_old,&unit,
+						&zero,
+						point_value_old[i],&unit);
 			}
 
 			// jacobian
@@ -335,11 +348,14 @@ void calculate_system(int n_variables, int *variable_order, int n_elements, stru
 
 				for(p = 0; p < n_points; p ++)
 				{
-					point_multiple[p] = - term[t].power[i] * term[t].constant * element[e].W[p];
-					for(j = 0; j < term[t].n_variables; j ++) point_multiple[p] *= pow( point_value[j][p] , term[t].power[j] - (i == j) );
+					point_multiple[p] = - term[t].power[i] * term[t].implicit * term[t].constant * element[e].W[p];
+					for(j = 0; j < term[t].n_variables; j ++) point_multiple[p] *=
+						pow( point_value[j][p] , term[t].power[j] - (i == j) );
 				}
 
-				for(j = 0; j < n_basis[q]; j ++) for(p = 0; p < n_points; p ++) A[j][p] = element[e].P[x][j][p] * point_multiple[p];
+				for(j = 0; j < n_basis[q]; j ++)
+					for(p = 0; p < n_points; p ++)
+						A[j][p] = element[e].P[x][j][p] * point_multiple[p];
 
 				dgemm_(&trans[1],&trans[0],&n_basis[v],&n_basis[q],&n_points,
 						&one,
@@ -354,7 +370,11 @@ void calculate_system(int n_variables, int *variable_order, int n_elements, stru
 			for(p = 0; p < n_points; p ++)
 			{
 				point_multiple[p] = - term[t].constant * element[e].W[p];
-				for(i = 0; i < term[t].n_variables; i ++) point_multiple[p] *= pow( point_value[i][p] , term[t].power[i] );
+				for(i = 0; i < term[t].n_variables; i ++)
+					point_multiple[p] *=
+						term[t].implicit * pow( point_value[i][p] , term[t].power[i] ) +
+						(1.0 - term[t].implicit) * pow( point_value_old[i][p] , term[t].power[i] );
+
 			}
 			dgemv_(&trans[1],&n_points,&n_basis[q],
 					&one,
@@ -364,7 +384,7 @@ void calculate_system(int n_variables, int *variable_order, int n_elements, stru
 					&local_residual[local_element[q][0]],&unit);
 			
 			// break if a source term
-			if(term[t].type == 'c') continue;
+			if(term[t].type == 's') continue;
 
 			// DG FEM component --------------------//
 
@@ -381,9 +401,14 @@ void calculate_system(int n_variables, int *variable_order, int n_elements, stru
 
 					for(j = 0; j < element[e].face[a]->n_borders; j ++)
 						for(k = 0; k < n_basis[v]; k ++)
+						{
 							basis_value[k+j*n_basis[v]] = u[element[e].face[a]->border[j]->unknown[v][k]];
+							basis_value_old[k+j*n_basis[v]] = u_old[element[e].face[a]->border[j]->unknown[v][k]];
+						}
 					for(j = 0; j < element[e].face[a]->n_boundaries[v]; j ++)
-						basis_value[j+element[e].face[a]->n_borders*n_basis[v]] = element[e].face[a]->boundary[v][j]->value;
+						basis_value[j+element[e].face[a]->n_borders*n_basis[v]] = 
+							basis_value_old[j+element[e].face[a]->n_borders*n_basis[v]] = 
+							element[e].face[a]->boundary[v][j]->value;
 
 					if(term[t].method[i] == 'i')
 					{
@@ -394,6 +419,12 @@ void calculate_system(int n_variables, int *variable_order, int n_elements, stru
 								basis_value,&unit,
 								&zero,
 								point_value[i],&unit);
+						dgemv_(&trans[0],&n_gauss,&n,
+								&one,
+								element[e].face[a]->Q[v][d][0],&n_gauss,
+								basis_value_old,&unit,
+								&zero,
+								point_value_old[i],&unit);
 					}
 					else exit_if_false(0,"flux types other than \"i\" have not been implemented yet");
 				}
@@ -406,17 +437,21 @@ void calculate_system(int n_variables, int *variable_order, int n_elements, stru
 					for(p = 0; p < n_gauss; p ++)
 					{
 						point_multiple[p] = element[e].orient[a] * element[e].face[a]->normal[x] *
-							term[t].power[i] * term[t].constant * element[e].face[a]->W[p];
-						for(j = 0; j < term[t].n_variables; j ++) point_multiple[p] *= pow( point_value[j][p] , term[t].power[j] - (i == j) );
+							term[t].power[i] * term[t].implicit * term[t].constant * element[e].face[a]->W[p];
+						for(j = 0; j < term[t].n_variables; j ++) point_multiple[p] *=
+							pow( point_value[j][p] , term[t].power[j] - (i == j) );
 					}
 
-					for(j = 0; j < n_basis[q]; j ++) for(p = 0; p < n_gauss; p ++) A[j][p] = element[e].Q[a][j][p] * point_multiple[p];
+					for(j = 0; j < n_basis[q]; j ++)
+						for(p = 0; p < n_gauss; p ++)
+							A[j][p] = element[e].Q[a][j][p] * point_multiple[p];
 
 					if(term[t].method[i] == 'i')
 					{
 						for(j = 0; j < element[e].face[a]->n_borders; j ++)
 						{
-							index = element[e].face[a]->border[j] == &element[e] ? local_element[v][0] : local_adjacent[a][v][0];
+							index = element[e].face[a]->border[j] == &element[e] ?
+								local_element[v][0] : local_adjacent[a][v][0];
 
 							dgemm_(&trans[1],&trans[0],&n_basis[v],&n_basis[q],&n_gauss,
 									&one,
@@ -432,8 +467,12 @@ void calculate_system(int n_variables, int *variable_order, int n_elements, stru
 				// residual
 				for(p = 0; p < n_gauss; p ++)
 				{
-					point_multiple[p] = element[e].orient[a] * element[e].face[a]->normal[x] * term[t].constant * element[e].face[a]->W[p];
-					for(i = 0; i < term[t].n_variables; i ++) point_multiple[p] *= pow( point_value[i][p] , term[t].power[i] );
+					point_multiple[p] = element[e].orient[a] * element[e].face[a]->normal[x] *
+						term[t].constant * element[e].face[a]->W[p];
+					for(i = 0; i < term[t].n_variables; i ++)
+						point_multiple[p] *=
+							term[t].implicit * pow( point_value[i][p] , term[t].power[i] ) +
+							(1.0 - term[t].implicit) * pow( point_value_old[i][p] , term[t].power[i] );
 				}
 				dgemv_(&trans[1],&n_gauss,&n_basis[q],
 						&one,
@@ -463,7 +502,9 @@ void calculate_system(int n_variables, int *variable_order, int n_elements, stru
 	destroy_tensor((void *)local_adjacent);
 
 	free(basis_value);
+	free(basis_value_old);
 	destroy_matrix((void *)point_value);
+	destroy_matrix((void *)point_value_old);
 	free(point_multiple);
 	destroy_matrix((void *)A);
 }
