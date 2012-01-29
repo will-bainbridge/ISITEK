@@ -17,10 +17,10 @@ void element_read_case(FILE *file, int n_variables, int *n_basis, int n_gauss, i
 void boundary_write_case(FILE *file, struct FACE *face, struct BOUNDARY *boundary);
 void boundary_read_case(FILE *file, struct FACE *face, struct BOUNDARY *boundary);
 
-#define MAX_N_INDICES 100
+#define MAX_N_INDICES 1000
 
 #define MAX_N_BOUNDARIES 20
-#define MAX_BOUNDARY_N_FACES 100
+#define MAX_BOUNDARY_N_FACES 1000
 #define BOUNDARY_LABEL "boundary"
 #define BOUNDARY_FORMAT "sisd"
 

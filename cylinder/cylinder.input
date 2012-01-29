@@ -1,47 +1,72 @@
 #------------------------------------------------------------------------------#
 
-geometry_filename cylinder.geometry
+case_file_path cylinder.case
+geometry_file_path cylinder.geometry
 
-mesh_size 1
+data_file_path cylinder.?.data
+#initial_data_file_path cylinder.1.data
+number_of_outer_iterations 1
+number_of_inner_iterations 10
 
-iterations 10
+display_file_path cylinder.?.display
 
-order 2 3 3
-
-initial 0.0 0.0 0.0
-
-wind n[0]*0.5*(u[1]+v[1])+n[1]*0.5*(u[2]+v[2])>=0.0
-
-constant rho=1.0;mu=0.02
+number_of_variables 3
+variable_name P U V
+variable_order 2 3 3
+variable_initial_value 1.0 0.0 0.0
 
 #------------------------------------------------------------------------------#
 
-# north east south west cylinder > 9396:9446 9446:9471 9471:9521 9521:9546 9546:9609
+#wind n[0]*0.5*(u[1]+v[1])+n[1]*0.5*(u[2]+v[2])>=0.0
+#constant rho=1.0;mu=0.02
 
+#------------------------------------------------------------------------------#
+
+# north east south west cylinder > 9396:9445 9446:9470 9471:9520 9521:9545 9546:9608
 # boundary > indices variable type value
-boundary 9446:9471 0 d 0.0
-boundary 9521:9546 1 d 1.0
-boundary 9396:9446,9471:9521,9546:9609 1 0.0
-boundary 9396:9446,9471:9521,9521:9546,9546:9609 2 0.0
+boundary 9446:9470 0 d 0.0
+boundary 9521:9545 1 d 1.0
+boundary 9397:9445,9471:9520,9546:9608 1 d 0.0
+boundary 9396:9445,9471:9520,9521:9545,9546:9608 2 d 0.0
 
 #------------------------------------------------------------------------------#
 
 # term > equation variable direction differential power constant method
-term 0 1   x 0   1   rho      i
-term 0 2   y 0   1   rho      i
 
-term 1 0   x 0   1   -1       i
-term 1 1   x 0   2   -rho     u
-term 1 1,2 y 0,0 1,1 -rho     uu
-term 1 1   x x   1   2*mu/rho i
-term 1 1   y y   1   mu/rho   i
-term 1 2   y x   1   mu/rho   i
+term x 0 1   0   1   i  +1.0
+term y 0 2   0   1   i  +1.0
 
-term 2 0   y 0   1   -1       i
-term 2 2,1 x 0,0 1,1 -rho     uu
-term 2 2   y 0   2   -rho     u
-term 2 1   x y   1   mu/rho   i
-term 2 2   x x   1   mu/rho   i
-term 2 2   y y   1   2*mu/rho i
+term x 1 0   0   1   i  -1.0
+term x 1 1,1 0,0 1,1 ii -1.0
+term y 1 1,2 0,0 1,1 ii -1.0
+term x 1 1   x   1   i  +0.04
+term y 1 1   y   1   i  +0.02
+term y 1 2   x   1   i  +0.02
+
+term y 2 0   0   1   i  -1.0
+term x 2 2,1 0,0 1,1 ii -1.0
+term y 2 2,2 0,0 1,1 ii -1.0
+term x 2 1   y   1   i  +0.02
+term x 2 2   x   1   i  +0.02
+term y 2 2   y   1   i  +0.04
+
+#------------------------------------------------------------------------------#
+
+#term 0 1   x 0   1   rho      i
+#term 0 2   y 0   1   rho      i
+#
+#term 1 0   x 0   1   -1       i
+#term 1 1   x 0   2   -rho     u
+#term 1 1,2 y 0,0 1,1 -rho     uu
+#term 1 1   x x   1   2*mu/rho i
+#term 1 1   y y   1   mu/rho   i
+#term 1 2   y x   1   mu/rho   i
+#
+#term 2 0   y 0   1   -1       i
+#term 2 2,1 x 0,0 1,1 -rho     uu
+#term 2 2   y 0   2   -rho     u
+#term 2 1   x y   1   mu/rho   i
+#term 2 2   x x   1   mu/rho   i
+#term 2 2   y y   1   2*mu/rho i
 
 #------------------------------------------------------------------------------#
