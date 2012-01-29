@@ -1,59 +1,27 @@
 #------------------------------------------------------------------------------#
 
-#geometry_filename cavity.tri.geometry
-#
-#mesh_size 1
-#
-#iterations 1
-#
-#order 3
-#
-#boundary 604:618 0 d 0
-#boundary 618:632 0 d 0
-#boundary 632:646 0 n -2
-#boundary 646:660 0 d 0
-#
-#term 0 0 x x 1 0.05 i
-#term 0 0 y y 1 0.05 i
-#term 0 0 x 0 1 -1.0 u
-#term 0 0 y 0 1 -1.0 u
-#term 0 0 0 0 0 -1.0 0
-#
-#wind n[0]+n[1]>=0.0
-#
-#initial 0.25*(1-cos(2*pi*x))*(1-cos(2*pi*y))
-
-#------------------------------------------------------------------------------#
-
 case_file_path cavity.case
 geometry_file_path cavity.tri.geometry
 
-number_of_outer_iterations 11
-number_of_inner_iterations 5
+number_of_outer_iterations 100
+number_of_inner_iterations 4
 
 data_file_path cavity.?.data
 #initial_data_file_path cavity.0.data
-data_number_of_outer_iterations 5
+data_number_of_outer_iterations 10
 
 display_file_path cavity.?.display
-display_number_of_outer_iterations 1
+display_number_of_outer_iterations 10
 
 number_of_variables 3
 variable_name P U V
 variable_order 2 3 3
-#variable_initial_value 1.0 0.0 0.0
+variable_initial_value 1.0 0.0 0.0
 
 #------------------------------------------------------------------------------#
 
-#constants rho=1.0;mu=0.002;g=9.81;
-
-# wind > 0 > normal-x
-#      > 1 > normal-y
-#      > 2 > variable-0 inner
-#      > 3 > variable-0 outer
-#      > 4 > variable-1 inner
-#      > 5 > ...
-#wind $0*0.5*($4+$5)+$1*0.5*($6+$7)>=0.0
+#wind $1 $2
+#constants rho=1.0;mu=0.002;g=9.81;dt=0.1
 
 #------------------------------------------------------------------------------#
 
@@ -68,22 +36,20 @@ boundary 604:617,618:631,632:645,646:659 2 d 0.0
 term 0 x 1   0   1   i  1.0 +1.0
 term 0 y 2   0   1   i  1.0 +1.0
 
-term 1 s 1   0   1   -  1.0 +1.0
-term 1 s 1   0   1   -  0.0 -1.0
-
+term 1 s 1   0   1   -  1.0 +10.0
+term 1 s 1   0   1   -  0.0 -10.0
 term 1 x 0   0   1   i  1.0 -1.0
-term 1 x 1,1 0,0 1,1 ii 1.0 -1.0
+term 1 x 1   0   2   i  1.0 -1.0
 term 1 y 1,2 0,0 1,1 ii 1.0 -1.0
 term 1 x 1   x   1   i  1.0 +0.004
 term 1 y 1   y   1   i  1.0 +0.002
 term 1 y 2   x   1   i  1.0 +0.002
 
-term 2 s 2   0   1   -  1.0 +1.0
-term 2 s 2   0   1   -  0.0 -1.0
-
+term 2 s 2   0   1   -  1.0 +10.0
+term 2 s 2   0   1   -  0.0 -10.0
 term 2 y 0   0   1   i  1.0 -1.0
 term 2 x 2,1 0,0 1,1 ii 1.0 -1.0
-term 2 y 2,2 0,0 1,1 ii 1.0 -1.0
+term 2 y 2   0   2   i  1.0 -1.0
 term 2 x 1   y   1   i  1.0 +0.002
 term 2 x 2   x   1   i  1.0 +0.002
 term 2 y 2   y   1   i  1.0 +0.004
