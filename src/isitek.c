@@ -185,6 +185,7 @@ int main(int argc, char *argv[])
 	for(; outer_iteration < n_outer_iterations; outer_iteration ++)
 	{
 		printf("iteration %i\n", outer_iteration);
+		fflush(stdout);
 
 		for(i = 0; i < n_u; i ++) u_old[i] = u[i];
 
@@ -198,6 +199,7 @@ int main(int argc, char *argv[])
 			calculate_maximum_residuals(n_variables, variable_order, n_elements, element, residual, max_residual);
 			for(i = 0; i < n_variables; i ++) printf("%.10e ",max_residual[i]);
 			printf("\n");
+			fflush(stdout);
 		}
 
 		if(data_n_outer_iterations && outer_iteration % data_n_outer_iterations == 0)
