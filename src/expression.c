@@ -92,17 +92,23 @@ void expression_print(EXPRESSION expression);
 	expression_print(expression);
 	printf("\n");
 
-	int i, n = 3;
+	int i;
+	int n = 3;
+	int n_s = expression_number_of_substitutes(expression);
+	int n_r = expression_number_of_recursions(expression);
+
+	printf("    N-SUBS > %i\n",n_s);
+	printf("    N-RECS > %i\n",n_r);
 
 	double *value = (double *)malloc(n * sizeof(double));
 	double **substitute;
-	substitute = (double **)malloc(2 * sizeof(double *));
-	substitute[0] = (double *)malloc(2 * n * sizeof(double));
-	for(i = 0; i < 2; i ++) substitute[i] = substitute[0] + n*i;
+	substitute = (double **)malloc(n_s * sizeof(double *));
+	substitute[0] = (double *)malloc(n_s * n * sizeof(double));
+	for(i = 0; i < n_s; i ++) substitute[i] = substitute[0] + n*i;
 	double **work;
-	work = (double **)malloc(5 * sizeof(double *));
-	work[0] = (double *)malloc(5 * n * sizeof(double));
-	for(i = 0; i < 5; i ++) work[i] = work[0] + n*i;
+	work = (double **)malloc(n_r * sizeof(double *));
+	work[0] = (double *)malloc(n_r * n * sizeof(double));
+	for(i = 0; i < n_r; i ++) work[i] = work[0] + n*i;
 
 	substitute[0][0] = 9.5e4; substitute[0][1] = 9.6e4; substitute[0][2] = 9.6e4;
 	substitute[1][0] = 300.0; substitute[1][1] = 300.0; substitute[1][2] = 310.0;
@@ -273,7 +279,48 @@ EXPRESSION expression_generate(char *original)
 	free(string);
 	free(operator);
 
-	return expression;
+	e = 0;
+	while(expression[e].type != END) e ++;
+
+	return (EXPRESSION)realloc(expression, (e + 1) * sizeof(struct s_EXPRESSION));
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+int expression_number_of_substitutes(EXPRESSION expression)
+{
+	int e = 0, n = 0;
+
+	while(expression[e].type != END)
+	{
+		if(expression[e].type >= SUBSTITUTE_ZERO)
+			n = n > expression[e].type - SUBSTITUTE_ZERO ? n : expression[e].type - SUBSTITUTE_ZERO;
+
+		e ++;
+	}
+
+	return n + 1;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+int expression_number_of_recursions(EXPRESSION expression)
+{
+	int e = 0, w = 0, n = 0;
+
+	while(expression[e].type != END)
+	{
+		if(expression[e].type == VALUE || expression[e].type >= SUBSTITUTE_ZERO)
+			w ++;
+		else if(IS_OPERATOR(expression[e].type))
+			w --;
+
+		n = n > w ? n : w;
+
+		e ++;
+	}
+
+	return n;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
