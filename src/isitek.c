@@ -180,6 +180,7 @@ int main(int argc, char *argv[])
 	exit_if_false(du = (double *)malloc(n_u * sizeof(double)),"allocating du");
 	exit_if_false(u_old = (double *)realloc(u_old, n_u * sizeof(double)),"re-allocating u_old");
 
+
 	// iterate
 	n_outer_iterations += outer_iteration;
 	for(; outer_iteration < n_outer_iterations; outer_iteration ++)
@@ -192,7 +193,7 @@ int main(int argc, char *argv[])
 		{
 			calculate_system(n_variables, variable_order, n_elements, element, n_terms, term, u_old, u, system, residual);
 
-			sparse_solve_umfpack(system, du, residual);
+			exit_if_false(sparse_solve_umfpack(system, du, residual) == SPARSE_SUCCESS,"solving system");
 			for(i = 0; i < n_u; i ++) u[i] -= du[i];
 
 			calculate_maximum_residuals(n_variables, variable_order, n_elements, element, residual, max_residual);
