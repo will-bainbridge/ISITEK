@@ -660,7 +660,7 @@ void terms_input(FILE *file, int *n_terms, struct TERM **term)
 		// value expression string
 		fetch_get(fetch, i, 6, val_string);
 		sprintf(&cst_string[n_cst_string],";%s",val_string);
-		t[n].residual = expression_generate(cst_string);
+		exit_if_false(t[n].residual = expression_generate(cst_string),"generating term residual expression");
 		cst_string[n_cst_string] = '\0';
 
 		//get the variable, differential, method and jacobian expression strings
@@ -704,7 +704,7 @@ void terms_input(FILE *file, int *n_terms, struct TERM **term)
 
 			//read the jacobian expressions
 			info *= sprintf(&cst_string[n_cst_string],";%s",&jac_string[jac_offset]) > 0;
-			t[n].jacobian[t[n].n_variables] = expression_generate(cst_string);
+			info *= (t[n].jacobian[t[n].n_variables] = expression_generate(cst_string)) != NULL;
 			cst_string[n_cst_string] = '\0';
 			jac_offset += strlen(&jac_string[jac_offset]) + 1;
 
