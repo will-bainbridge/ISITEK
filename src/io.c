@@ -1,8 +1,8 @@
 //////////////////////////////////////////////////////////////////
 
 #include "isitek.h"
-
 #include "constants.h"
+#include "expression.h"
 
 void node_read_geometry(FILE *file, struct NODE *node);
 void face_read_geometry(FILE *file, struct FACE *face, struct NODE *node);
@@ -27,7 +27,7 @@ void boundary_read_case(FILE *file, struct FACE *face, struct BOUNDARY *boundary
 #define MAX_N_TERMS 20
 #define MAX_TERM_N_VARIABLES 10
 #define TERM_LABEL "term"
-#define TERM_FORMAT "icssssdd"
+#define TERM_FORMAT "icdsssss"
 
 //////////////////////////////////////////////////////////////////
 
@@ -477,7 +477,7 @@ void generate_numbered_file_path(char *file_path, char *base_path, int number)
 	exit_if_false(sub != NULL,"finding substitute character \"?\" in base_path");
 
 	*sub = '\0';
-	sprintf(file_path, "%s%i%s", base_path, number, sub + 1);
+	sprintf(file_path, "%s%09i%s", base_path, number, sub + 1);
 	*sub = '?';
 }
 
@@ -618,19 +618,35 @@ void terms_input(FILE *file, int *n_terms, struct TERM **term)
 	int i, j, n = 0, info;
 
 	//temporary storage
-	int var_offset, dif_offset, pow_offset, dif[2];
+	char *cst_string = (char *)malloc(MAX_STRING_LENGTH * sizeof(char));
 	char *var_string = (char *)malloc(MAX_STRING_LENGTH * sizeof(char));
 	char *dif_string = (char *)malloc(MAX_STRING_LENGTH * sizeof(char));
-	char *pow_string = (char *)malloc(MAX_STRING_LENGTH * sizeof(char));
+	char *mth_string = (char *)malloc(MAX_STRING_LENGTH * sizeof(char));
+	char *val_string = (char *)malloc(MAX_STRING_LENGTH * sizeof(char));
+	char *jac_string = (char *)malloc(MAX_STRING_LENGTH * sizeof(char));
 	char *temp = (char *)malloc(MAX_STRING_LENGTH * sizeof(char));
-	exit_if_false(var_string != NULL && dif_string != NULL && pow_string != NULL && temp != NULL,"allocating temporary strings");
-	int *vars = (int *)malloc(MAX_TERM_N_VARIABLES * sizeof(int));
-	int *difs = (int *)malloc(MAX_TERM_N_VARIABLES * sizeof(int));
-	int *pows = (int *)malloc(MAX_TERM_N_VARIABLES * sizeof(int));
-	exit_if_false(vars != NULL && difs != NULL && pows != NULL,"allocating temporary data");
+	exit_if_false(temp != NULL && 
+			cst_string != NULL && var_string != NULL && dif_string != NULL &&
+			mth_string != NULL && val_string != NULL && jac_string != NULL,
+			"allocating temporary strings");
+	int n_cst_string, n_var_string, n_dif_string, n_mth_string, n_jac_string;
+	int var_offset, dif_offset, mth_offset, jac_offset;
+	int dif[2];
+
+	// fetch the constants
+	if(fetch_value(file,"constant",'s',cst_string) != FETCH_SUCCESS) cst_string[0] = '\0';
+	n_cst_string = strlen(cst_string);
 
 	for(i = 0; i < n_fetch; i ++)
 	{
+		// initial allocation
+		t[n].n_variables = MAX_TERM_N_VARIABLES;
+		exit_if_false(t[n].variable = allocate_term_variable(&t[n]),"allocating term variables");
+		exit_if_false(t[n].differential = allocate_term_differential(&t[n]),"allocating term differentials");
+		exit_if_false(t[n].method = allocate_term_method(&t[n]),"allocating term methods");
+		exit_if_false(t[n].jacobian = allocate_term_jacobian(&t[n]),"allocating term jacobians");
+		t[n].n_variables = 0;
+
 		//equation
 		fetch_get(fetch, i, 0, &t[n].equation);
 
@@ -638,24 +654,34 @@ void terms_input(FILE *file, int *n_terms, struct TERM **term)
 		fetch_get(fetch, i, 1, &t[n].type);
 		warn_if_false(t[n].type == 's' || t[n].type == 'x' || t[n].type == 'y',"skipping term with unrecognised type");
 
-		//get the variable, differential and power strings
-		fetch_get(fetch, i, 2, var_string);
-		fetch_get(fetch, i, 3, dif_string);
-		fetch_get(fetch, i, 4, pow_string);
-		for(j = 0; j < strlen(var_string); j ++) if(var_string[j] == ',') var_string[j] = ' ';
-		for(j = 0; j < strlen(dif_string); j ++) if(dif_string[j] == ',') dif_string[j] = ' ';
-		for(j = 0; j < strlen(pow_string); j ++) if(pow_string[j] == ',') pow_string[j] = ' ';
+		//implicit fraction
+		fetch_get(fetch, i, 2, &t[n].implicit);
+
+		// value expression string
+		fetch_get(fetch, i, 6, val_string);
+		sprintf(&cst_string[n_cst_string],";%s",val_string);
+		t[n].residual = expression_generate(cst_string);
+		cst_string[n_cst_string] = '\0';
+
+		//get the variable, differential, method and jacobian expression strings
+		fetch_get(fetch, i, 3, var_string); n_var_string = strlen(var_string);
+		fetch_get(fetch, i, 4, dif_string); n_dif_string = strlen(dif_string);
+		fetch_get(fetch, i, 5, mth_string); n_mth_string = strlen(mth_string);
+		fetch_get(fetch, i, 7, jac_string); n_jac_string = strlen(jac_string);
+		for(j = 0; j < n_var_string; j ++) if(var_string[j] == ',') var_string[j] = '\0';
+		for(j = 0; j < n_dif_string; j ++) if(dif_string[j] == ',') dif_string[j] = '\0';
+		for(j = 0; j < n_mth_string; j ++) if(mth_string[j] == ',') mth_string[j] = '\0';
+		for(j = 0; j < n_jac_string; j ++) if(jac_string[j] == ',') jac_string[j] = '\0';
 
 		//read each variable in turn
-		var_offset = dif_offset = pow_offset = t[n].n_variables = 0;
-		while(var_offset < strlen(var_string))
+		var_offset = dif_offset = mth_offset = jac_offset = t[n].n_variables = 0;
+		while(var_offset < n_var_string)
 		{
 			info = 1;
 
-			//read the variable index from the string
-			info *= sscanf(&var_string[var_offset],"%s",temp) == 1;
-			info *= sscanf(temp,"%i",&vars[t[n].n_variables]) == 1;
-			var_offset += strlen(temp) + 1;
+			//read the variable indices
+			info *= sscanf(&var_string[var_offset],"%i",&t[n].variable[t[n].n_variables]) == 1;
+			var_offset += strlen(&var_string[var_offset]) + 1;
 
 			//read the x and y differentials and convert to a differential index
 			info *= sscanf(&dif_string[dif_offset],"%s",temp) == 1;
@@ -668,44 +694,32 @@ void terms_input(FILE *file, int *n_terms, struct TERM **term)
 					dif[1] += (temp[j] == 'y');
 					j ++;
 				}
-				difs[t[n].n_variables] = powers_taylor[dif[0]][dif[1]];
+				t[n].differential[t[n].n_variables] = powers_taylor[dif[0]][dif[1]];
 			}
-			dif_offset += strlen(temp) + 1;
+			dif_offset += strlen(&dif_string[dif_offset]) + 1;
 
-			//read the variable powers from the string
-			info *= sscanf(&pow_string[pow_offset],"%s",temp) == 1;
-			info *= sscanf(temp,"%i",&pows[t[n].n_variables]) == 1;
-			pow_offset += strlen(temp) + 1;
+			//read the methods
+			info *= sscanf(&mth_string[mth_offset],"%c",&t[n].method[t[n].n_variables]) == 1;
+			mth_offset += strlen(&mth_string[mth_offset]) + 1;
 
+			//read the jacobian expressions
+			info *= sprintf(&cst_string[n_cst_string],";%s",&jac_string[jac_offset]) > 0;
+			t[n].jacobian[t[n].n_variables] = expression_generate(cst_string);
+			cst_string[n_cst_string] = '\0';
+			jac_offset += strlen(&jac_string[jac_offset]) + 1;
+
+			// warn
 			warn_if_false(info,"skipping term with unrecognised variable format");
-			if(!info) continue;
 
 			//next variable
-			t[n].n_variables ++;
+			if(info) t[n].n_variables ++;
 		}
 
-		//allocate the variable and differential arrays
-		exit_if_false(t[n].variable = allocate_term_variable(&t[n]),"allocating term variables");
-		exit_if_false(t[n].differential = allocate_term_differential(&t[n]),"allocating term differentials");
-		exit_if_false(t[n].power = allocate_term_power(&t[n]),"allocating term powers");
-		exit_if_false(t[n].method = allocate_term_method(&t[n]),"allocating term method");
-
-		//copy over
-		for(j = 0; j < t[n].n_variables; j ++)
-		{
-			t[n].variable[j] = vars[j];
-			t[n].differential[j] = difs[j];
-			t[n].power[j] = pows[j];
-		}
-
-		//method
-		fetch_get(fetch, i, 5, t[n].method);
-
-		//constant
-		fetch_get(fetch, i, 6, &t[n].implicit);
-
-		//constant
-		fetch_get(fetch, i, 7, &t[n].constant);
+		//re-allocate
+		exit_if_false(t[n].variable = allocate_term_variable(&t[n]),"re-allocating term variables");
+		exit_if_false(t[n].differential = allocate_term_differential(&t[n]),"re-allocating term differentials");
+		exit_if_false(t[n].method = allocate_term_method(&t[n]),"re-allocating term methods");
+		exit_if_false(t[n].jacobian = allocate_term_jacobian(&t[n]),"re-allocating term jacobians");
 
 		//increment the number of terms
 		n ++;
@@ -720,13 +734,13 @@ void terms_input(FILE *file, int *n_terms, struct TERM **term)
 
 	//clean up
 	fetch_destroy(fetch);
+	free(cst_string);
 	free(var_string);
 	free(dif_string);
-	free(pow_string);
+	free(mth_string);
+	free(val_string);
+	free(jac_string);
 	free(temp);
-	free(vars);
-	free(difs);
-	free(pows);
 }
 
 //////////////////////////////////////////////////////////////////

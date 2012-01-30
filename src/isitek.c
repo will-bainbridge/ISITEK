@@ -180,7 +180,6 @@ int main(int argc, char *argv[])
 	exit_if_false(du = (double *)malloc(n_u * sizeof(double)),"allocating du");
 	exit_if_false(u_old = (double *)realloc(u_old, n_u * sizeof(double)),"re-allocating u_old");
 
-
 	// iterate
 	n_outer_iterations += outer_iteration;
 	for(; outer_iteration < n_outer_iterations; outer_iteration ++)

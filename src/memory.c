@@ -2,6 +2,7 @@
 
 #include <stdlib.h>
 
+#include "expression.h"
 #include "memory.h"
 #include "structure.h"
 
@@ -452,7 +453,7 @@ struct TERM * allocate_terms(int n_terms)
 	if(new == NULL) return NULL;
 
 	int i;
-	struct TERM z = {'\0',0,0,NULL,NULL,NULL,'\0',0.0};
+	struct TERM z = {0,'\0',0.0,0,NULL,NULL,NULL,NULL,NULL};
 	for(i = 0; i < n_terms; i ++) new[i] = z;
 
 	return new;
@@ -468,25 +469,27 @@ int * allocate_term_differential(struct TERM *term)
 	return (int *)realloc(term->differential, term->n_variables * sizeof(int));
 }
 
-int * allocate_term_power(struct TERM *term)
-{
-	return (int *)realloc(term->power, term->n_variables * sizeof(int));
-}
-
 char * allocate_term_method(struct TERM *term)
 {
 	return (char *)realloc(term->method, (term->n_variables + 1) * sizeof(char));
 }
 
+EXPRESSION * allocate_term_jacobian(struct TERM *term)
+{
+	return (EXPRESSION *)realloc(term->jacobian, term->n_variables * sizeof(EXPRESSION));
+}
+
 void destroy_terms(int n_terms, struct TERM *term)
 {
-	int i;
+	int i, j;
 	for(i = 0; i < n_terms; i ++)
 	{
 		free(term[i].variable);
 		free(term[i].differential);
-		free(term[i].power);
 		free(term[i].method);
+		if(term[i].residual) expression_destroy(term[i].residual);
+		for(j = 0; j < term[i].n_variables; j ++) if(term[i].jacobian[j]) expression_destroy(term[i].jacobian[j]);
+		free(term[i].jacobian);
 	}
 	free(term);
 }

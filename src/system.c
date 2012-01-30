@@ -2,6 +2,7 @@
 
 #include "isitek.h"
 #include "constants.h"
+#include "expression.h"
 
 void dcopy_(int *n, double *X, int *incx, double *Y, int *incy);
 void dscal_(int *n, double *alpha, double *X, int *incx);
@@ -247,15 +248,21 @@ void calculate_system(int n_variables, int *variable_order, int n_elements, stru
 	exit_if_false(local_adjacent = allocate_integer_tensor(NULL,MAX_ELEMENT_N_FACES,n_variables,max_n_basis),"allocating adjcent local indices");
 
 	// working arrays
-	double *basis_value, *basis_value_old, **point_value, **point_value_old, *point_multiple;
+	double *basis_value, *basis_value_old, **point_value, **point_value_old, *point_term, *point_term_old;
 	exit_if_false(basis_value = (double *)malloc((2*max_n_basis + MAX_FACE_N_BOUNDARIES) * sizeof(double)),"allocating basis values");
 	exit_if_false(basis_value_old = (double *)malloc((2*max_n_basis + MAX_FACE_N_BOUNDARIES) * sizeof(double)),"allocating old basis values");
 	exit_if_false(point_value = allocate_double_matrix(NULL,max_term_n_variables,MAX(n_gauss,(MAX_ELEMENT_N_FACES-1)*n_hammer)),"allocating point values");
 	exit_if_false(point_value_old = allocate_double_matrix(NULL,max_term_n_variables,MAX(n_gauss,(MAX_ELEMENT_N_FACES-1)*n_hammer)),"allocating old point values");
-	exit_if_false(point_multiple = (double *)malloc(MAX(n_gauss,(MAX_ELEMENT_N_FACES-1)*n_hammer) * sizeof(double)),"allocating point multiples");
-
+	exit_if_false(point_term = (double *)malloc(MAX(n_gauss,(MAX_ELEMENT_N_FACES-1)*n_hammer) * sizeof(double)),"allocating point term values");
+	exit_if_false(point_term_old = (double *)malloc(MAX(n_gauss,(MAX_ELEMENT_N_FACES-1)*n_hammer) * sizeof(double)),"allocating old point term values");
 	int lda = MAX(n_gauss,(MAX_ELEMENT_N_FACES-1)*n_hammer);
 	double **A = allocate_double_matrix(NULL,max_n_basis,lda);
+
+	// expression parser working memory
+	int expression_max_recusions = 0;
+	for(t = 0; t < n_terms; t ++) expression_max_recusions = MAX(expression_max_recusions,expression_number_of_recursions(term[t].residual));
+	double **expression_work;
+	exit_if_false(expression_work = allocate_double_matrix(NULL,expression_max_recusions,MAX(n_gauss,(MAX_ELEMENT_N_FACES-1)*n_hammer)),"allocating expression work");
 
 	// loop over the elements
 	for(e = 0; e < n_elements; e ++)
@@ -346,16 +353,12 @@ void calculate_system(int n_variables, int *variable_order, int n_elements, stru
 			{
 				v = term[t].variable[i]; d = term[t].differential[i];
 
-				for(p = 0; p < n_points; p ++)
-				{
-					point_multiple[p] = - term[t].power[i] * term[t].implicit * term[t].constant * element[e].W[p];
-					for(j = 0; j < term[t].n_variables; j ++) point_multiple[p] *=
-						pow( point_value[j][p] , term[t].power[j] - (i == j) );
-				}
+				expression_evaluate(n_points, point_term, term[t].jacobian[i], point_value, expression_work);
+				for(p = 0; p < n_points; p ++) point_term[p] *= - element[e].W[p] * term[t].implicit;
 
 				for(j = 0; j < n_basis[q]; j ++)
 					for(p = 0; p < n_points; p ++)
-						A[j][p] = element[e].P[x][j][p] * point_multiple[p];
+						A[j][p] = element[e].P[x][j][p] * point_term[p];
 
 				dgemm_(&trans[1],&trans[0],&n_basis[v],&n_basis[q],&n_points,
 						&one,
@@ -363,23 +366,17 @@ void calculate_system(int n_variables, int *variable_order, int n_elements, stru
 						A[0],&lda,
 						&one,
 						&local_value[local_element[q][0]][local_element[v][0]],&ldl);
-
 			}
 
 			// residual
-			for(p = 0; p < n_points; p ++)
-			{
-				point_multiple[p] = - term[t].constant * element[e].W[p];
-				for(i = 0; i < term[t].n_variables; i ++)
-					point_multiple[p] *=
-						term[t].implicit * pow( point_value[i][p] , term[t].power[i] ) +
-						(1.0 - term[t].implicit) * pow( point_value_old[i][p] , term[t].power[i] );
-
-			}
+			expression_evaluate(n_points, point_term, term[t].residual, point_value, expression_work);
+			expression_evaluate(n_points, point_term_old, term[t].residual, point_value_old, expression_work);
+			for(p = 0; p < n_points; p ++) point_term[p] = - element[e].W[p] *
+				(term[t].implicit * point_term[p] + (1.0 - term[t].implicit) * point_term_old[p]);
 			dgemv_(&trans[1],&n_points,&n_basis[q],
 					&one,
 					element[e].P[x][0],&n_points,
-					point_multiple,&unit,
+					point_term,&unit,
 					&one,
 					&local_residual[local_element[q][0]],&unit);
 			
@@ -434,17 +431,13 @@ void calculate_system(int n_variables, int *variable_order, int n_elements, stru
 				{
 					v = term[t].variable[i]; d = term[t].differential[i];
 
-					for(p = 0; p < n_gauss; p ++)
-					{
-						point_multiple[p] = element[e].orient[a] * element[e].face[a]->normal[x] *
-							term[t].power[i] * term[t].implicit * term[t].constant * element[e].face[a]->W[p];
-						for(j = 0; j < term[t].n_variables; j ++) point_multiple[p] *=
-							pow( point_value[j][p] , term[t].power[j] - (i == j) );
-					}
+					expression_evaluate(n_gauss, point_term, term[t].jacobian[i], point_value, expression_work);
+					for(p = 0; p < n_gauss; p ++) point_term[p] *= element[e].orient[a] *
+						element[e].face[a]->normal[x] * term[t].implicit * element[e].face[a]->W[p];
 
 					for(j = 0; j < n_basis[q]; j ++)
 						for(p = 0; p < n_gauss; p ++)
-							A[j][p] = element[e].Q[a][j][p] * point_multiple[p];
+							A[j][p] = element[e].Q[a][j][p] * point_term[p];
 
 					if(term[t].method[i] == 'i')
 					{
@@ -465,19 +458,15 @@ void calculate_system(int n_variables, int *variable_order, int n_elements, stru
 				}
 
 				// residual
-				for(p = 0; p < n_gauss; p ++)
-				{
-					point_multiple[p] = element[e].orient[a] * element[e].face[a]->normal[x] *
-						term[t].constant * element[e].face[a]->W[p];
-					for(i = 0; i < term[t].n_variables; i ++)
-						point_multiple[p] *=
-							term[t].implicit * pow( point_value[i][p] , term[t].power[i] ) +
-							(1.0 - term[t].implicit) * pow( point_value_old[i][p] , term[t].power[i] );
-				}
+				expression_evaluate(n_gauss, point_term, term[t].residual, point_value, expression_work);
+				expression_evaluate(n_gauss, point_term_old, term[t].residual, point_value_old, expression_work);
+				for(p = 0; p < n_gauss; p ++) point_term[p] = element[e].orient[a] * element[e].face[a]->normal[x] * element[e].face[a]->W[p] *
+					(term[t].implicit * point_term[p] + (1.0 - term[t].implicit) * point_term_old[p]);
+
 				dgemv_(&trans[1],&n_gauss,&n_basis[q],
 						&one,
 						element[e].Q[a][0],&n_gauss,
-						point_multiple,&unit,
+						point_term,&unit,
 						&one,
 						&local_residual[local_element[q][0]],&unit);
 			}
@@ -505,8 +494,11 @@ void calculate_system(int n_variables, int *variable_order, int n_elements, stru
 	free(basis_value_old);
 	destroy_matrix((void *)point_value);
 	destroy_matrix((void *)point_value_old);
-	free(point_multiple);
+	free(point_term);
+	free(point_term_old);
 	destroy_matrix((void *)A);
+
+	destroy_matrix((void *)expression_work);
 }
 
 //////////////////////////////////////////////////////////////////

@@ -74,7 +74,6 @@ struct s_EXPRESSION
 };
 
 void expression_simplify(EXPRESSION expression);
-void expression_print(EXPRESSION expression);
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -363,6 +362,8 @@ void expression_evaluate(int n, double *value, EXPRESSION expression, double **s
 
 void expression_simplify(EXPRESSION expression)
 {
+	if(expression[0].type == END || expression[1].type == END) return;
+
 	int i = 0, j, n;
 	int type;
 	double value;

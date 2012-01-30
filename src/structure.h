@@ -1,6 +1,8 @@
 #ifndef STRUCTURE_H
 #define STRUCTURE_H
 
+#include "expression.h"
+
 struct NODE
 {
 	double x[2];
@@ -57,13 +59,13 @@ struct TERM
 {
 	int equation;
 	char type;
+	double implicit;
 	int n_variables;
 	int *variable;
 	int *differential;
-	int *power;
 	char *method;
-	double implicit;
-	double constant;
+	EXPRESSION residual;
+	EXPRESSION *jacobian;
 };
 
 #endif

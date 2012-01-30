@@ -1,6 +1,8 @@
 #ifndef MEMORY_H
 #define MEMORY_H
 
+#include "expression.h"
+
 int ** allocate_integer_matrix(int **old, int height, int width);
 double ** allocate_double_matrix(double **old, int height, int width);
 char ** allocate_character_matrix(char **old, int height, int width);
@@ -39,8 +41,8 @@ void destroy_boundaries(int n_boundaries, struct BOUNDARY *boundary);
 struct TERM * allocate_terms(int n_terms);
 int * allocate_term_variable(struct TERM *term);
 int * allocate_term_differential(struct TERM *term);
-int * allocate_term_power(struct TERM *term);
 char * allocate_term_method(struct TERM *term);
+EXPRESSION * allocate_term_jacobian(struct TERM *term);
 void destroy_terms(int n_terms, struct TERM *term);
 
 #endif
