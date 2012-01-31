@@ -233,9 +233,9 @@ void calculate_system(int n_variables, int *variable_order, int n_elements, stru
 	exit_if_false(local_residual = (double *)malloc(sum_n_basis * sizeof(double)),"allocating local residuals");
 
 	// indices into the local dense system
-	int **local_element, ***local_adjacent;
-	exit_if_false(local_element = allocate_integer_matrix(NULL,n_variables,max_n_basis),"allocating element local indices");
-	exit_if_false(local_adjacent = allocate_integer_tensor(NULL,MAX_ELEMENT_N_FACES,n_variables,max_n_basis),"allocating adjcent local indices");
+	int *local_element, **local_adjacent;
+	exit_if_false(local_element = (int *)malloc(n_variables * sizeof(int)),"allocating element local indices");
+	exit_if_false(local_adjacent = allocate_integer_matrix(NULL,MAX_ELEMENT_N_FACES,n_variables),"allocating adjcent local indices");
 
 	// working arrays
 	double *basis_value, *basis_value_old, **point_value, **point_value_old, *point_term, *point_term_old;
@@ -265,14 +265,18 @@ void calculate_system(int n_variables, int *variable_order, int n_elements, stru
 		// local system indices
 		local_n = 0;
 		for(v = 0; v < n_variables; v ++)
-			for(i = 0; i < n_basis[v]; i ++)
-				local_element[v][i] = local_n ++;
+		{
+			local_element[v] = local_n;
+			local_n += n_basis[v];
+		}
 		for(a = 0; a < element[e].n_faces; a ++)
 			for(i = 0; i < element[e].face[a]->n_borders; i ++)
 				if(element[e].face[a]->border[i] != &element[e])
 					for(v = 0; v < n_variables; v ++)
-						for(j = 0; j < n_basis[v]; j ++)
-							local_adjacent[a][v][j] = local_n ++;
+					{
+						local_adjacent[a][v] = local_n;
+						local_n += n_basis[v];
+					}
 
 		// initialise the local system
 		for(i = 0; i < sum_n_basis; i ++)
@@ -335,7 +339,7 @@ void calculate_system(int n_variables, int *variable_order, int n_elements, stru
 						element[e].P[d][0],&n_points,
 						A[0],&lda,
 						&one,
-						&local_value[local_element[q][0]][local_element[v][0]],&ldl);
+						&local_value[local_element[q]][local_element[v]],&ldl);
 			}
 
 			// residual
@@ -348,7 +352,7 @@ void calculate_system(int n_variables, int *variable_order, int n_elements, stru
 					element[e].P[x][0],&n_points,
 					point_term,&unit,
 					&one,
-					&local_residual[local_element[q][0]],&unit);
+					&local_residual[local_element[q]],&unit);
 			
 			// break if a source term
 			if(term[t].type == 's') continue;
@@ -415,13 +419,13 @@ void calculate_system(int n_variables, int *variable_order, int n_elements, stru
 					{
 						for(j = 0; j < element[e].face[a]->n_borders; j ++)
 						{
-							b = element[e].face[a]->border[j] == &element[e] ? local_element[v][0] : local_adjacent[a][v][0];
+							b = element[e].face[a]->border[j] == &element[e] ? local_element[v] : local_adjacent[a][v];
 							dgemm_(&trans[1],&trans[0],&n_basis[v],&n_basis[q],&n_gauss,
 									&one,
 									element[e].face[a]->Q[v][d][j*n_basis[v]],&n_gauss,
 									A[0],&lda,
 									&one,
-									&local_value[local_element[q][0]][b],&ldl);
+									&local_value[local_element[q]][b],&ldl);
 						}
 					}
 				}
@@ -436,7 +440,7 @@ void calculate_system(int n_variables, int *variable_order, int n_elements, stru
 						element[e].Q[a][0],&n_gauss,
 						point_term,&unit,
 						&one,
-						&local_residual[local_element[q][0]],&unit);
+						&local_residual[local_element[q]],&unit);
 			}
 		}
 
@@ -445,8 +449,8 @@ void calculate_system(int n_variables, int *variable_order, int n_elements, stru
 		{
 			for(i = 0; i < n_basis[v]; i ++)
 			{
-				sparse_set_row_values(system, element[e].unknown[v][i], local_value[local_element[v][i]]);
-				residual[element[e].unknown[v][i]] = local_residual[local_element[v][i]];
+				sparse_set_row_values(system, element[e].unknown[v][i], local_value[local_element[v]+i]);
+				residual[element[e].unknown[v][i]] = local_residual[local_element[v]+i];
 			}
 		}
 	}
@@ -455,8 +459,8 @@ void calculate_system(int n_variables, int *variable_order, int n_elements, stru
 
 	free(local_residual);
 	destroy_matrix((void *)local_value);
-	destroy_matrix((void *)local_element);
-	destroy_tensor((void *)local_adjacent);
+	free(local_element);
+	destroy_matrix((void *)local_adjacent);
 
 	free(basis_value);
 	free(basis_value_old);
