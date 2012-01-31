@@ -3,8 +3,8 @@
 case_file_path cylinder.case
 geometry_file_path cylinder.geometry
 
-number_of_outer_iterations 2000
-number_of_inner_iterations 3
+number_of_outer_iterations 1
+number_of_inner_iterations 10
 
 data_file_path cylinder.?.data
 #initial_data_file_path cylinder.0.data
@@ -41,11 +41,11 @@ term 0 x 1.0 1       0       i       $0 1.0
 term 0 y 1.0 2       0       i       $0 1.0
 term 1 s 1.0 1       0       -       $0/dt 1/dt
 term 1 s 0.0 1       0       -       0-$0/dt 0-1/dt
-term 1 x 1.0 0,1,1   0,0,x   i,i,i   0-$0-rho*$1^2+2*mu/rho*$2 0-1.0,0-2.0*rho*$1,2.0*mu/rho
+term 1 x 1.0 0,1,1   0,0,x   i,i,i   0-$0-rho*$1*$1+2*mu/rho*$2 0-1.0,0-2.0*rho*$1,2.0*mu/rho
 term 1 y 1.0 1,2,1,2 0,0,y,x i,i,i,i 0-rho*$0*$1+mu/rho*($2+$3) 0-rho*$1,0-rho*$0,mu/rho,mu/rho
 term 2 s 1.0 2       0       -       $0/dt 1/dt
 term 2 s 0.0 2       0       -       0-$0/dt 0-1/dt
-term 2 y 1.0 0,2,2   0,0,y   i,i,i   0-$0-rho*$1^2+2*mu/rho*$2 0-1.0,0-2.0*rho*$1,2.0*mu/rho
+term 2 y 1.0 0,2,2   0,0,y   i,i,i   0-$0-rho*$1*$1+2*mu/rho*$2 0-1.0,0-2.0*rho*$1,2.0*mu/rho
 term 2 x 1.0 1,2,1,2 0,0,y,x i,i,i,i 0-rho*$0*$1+mu/rho*($2+$3) 0-rho*$1,0-rho*$0,mu/rho,mu/rho
 
 #------------------------------------------------------------------------------#

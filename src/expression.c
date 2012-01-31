@@ -330,7 +330,17 @@ void expression_evaluate(int n, double *value, EXPRESSION expression, double **s
 
 	while(expression[e].type != END)
 	{
-		if(IS_OPERATOR(expression[e].type))
+		if(expression[e].type == VALUE)
+		{
+			for(i = 0; i < n; i ++) work[w][i] = expression[e].value;
+			w ++;
+		}
+		else if(expression[e].type >= SUBSTITUTE_ZERO)
+		{
+			for(i = 0; i < n; i ++) work[w][i] = substitute[expression[e].type - SUBSTITUTE_ZERO][i];
+			w ++;
+		}
+		else if(IS_OPERATOR(expression[e].type))
 		{
 			switch(expression[e].type)
 			{
@@ -341,16 +351,6 @@ void expression_evaluate(int n, double *value, EXPRESSION expression, double **s
 				case MINUS   : for(i = 0; i < n; i ++) work[w-2][i] =      work[w-2][i] - work[w-1][i]  ; break;
 			}
 			w --;
-		}
-		else if(expression[e].type == VALUE)
-		{
-			for(i = 0; i < n; i ++) work[w][i] = expression[e].value;
-			w ++;
-		}
-		else if(expression[e].type >= SUBSTITUTE_ZERO)
-		{
-			for(i = 0; i < n; i ++) work[w][i] = substitute[expression[e].type - SUBSTITUTE_ZERO][i];
-			w ++;
 		}
 		e ++;
 	}

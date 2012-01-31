@@ -226,16 +226,9 @@ void calculate_system(int n_variables, int *variable_order, int n_elements, stru
 	int max_term_n_variables = 0;
 	for(t = 0; t < n_terms; t ++) max_term_n_variables = MAX(max_term_n_variables,term[t].n_variables);
 
-	// connectivity
-	struct ELEMENT **adjacent;
-	exit_if_false(adjacent = (struct ELEMENT **)malloc(MAX_ELEMENT_N_FACES * sizeof(struct ELEMENT *)),"allocating adjacent");
-
 	// local dense system
-	int local_n, *local_row, *local_index;
 	double **local_value, *local_residual;
-	int ldl = (1+MAX_ELEMENT_N_FACES)*sum_n_basis;
-	exit_if_false(local_row = (int *)malloc(sum_n_basis * sizeof(int)),"allocating local rows");
-	exit_if_false(local_index = (int *)malloc((1+MAX_ELEMENT_N_FACES) * sum_n_basis * sizeof(int)),"allocating local indices");
+	int local_n, ldl = (1+MAX_ELEMENT_N_FACES)*sum_n_basis;
 	exit_if_false(local_value = allocate_double_matrix(NULL,sum_n_basis,(1+MAX_ELEMENT_N_FACES)*sum_n_basis),"allocating local values");
 	exit_if_false(local_residual = (double *)malloc(sum_n_basis * sizeof(double)),"allocating local residuals");
 
@@ -255,7 +248,7 @@ void calculate_system(int n_variables, int *variable_order, int n_elements, stru
 	int lda = MAX(n_gauss,(MAX_ELEMENT_N_FACES-1)*n_hammer);
 	double **A = allocate_double_matrix(NULL,max_n_basis,lda);
 
-	// expression parser working memory
+	// expression evaluation working memory
 	int expression_max_recusions = 0;
 	for(t = 0; t < n_terms; t ++) expression_max_recusions = MAX(expression_max_recusions,expression_number_of_recursions(term[t].residual));
 	double **expression_work;
@@ -264,37 +257,19 @@ void calculate_system(int n_variables, int *variable_order, int n_elements, stru
 	// loop over the elements
 	for(e = 0; e < n_elements; e ++)
 	{
-		// adjacent elements
-		for(a = 0; a < element[e].n_faces; a ++)
-		{
-			adjacent[a] = NULL;
-			for(i = 0; i < element[e].face[a]->n_borders; i ++)
-				if(element[e].face[a]->border[i] != &element[e])
-					adjacent[a] = element[e].face[a]->border[i];
-		}
-
-		// local system
+		// local system indices
 		local_n = 0;
 		for(v = 0; v < n_variables; v ++)
-		{
 			for(i = 0; i < n_basis[v]; i ++)
-			{
-				local_row[local_n] = local_index[local_n] = element[e].unknown[v][i];
 				local_element[v][i] = local_n ++;
-			}
-		}
 		for(a = 0; a < element[e].n_faces; a ++)
-		{
-			if(adjacent[a] == NULL) continue;
-			for(v = 0; v < n_variables; v ++)
-			{
-				for(i = 0; i < n_basis[v]; i ++)
-				{
-					local_index[local_n] = adjacent[a]->unknown[v][i];
-					local_adjacent[a][v][i] = local_n ++;
-				}
-			}
-		}
+			for(i = 0; i < element[e].face[a]->n_borders; i ++)
+				if(element[e].face[a]->border[i] != &element[e])
+					for(v = 0; v < n_variables; v ++)
+						for(j = 0; j < n_basis[v]; j ++)
+							local_adjacent[a][v][j] = local_n ++;
+
+		// initialise the local system
 		for(i = 0; i < sum_n_basis; i ++)
 			for(j = 0; j < local_n; j ++)
 				local_value[i][j] = 0.0;
@@ -470,18 +445,20 @@ void calculate_system(int n_variables, int *variable_order, int n_elements, stru
 		}
 
 		// add to the global system
-		for(i = 0; i < sum_n_basis; i ++)
+		for(v = 0; v < n_variables; v ++)
 		{
-			sparse_set_row_values(system, local_row[i], local_value[i]);
-			residual[local_row[i]] = local_residual[i];
+			for(i = 0; i < n_basis[v]; i ++)
+			{
+				sparse_set_row_values(system, element[e].unknown[v][i], local_value[local_element[v][i]]);
+				residual[element[e].unknown[v][i]] = local_residual[local_element[v][i]];
+			}
 		}
+
+
 	}
 
 	free(n_basis);
-	free(adjacent);
 
-	free(local_row);
-	free(local_index);
 	free(local_residual);
 	destroy_matrix((void *)local_value);
 	destroy_matrix((void *)local_element);
