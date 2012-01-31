@@ -210,7 +210,7 @@ void initialise_system(int n_variables, int *variable_order, int n_elements, str
 
 void calculate_system(int n_variables, int *variable_order, int n_elements, struct ELEMENT *element, int n_terms, struct TERM *term, double *u_old, double *u, SPARSE system, double *residual)
 {
-	int a, d, e, i, j, k, p, q, t, v;
+	int a, b, d, e, i, j, k, n, p, q, t, v, x;
 
 	// orders and numbers of bases
 	int max_variable_order = 0;
@@ -254,6 +254,11 @@ void calculate_system(int n_variables, int *variable_order, int n_elements, stru
 	double **expression_work;
 	exit_if_false(expression_work = allocate_double_matrix(NULL,expression_max_recusions,MAX(n_gauss,(MAX_ELEMENT_N_FACES-1)*n_hammer)),"allocating expression work");
 
+	// blas parameters
+	char trans[2] = "NT";
+	int unit = 1;
+	double one = 1.0, zero = 0.0;
+
 	// loop over the elements
 	for(e = 0; e < n_elements; e ++)
 	{
@@ -278,13 +283,6 @@ void calculate_system(int n_variables, int *variable_order, int n_elements, stru
 
 		// integration points
 		n_points = (element[e].n_faces - 2)*n_hammer;
-
-		char trans[2] = "NT";
-		int unit = 1;
-		double one = 1.0, zero = 0.0;
-		int x;
-		int n;
-		int index;
 
 		// loop over the terms
 		for(t = 0; t < n_terms; t ++)
@@ -369,17 +367,20 @@ void calculate_system(int n_variables, int *variable_order, int n_elements, stru
 					v = term[t].variable[i]; d = term[t].differential[i];
 
 					for(j = 0; j < element[e].face[a]->n_borders; j ++)
+					{
 						for(k = 0; k < n_basis[v]; k ++)
 						{
 							basis_value[k+j*n_basis[v]] = u[element[e].face[a]->border[j]->unknown[v][k]];
 							basis_value_old[k+j*n_basis[v]] = u_old[element[e].face[a]->border[j]->unknown[v][k]];
 						}
+					}
 					for(j = 0; j < element[e].face[a]->n_boundaries[v]; j ++)
-						basis_value[j+element[e].face[a]->n_borders*n_basis[v]] = 
-							basis_value_old[j+element[e].face[a]->n_borders*n_basis[v]] = 
-							element[e].face[a]->boundary[v][j]->value;
+					{
+						basis_value[j+element[e].face[a]->n_borders*n_basis[v]] = element[e].face[a]->boundary[v][j]->value;
+						basis_value_old[j+element[e].face[a]->n_borders*n_basis[v]] = element[e].face[a]->boundary[v][j]->value;
+					}
 
-					if(term[t].method[i] == 'i')
+					if(term[t].method[i] == 'r' || d != powers_taylor[0][0] || element[e].face[a]->n_borders == 0 || element[e].face[a]->n_boundaries[v])
 					{
 						n = element[e].face[a]->n_borders*n_basis[v] + element[e].face[a]->n_boundaries[v];
 						dgemv_(&trans[0],&n_gauss,&n,
@@ -395,7 +396,6 @@ void calculate_system(int n_variables, int *variable_order, int n_elements, stru
 								&zero,
 								point_value_old[i],&unit);
 					}
-					else exit_if_false(0,"flux types other than \"i\" have not been implemented yet");
 				}
 
 				// jacobian
@@ -411,22 +411,19 @@ void calculate_system(int n_variables, int *variable_order, int n_elements, stru
 						for(p = 0; p < n_gauss; p ++)
 							A[j][p] = element[e].Q[a][j][p] * point_term[p];
 
-					if(term[t].method[i] == 'i')
+					if(term[t].method[i] == 'r' || d != powers_taylor[0][0] || element[e].face[a]->n_borders == 0 || element[e].face[a]->n_boundaries[v])
 					{
 						for(j = 0; j < element[e].face[a]->n_borders; j ++)
 						{
-							index = element[e].face[a]->border[j] == &element[e] ?
-								local_element[v][0] : local_adjacent[a][v][0];
-
+							b = element[e].face[a]->border[j] == &element[e] ? local_element[v][0] : local_adjacent[a][v][0];
 							dgemm_(&trans[1],&trans[0],&n_basis[v],&n_basis[q],&n_gauss,
 									&one,
 									element[e].face[a]->Q[v][d][j*n_basis[v]],&n_gauss,
 									A[0],&lda,
 									&one,
-									&local_value[local_element[q][0]][index],&ldl);
+									&local_value[local_element[q][0]][b],&ldl);
 						}
 					}
-					else exit_if_false(0,"flux types other than \"i\" have not been implemented yet");
 				}
 
 				// residual
@@ -434,7 +431,6 @@ void calculate_system(int n_variables, int *variable_order, int n_elements, stru
 				expression_evaluate(n_gauss, point_term_old, term[t].residual, point_value_old, expression_work);
 				for(p = 0; p < n_gauss; p ++) point_term[p] = element[e].orient[a] * element[e].face[a]->normal[x] * element[e].face[a]->W[p] *
 					(term[t].implicit * point_term[p] + (1.0 - term[t].implicit) * point_term_old[p]);
-
 				dgemv_(&trans[1],&n_gauss,&n_basis[q],
 						&one,
 						element[e].Q[a][0],&n_gauss,
@@ -453,8 +449,6 @@ void calculate_system(int n_variables, int *variable_order, int n_elements, stru
 				residual[element[e].unknown[v][i]] = local_residual[local_element[v][i]];
 			}
 		}
-
-
 	}
 
 	free(n_basis);
