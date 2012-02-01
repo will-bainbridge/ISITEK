@@ -511,7 +511,7 @@ void boundaries_input(FILE *file, int n_faces, struct FACE *face, int *n_boundar
 	FETCH fetch = fetch_new(BOUNDARY_FORMAT, MAX_N_BOUNDARIES);
 	exit_if_false(fetch != NULL,"allocating boundary input");
 	int n_fetch = fetch_read(file, BOUNDARY_LABEL, fetch);
-	exit_if_false(n_fetch > 1,"no boundaries found in input file");
+	exit_if_false(n_fetch > 0,"no boundaries found in input file");
 	warn_if_false(n_fetch < MAX_N_BOUNDARIES,"maximum number of boundaries reached");
 
 	//allocate boundaries
@@ -607,7 +607,7 @@ void terms_input(FILE *file, int *n_terms, struct TERM **term)
 	FETCH fetch = fetch_new(TERM_FORMAT,MAX_N_TERMS);
 	exit_if_false(fetch != NULL,"allocating fetch");
 	int n_fetch = fetch_read(file,TERM_LABEL,fetch);
-	exit_if_false(n_fetch > 1,"no terms found in input file");
+	exit_if_false(n_fetch > 0,"no terms found in input file");
 	warn_if_false(n_fetch < MAX_N_TERMS,"maximum number of terms reached");
 
 	//allocate pointers

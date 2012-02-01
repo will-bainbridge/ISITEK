@@ -434,7 +434,7 @@ void calculate_system(int n_variables, int *variable_order, int n_faces, struct 
 					basis_value_old[j+face[f].n_borders*n_basis[v]] = face[f].boundary[v][j]->value;
 				}
 
-				if(term[t].method[i] == 'r' || d != powers_taylor[0][0] || face[f].n_borders < 2 || face[f].n_boundaries[v])
+				if(term[t].method[i] == 'i' || d != powers_taylor[0][0] || face[f].n_borders < 2 || face[f].n_boundaries[v])
 				{
 					n = face[f].n_borders*n_basis[v] + face[f].n_boundaries[v];
 					dgemv_(&trans[0],&n_gauss,&n,
@@ -488,7 +488,7 @@ void calculate_system(int n_variables, int *variable_order, int n_faces, struct 
 						for(p = 0; p < n_gauss; p ++)
 							A[j][p] = face[f].border[b]->Q[opposite[b]][j][p] * point_term[p];
 
-					if(term[t].method[i] == 'r' || d != powers_taylor[0][0] || face[f].n_borders < 2 || face[f].n_boundaries[v])
+					if(term[t].method[i] == 'i' || d != powers_taylor[0][0] || face[f].n_borders < 2 || face[f].n_boundaries[v])
 					{
 						alpha = face[f].border[b]->orient[opposite[b]];
 						for(j = 0; j < face[f].n_borders; j ++)
