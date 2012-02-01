@@ -9,6 +9,8 @@ void sparse_destroy(SPARSE sparse);
 void sparse_print(SPARSE sparse);
 void sparse_set_row_indices(SPARSE sparse, int row, int *index);
 void sparse_set_row_values(SPARSE sparse, int row, double *value);
+void sparse_add_to_row_values(SPARSE sparse, int row, double *value);
+void sparse_set_zero(SPARSE sparse);
 int sparse_solve_umfpack(SPARSE sparse, double *x, double *b);
 
 #define SPARSE_SUCCESS 1
