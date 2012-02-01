@@ -32,22 +32,22 @@ boundary 604:617,618:631,632:645,646:659 2 d 0.0
 constant rho=1.0;mu=0.002;dt=0.1
 
 # term > equation type implicit variables differentials methods residual jacobian
-term 0 x 1.0 1       0       r       $0                         1.0
-term 0 y 1.0 2       0       r       $0                         1.0
+term 0 x 1.0 1       0       i       $0                         1.0
+term 0 y 1.0 2       0       i       $0                         1.0
 #erm 1 s 1.0 1       0       -       $0/dt                      1/dt
 #erm 1 s 0.0 1       0       -       0-$0/dt                    0-1/dt
-term 1 x 1.0 0,1,1   0,0,x   r,r,r   0-$0-rho*$1*$1+2*mu/rho*$2 0-1.0,0-2.0*rho*$1,2.0*mu/rho
-term 1 y 1.0 1,2,1,2 0,0,y,x r,r,r,r 0-rho*$0*$1+mu/rho*($2+$3) 0-rho*$1,0-rho*$0,mu/rho,mu/rho
+term 1 x 1.0 0,1,1   0,0,x   a,i,i   0-$0-rho*$1*$1+2*mu/rho*$2 0-1.0,0-2.0*rho*$1,2.0*mu/rho
+term 1 y 1.0 1,2,1,2 0,0,y,x i,i,i,i 0-rho*$0*$1+mu/rho*($2+$3) 0-rho*$1,0-rho*$0,mu/rho,mu/rho
 #erm 2 s 1.0 2       0       -       $0/dt                      1/dt
 #erm 2 s 0.0 2       0       -       0-$0/dt                    0-1/dt
-term 2 y 1.0 0,2,2   0,0,y   r,r,r   0-$0-rho*$1*$1+2*mu/rho*$2 0-1.0,0-2.0*rho*$1,2.0*mu/rho
-term 2 x 1.0 1,2,1,2 0,0,y,x r,r,r,r 0-rho*$0*$1+mu/rho*($2+$3) 0-rho*$1,0-rho*$0,mu/rho,mu/rho
+term 2 y 1.0 0,2,2   0,0,y   a,i,i   0-$0-rho*$1*$1+2*mu/rho*$2 0-1.0,0-2.0*rho*$1,2.0*mu/rho
+term 2 x 1.0 1,2,1,2 0,0,y,x i,i,i,i 0-rho*$0*$1+mu/rho*($2+$3) 0-rho*$1,0-rho*$0,mu/rho,mu/rho
 
 #------------------------------------------------------------------------------#
 
-## centred pressure
-#term 0 y 1.0 2,2     0       i,o     0.5*($0+$1)                   0.5,0.5
-## upwind advection
-#term 2 x 1.0 1,2,1,2 0,0,0,0 i,i,o,o 0-w*rho*$0*$1-(1-w)*rho*$2*$3 0-w*rho*$1,0-w*rho*$0,0-(1-w)*rho*$3,0-(1-w)*rho*$2
+## upwinding
+#w=($0*nx+$1*ny>0.0)-0.5
+#term 2 y 1.0 1,2,2   0,0,0   a,a,d   -rho*($2+w*$3)**2        0.0,-2.0*rho*($2+w*$3),-2.0*rho*w*($2+w*$3)
+#term 2 x 1.0 1,2,1,2 0,0,0,0 a,a,d,d -rho*($0+w*$2)*($1+w*$3) -rho*($1+w*$3),-rho*($0+w*$2),-rho*w*($1+w*$3),-rho*w*($0+w*$2)
 
 #------------------------------------------------------------------------------#

@@ -114,6 +114,23 @@ void sparse_set_row_values(SPARSE sparse, int row, double *value)
 
 //////////////////////////////////////////////////////////////////
 
+void sparse_add_to_row_values(SPARSE sparse, int row, double *value)
+{
+	int i, r = sparse->row[row], n = sparse->row[row+1] - r;
+
+	for(i = 0; i < n; i ++) sparse->value[r+i] += value[sparse->order[r+i]];
+}
+
+//////////////////////////////////////////////////////////////////
+
+void sparse_set_zero(SPARSE sparse)
+{
+	int i;
+	for(i = 0; i < sparse->row[sparse->n]; i ++) sparse->value[i] = 0.0;
+}
+
+//////////////////////////////////////////////////////////////////
+
 int sparse_solve_umfpack(SPARSE sparse, double *x, double *b)
 {
 	double info[UMFPACK_INFO], control[UMFPACK_CONTROL];

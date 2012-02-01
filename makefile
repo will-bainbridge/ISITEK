@@ -10,8 +10,8 @@ THIRDPATH	= $(HOMEPATH)/thirdparty
 INCLUDE		+= -I$(THIRDPATH)/UMFPACK/Include -I$(THIRDPATH)/AMD/Include -I$(THIRDPATH)/UFconfig
 LIBRARY		+= -L$(THIRDPATH)/UMFPACK/Lib -L$(THIRDPATH)/AMD/Lib -lumfpack -lamd
 
-#LIBRARY		+= -llapack -lblas
-LIBRARY		+= -L$(THIRDPATH)/GotoBLAS2 -Wl,-R$(THIRDPATH)/GotoBLAS2 -lgoto2
+LIBRARY		+= -llapack -lblas
+#LIBRARY		+= -L$(THIRDPATH)/GotoBLAS2 -Wl,-R$(THIRDPATH)/GotoBLAS2 -lgoto2
 
 LIBRARY		+= -lm -lrt -lgfortran
 
