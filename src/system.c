@@ -210,7 +210,7 @@ void initialise_system(int n_variables, int *variable_order, int n_elements, str
 
 void calculate_system(int n_variables, int *variable_order, int n_elements, struct ELEMENT *element, int n_terms, struct TERM *term, double *u_old, double *u, SPARSE system, double *residual)
 {
-	int a, b, d, e, i, j, k, n, p, q, t, v, x;
+	int b, d, e, f, i, j, k, n, p, q, t, v, x;
 
 	// orders and numbers of bases
 	int max_variable_order = 0;
@@ -269,12 +269,12 @@ void calculate_system(int n_variables, int *variable_order, int n_elements, stru
 			local_element[v] = local_n;
 			local_n += n_basis[v];
 		}
-		for(a = 0; a < element[e].n_faces; a ++)
-			for(i = 0; i < element[e].face[a]->n_borders; i ++)
-				if(element[e].face[a]->border[i] != &element[e])
+		for(f = 0; f < element[e].n_faces; f ++)
+			for(i = 0; i < element[e].face[f]->n_borders; i ++)
+				if(element[e].face[f]->border[i] != &element[e])
 					for(v = 0; v < n_variables; v ++)
 					{
-						local_adjacent[a][v] = local_n;
+						local_adjacent[f][v] = local_n;
 						local_n += n_basis[v];
 					}
 
@@ -363,39 +363,39 @@ void calculate_system(int n_variables, int *variable_order, int n_elements, stru
 			x = term[t].type == 'y';
 
 			// loop over the adjacent elements
-			for(a = 0; a < element[e].n_faces; a ++)
+			for(f = 0; f < element[e].n_faces; f ++)
 			{
 				// values at the intergration points
 				for(i = 0; i < term[t].n_variables; i ++)
 				{
 					v = term[t].variable[i]; d = term[t].differential[i];
 
-					for(j = 0; j < element[e].face[a]->n_borders; j ++)
+					for(j = 0; j < element[e].face[f]->n_borders; j ++)
 					{
 						for(k = 0; k < n_basis[v]; k ++)
 						{
-							basis_value[k+j*n_basis[v]] = u[element[e].face[a]->border[j]->unknown[v][k]];
-							basis_value_old[k+j*n_basis[v]] = u_old[element[e].face[a]->border[j]->unknown[v][k]];
+							basis_value[k+j*n_basis[v]] = u[element[e].face[f]->border[j]->unknown[v][k]];
+							basis_value_old[k+j*n_basis[v]] = u_old[element[e].face[f]->border[j]->unknown[v][k]];
 						}
 					}
-					for(j = 0; j < element[e].face[a]->n_boundaries[v]; j ++)
+					for(j = 0; j < element[e].face[f]->n_boundaries[v]; j ++)
 					{
-						basis_value[j+element[e].face[a]->n_borders*n_basis[v]] = element[e].face[a]->boundary[v][j]->value;
-						basis_value_old[j+element[e].face[a]->n_borders*n_basis[v]] = element[e].face[a]->boundary[v][j]->value;
+						basis_value[j+element[e].face[f]->n_borders*n_basis[v]] = element[e].face[f]->boundary[v][j]->value;
+						basis_value_old[j+element[e].face[f]->n_borders*n_basis[v]] = element[e].face[f]->boundary[v][j]->value;
 					}
 
-					if(term[t].method[i] == 'r' || d != powers_taylor[0][0] || element[e].face[a]->n_borders == 0 || element[e].face[a]->n_boundaries[v])
+					if(term[t].method[i] == 'r' || d != powers_taylor[0][0] || element[e].face[f]->n_borders == 0 || element[e].face[f]->n_boundaries[v])
 					{
-						n = element[e].face[a]->n_borders*n_basis[v] + element[e].face[a]->n_boundaries[v];
+						n = element[e].face[f]->n_borders*n_basis[v] + element[e].face[f]->n_boundaries[v];
 						dgemv_(&trans[0],&n_gauss,&n,
 								&one,
-								element[e].face[a]->Q[v][d][0],&n_gauss,
+								element[e].face[f]->Q[v][d][0],&n_gauss,
 								basis_value,&unit,
 								&zero,
 								point_value[i],&unit);
 						dgemv_(&trans[0],&n_gauss,&n,
 								&one,
-								element[e].face[a]->Q[v][d][0],&n_gauss,
+								element[e].face[f]->Q[v][d][0],&n_gauss,
 								basis_value_old,&unit,
 								&zero,
 								point_value_old[i],&unit);
@@ -408,21 +408,21 @@ void calculate_system(int n_variables, int *variable_order, int n_elements, stru
 					v = term[t].variable[i]; d = term[t].differential[i];
 
 					expression_evaluate(n_gauss, point_term, term[t].jacobian[i], point_value, expression_work);
-					for(p = 0; p < n_gauss; p ++) point_term[p] *= element[e].orient[a] *
-						element[e].face[a]->normal[x] * term[t].implicit * element[e].face[a]->W[p];
+					for(p = 0; p < n_gauss; p ++) point_term[p] *= element[e].orient[f] *
+						element[e].face[f]->normal[x] * term[t].implicit * element[e].face[f]->W[p];
 
 					for(j = 0; j < n_basis[q]; j ++)
 						for(p = 0; p < n_gauss; p ++)
-							A[j][p] = element[e].Q[a][j][p] * point_term[p];
+							A[j][p] = element[e].Q[f][j][p] * point_term[p];
 
-					if(term[t].method[i] == 'r' || d != powers_taylor[0][0] || element[e].face[a]->n_borders == 0 || element[e].face[a]->n_boundaries[v])
+					if(term[t].method[i] == 'r' || d != powers_taylor[0][0] || element[e].face[f]->n_borders == 0 || element[e].face[f]->n_boundaries[v])
 					{
-						for(j = 0; j < element[e].face[a]->n_borders; j ++)
+						for(j = 0; j < element[e].face[f]->n_borders; j ++)
 						{
-							b = element[e].face[a]->border[j] == &element[e] ? local_element[v] : local_adjacent[a][v];
+							b = element[e].face[f]->border[j] == &element[e] ? local_element[v] : local_adjacent[f][v];
 							dgemm_(&trans[1],&trans[0],&n_basis[v],&n_basis[q],&n_gauss,
 									&one,
-									element[e].face[a]->Q[v][d][j*n_basis[v]],&n_gauss,
+									element[e].face[f]->Q[v][d][j*n_basis[v]],&n_gauss,
 									A[0],&lda,
 									&one,
 									&local_value[local_element[q]][b],&ldl);
@@ -433,11 +433,11 @@ void calculate_system(int n_variables, int *variable_order, int n_elements, stru
 				// residual
 				expression_evaluate(n_gauss, point_term, term[t].residual, point_value, expression_work);
 				expression_evaluate(n_gauss, point_term_old, term[t].residual, point_value_old, expression_work);
-				for(p = 0; p < n_gauss; p ++) point_term[p] = element[e].orient[a] * element[e].face[a]->normal[x] * element[e].face[a]->W[p] *
+				for(p = 0; p < n_gauss; p ++) point_term[p] = element[e].orient[f] * element[e].face[f]->normal[x] * element[e].face[f]->W[p] *
 					(term[t].implicit * point_term[p] + (1.0 - term[t].implicit) * point_term_old[p]);
 				dgemv_(&trans[1],&n_gauss,&n_basis[q],
 						&one,
-						element[e].Q[a][0],&n_gauss,
+						element[e].Q[f][0],&n_gauss,
 						point_term,&unit,
 						&one,
 						&local_residual[local_element[q]],&unit);
