@@ -24,7 +24,6 @@ void update_face_numerics(int n_variables_old, int n_variables, int *variable_or
 void initialise_values(int n_variables, int *variable_order, int n_elements, struct ELEMENT *element, double *initial, double *u);
 void initialise_system(int n_variables, int *variable_order, int n_elements, struct ELEMENT *element, int n_u, SPARSE *system);
 
-//void calculate_system(int n_variables, int *variable_order, int n_elements, struct ELEMENT *element, int n_terms, struct TERM *term, double *u_old, double *u, SPARSE system, double *residual);
 void calculate_system(int n_variables, int *variable_order, int n_faces, struct FACE *face, int n_elements, struct ELEMENT *element, int n_terms, struct TERM *term, int n_u, double *u_old, double *u, SPARSE system, double *residual);
 void calculate_maximum_residuals(int n_variables, int *variable_order, int n_elements, struct ELEMENT *element, double *residual, double *max_residual);
 
@@ -43,6 +42,8 @@ void write_display(FILE *file, int n_variables, int n_elements, struct ELEMENT *
 int main(int argc, char *argv[])
 {
 	exit_if_false(argc == 2,"exactly two input arguments required");
+
+	setvbuf(stdout, NULL, _IONBF, 0);
 
 	int i, n;
 
@@ -186,7 +187,6 @@ int main(int argc, char *argv[])
 	for(; outer_iteration < n_outer_iterations; outer_iteration ++)
 	{
 		printf("iteration %i\n", outer_iteration);
-		fflush(stdout);
 
 		for(i = 0; i < n_u; i ++) u_old[i] = u[i];
 
@@ -200,7 +200,6 @@ int main(int argc, char *argv[])
 			calculate_maximum_residuals(n_variables, variable_order, n_elements, element, residual, max_residual);
 			for(i = 0; i < n_variables; i ++) printf("%.10e ",max_residual[i]);
 			printf("\n");
-			fflush(stdout);
 		}
 
 		if(data_n_outer_iterations && outer_iteration % data_n_outer_iterations == 0)

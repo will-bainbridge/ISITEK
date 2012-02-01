@@ -112,6 +112,8 @@ void sparse_set_row_values(SPARSE sparse, int row, double *value)
 	for(i = 0; i < n; i ++) sparse->value[r+i] = value[sparse->order[r+i]];
 }
 
+//////////////////////////////////////////////////////////////////
+
 void sparse_add_to_row_values(SPARSE sparse, int row, double *value)
 {
 	int i, r = sparse->row[row], n = sparse->row[row+1] - r;

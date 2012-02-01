@@ -4,7 +4,7 @@ case_file_path cavity.case
 geometry_file_path cavity.tri.geometry
 
 number_of_outer_iterations 1
-number_of_inner_iterations 1
+number_of_inner_iterations 10
 
 data_file_path cavity.?.data
 #initial_data_file_path cavity.000000000.data

@@ -1,5 +1,5 @@
 COMPILER	= gcc
-FLAG		= -g -Wall
+FLAG		= -O2 -Wall
 
 HOMEPATH	= $(shell pwd)
 BUILDPATH	= $(HOMEPATH)/src
