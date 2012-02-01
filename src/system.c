@@ -258,7 +258,7 @@ void calculate_system(int n_variables, int *variable_order, int n_faces, struct 
 	// blas parameters
 	char trans[2] = "NT";
 	int int_0 = 0, int_1 = 1;
-	double dbl_0 = 0.0, dbl_1 = 1.0, dbl_h = 0.5, alpha;
+	double dbl_0 = 0.0, dbl_1 = 1.0, alpha;
 
 	// zero the system
 	sparse_set_zero(system);
@@ -450,21 +450,22 @@ void calculate_system(int n_variables, int *variable_order, int n_faces, struct 
 							&dbl_0,
 							point_value_old[i],&int_1);
 				}
-				else if(term[t].method[i] == 'a')
+				else if(term[t].method[i] == 'a' || term[t].method[i] == 'd')
 				{
 					dcopy_(&n_gauss,&dbl_0,&int_0,point_value[i],&int_1);
 					dcopy_(&n_gauss,&dbl_0,&int_0,point_value_old[i],&int_1);
 
 					for(b = 0; b < face[f].n_borders; b ++)
 					{
+						alpha = term[t].method[i] == 'a' ? 0.5 : 0.5 * face[f].border[b]->orient[opposite[b]];
 						dgemv_(&trans[0],&n_gauss,&n_basis[v],
-								&dbl_h,
+								&alpha,
 								face[f].border[b]->Q[opposite[b]][0],&n_gauss,
 								&basis_value[b*n_basis[v]],&int_1,
 								&dbl_1,
 								point_value[i],&int_1);
 						dgemv_(&trans[0],&n_gauss,&n_basis[v],
-								&dbl_h,
+								&alpha,
 								face[f].border[b]->Q[opposite[b]][0],&n_gauss,
 								&basis_value_old[b*n_basis[v]],&int_1,
 								&dbl_1,
@@ -472,6 +473,11 @@ void calculate_system(int n_variables, int *variable_order, int n_faces, struct 
 					}
 				}
 			}
+
+			//dcopy(&n_gauss,&face[f].X[0],&int_1,point_value[term[t].n_variables],&int_1);
+			//dcopy(&n_gauss,&face[f].X[1],&int_1,point_value[term[t].n_variables+1],&int_1);
+			//dcopy(&n_gauss,&face[f].normal[0],&int_0,point_value[term[t].n_variables+2],&int_1);
+			//dcopy(&n_gauss,&face[f].normal[1],&int_0,point_value[term[t].n_variables+3],&int_1);
 
 			// jacobian
 			for(i = 0; i < term[t].n_variables; i ++)
@@ -501,7 +507,7 @@ void calculate_system(int n_variables, int *variable_order, int n_faces, struct 
 									&local_value[b][local_element[q]][j == b ? local_element[v] : local_adjacent[b][v]],&ldl);
 						}
 					}
-					else if(term[t].method[i] == 'a')
+					else if(term[t].method[i] == 'a' || term[t].method[i] == 'd')
 					{
 						alpha = 0.5 * face[f].border[b]->orient[opposite[b]];
 						for(j = 0; j < face[f].n_borders; j ++)

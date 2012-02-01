@@ -18,7 +18,7 @@ LIBRARY		+= -lm -lrt -lgfortran
 #------------------------------------------------------------------------------#
 
 MAINFILES	= isitek.c
-COMMONFILES	= expression.c fetch.c geometry.c io.c memory.c numerics.c sparse.c system.c
+COMMONFILES	= constants.c expression.c fetch.c geometry.c io.c memory.c numerics.c sparse.c system.c
 
 MAINSOURCE	= $(addprefix $(BUILDPATH)/,$(MAINFILES))
 COMMONSOURCE 	= $(addprefix $(BUILDPATH)/,$(COMMONFILES))
