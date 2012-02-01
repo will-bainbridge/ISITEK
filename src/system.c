@@ -231,9 +231,9 @@ void calculate_system(int n_variables, int *variable_order, int n_faces, struct 
 	exit_if_false(local_residual = allocate_double_matrix(NULL,MAX_FACE_N_BORDERS,sum_n_basis),"allocating local residuals");
 
 	// indices into the local dense system
-	int *local_element, **local_index;
+	int *local_element, **local_adjacent;
 	exit_if_false(local_element = (int *)malloc(n_variables * sizeof(int)),"allocating element local indices");
-	exit_if_false(local_index = allocate_integer_matrix(NULL,MAX_FACE_N_BORDERS,n_variables),"allocating local indices");
+	exit_if_false(local_adjacent = allocate_integer_matrix(NULL,MAX_FACE_N_BORDERS,n_variables),"allocating adjacent local indices");
 
 	// working arrays
 	double *basis_value, *basis_value_old, **point_value, **point_value_old, *point_term, *point_term_old;
@@ -257,12 +257,12 @@ void calculate_system(int n_variables, int *variable_order, int n_faces, struct 
 
 	// blas parameters
 	char trans[2] = "NT";
-	int unit = 1;
-	double one = 1.0, zero = 0.0, alpha;
+	int int_0 = 0, int_1 = 1;
+	double dbl_0 = 0.0, dbl_1 = 1.0, dbl_h = 0.5, alpha;
 
 	// zero the system
 	sparse_set_zero(system);
-	for(i = 0; i < n_u; i ++) residual[i] = 0.0;
+	dcopy_(&n_u,&dbl_0,&int_0,residual,&int_1);
 
 	// loop over the elements
 	for(e = 0; e < n_elements; e ++)
@@ -275,12 +275,11 @@ void calculate_system(int n_variables, int *variable_order, int n_faces, struct 
 			local_n += n_basis[v];
 		}
 
-		// initialise the local system
-		for(i = 0; i < sum_n_basis; i ++)
-		{
-			local_residual[0][i] = 0.0;
-			for(j = 0; j < ldl; j ++) local_value[0][i][j] = 0.0;
-		}
+		// zero the local system
+		n = sum_n_basis;
+		dcopy_(&n,&dbl_0,&int_0,local_residual[0],&int_1);
+		n = sum_n_basis*ldl;
+		dcopy_(&n,&dbl_0,&int_0,local_value[0][0],&int_1);
 
 		// integration points
 		n_points = (element[e].n_faces - 2)*n_hammer;
@@ -295,7 +294,8 @@ void calculate_system(int n_variables, int *variable_order, int n_faces, struct 
 			// values at the intergration points
 			for(i = 0; i < term[t].n_variables; i ++)
 			{
-				v = term[t].variable[i]; d = term[t].differential[i];
+				v = term[t].variable[i];
+				d = term[t].differential[i];
 
 				for(j = 0; j < n_basis[v]; j ++)
 				{
@@ -304,23 +304,24 @@ void calculate_system(int n_variables, int *variable_order, int n_faces, struct 
 				}
 
 				dgemv_(&trans[0],&n_points,&n_basis[v],
-						&one,
+						&dbl_1,
 						element[e].P[d][0],&n_points,
-						basis_value,&unit,
-						&zero,
-						point_value[i],&unit);
+						basis_value,&int_1,
+						&dbl_0,
+						point_value[i],&int_1);
 				dgemv_(&trans[0],&n_points,&n_basis[v],
-						&one,
+						&dbl_1,
 						element[e].P[d][0],&n_points,
-						basis_value_old,&unit,
-						&zero,
-						point_value_old[i],&unit);
+						basis_value_old,&int_1,
+						&dbl_0,
+						point_value_old[i],&int_1);
 			}
 
 			// jacobian
 			for(i = 0; i < term[t].n_variables; i ++)
 			{
-				v = term[t].variable[i]; d = term[t].differential[i];
+				v = term[t].variable[i];
+				d = term[t].differential[i];
 
 				expression_evaluate(n_points, point_term, term[t].jacobian[i], point_value, expression_work);
 				for(p = 0; p < n_points; p ++) point_term[p] *= - element[e].W[p] * term[t].implicit;
@@ -330,10 +331,10 @@ void calculate_system(int n_variables, int *variable_order, int n_faces, struct 
 						A[j][p] = element[e].P[x][j][p] * point_term[p];
 
 				dgemm_(&trans[1],&trans[0],&n_basis[v],&n_basis[q],&n_points,
-						&one,
+						&dbl_1,
 						element[e].P[d][0],&n_points,
 						A[0],&lda,
-						&one,
+						&dbl_1,
 						&local_value[0][local_element[q]][local_element[v]],&ldl);
 			}
 
@@ -343,11 +344,11 @@ void calculate_system(int n_variables, int *variable_order, int n_faces, struct 
 			for(p = 0; p < n_points; p ++) point_term[p] = - element[e].W[p] *
 				(term[t].implicit * point_term[p] + (1.0 - term[t].implicit) * point_term_old[p]);
 			dgemv_(&trans[1],&n_points,&n_basis[q],
-					&one,
+					&dbl_1,
 					element[e].P[x][0],&n_points,
-					point_term,&unit,
-					&one,
-					&local_residual[0][local_element[q]],&unit);
+					point_term,&int_1,
+					&dbl_1,
+					&local_residual[0][local_element[q]],&int_1);
 		}
 
 		// add to the global system
@@ -381,7 +382,7 @@ void calculate_system(int n_variables, int *variable_order, int n_faces, struct 
 					opposite[b] = i;
 					for(v = 0; v < n_variables; v ++)
 					{
-						local_index[b][v] = local_n;
+						local_adjacent[b][v] = local_n;
 						local_n += n_basis[v];
 					}
 				}
@@ -399,14 +400,10 @@ void calculate_system(int n_variables, int *variable_order, int n_faces, struct 
 		}
 
 		// initialise the local system
-		for(b = 0; b < face[f].n_borders; b ++)
-		{
-			for(i = 0; i < sum_n_basis; i ++)
-			{
-				local_residual[b][i] = 0.0;
-				for(j = 0; j < ldl; j ++) local_value[b][i][j] = 0.0;
-			}
-		}
+		n = face[f].n_borders*sum_n_basis;
+		dcopy_(&n,&dbl_0,&int_0,local_residual[0],&int_1);
+		n = face[f].n_borders*sum_n_basis*ldl;
+		dcopy_(&n,&dbl_0,&int_0,local_value[0][0],&int_1);
 
 		// loop over the terms
 		for(t = 0; t < n_terms; t ++)
@@ -420,7 +417,8 @@ void calculate_system(int n_variables, int *variable_order, int n_faces, struct 
 			// values at the intergration points
 			for(i = 0; i < term[t].n_variables; i ++)
 			{
-				v = term[t].variable[i]; d = term[t].differential[i];
+				v = term[t].variable[i];
+				d = term[t].differential[i];
 
 				for(j = 0; j < face[f].n_borders; j ++)
 				{
@@ -436,28 +434,50 @@ void calculate_system(int n_variables, int *variable_order, int n_faces, struct 
 					basis_value_old[j+face[f].n_borders*n_basis[v]] = face[f].boundary[v][j]->value;
 				}
 
-				if(term[t].method[i] == 'r' || d != powers_taylor[0][0] || face[f].n_borders == 0 || face[f].n_boundaries[v])
+				if(term[t].method[i] == 'r' || d != powers_taylor[0][0] || face[f].n_borders < 2 || face[f].n_boundaries[v])
 				{
 					n = face[f].n_borders*n_basis[v] + face[f].n_boundaries[v];
 					dgemv_(&trans[0],&n_gauss,&n,
-							&one,
+							&dbl_1,
 							face[f].Q[v][d][0],&n_gauss,
-							basis_value,&unit,
-							&zero,
-							point_value[i],&unit);
+							basis_value,&int_1,
+							&dbl_0,
+							point_value[i],&int_1);
 					dgemv_(&trans[0],&n_gauss,&n,
-							&one,
+							&dbl_1,
 							face[f].Q[v][d][0],&n_gauss,
-							basis_value_old,&unit,
-							&zero,
-							point_value_old[i],&unit);
+							basis_value_old,&int_1,
+							&dbl_0,
+							point_value_old[i],&int_1);
+				}
+				else if(term[t].method[i] == 'a')
+				{
+					dcopy_(&n_gauss,&dbl_0,&int_0,point_value[i],&int_1);
+					dcopy_(&n_gauss,&dbl_0,&int_0,point_value_old[i],&int_1);
+
+					for(b = 0; b < face[f].n_borders; b ++)
+					{
+						dgemv_(&trans[0],&n_gauss,&n_basis[v],
+								&dbl_h,
+								face[f].border[b]->Q[opposite[b]][0],&n_gauss,
+								&basis_value[b*n_basis[v]],&int_1,
+								&dbl_1,
+								point_value[i],&int_1);
+						dgemv_(&trans[0],&n_gauss,&n_basis[v],
+								&dbl_h,
+								face[f].border[b]->Q[opposite[b]][0],&n_gauss,
+								&basis_value_old[b*n_basis[v]],&int_1,
+								&dbl_1,
+								point_value_old[i],&int_1);
+					}
 				}
 			}
 
 			// jacobian
 			for(i = 0; i < term[t].n_variables; i ++)
 			{
-				v = term[t].variable[i]; d = term[t].differential[i];
+				v = term[t].variable[i];
+				d = term[t].differential[i];
 
 				expression_evaluate(n_gauss, point_term, term[t].jacobian[i], point_value, expression_work);
 				for(p = 0; p < n_gauss; p ++) point_term[p] *= face[f].normal[x] * term[t].implicit * face[f].W[p];
@@ -466,18 +486,32 @@ void calculate_system(int n_variables, int *variable_order, int n_faces, struct 
 				{
 					for(j = 0; j < n_basis[q]; j ++)
 						for(p = 0; p < n_gauss; p ++)
-							A[j][p] = face[f].border[b]->Q[opposite[b]][j][p] * face[f].border[b]->orient[opposite[b]] * point_term[p];
+							A[j][p] = face[f].border[b]->Q[opposite[b]][j][p] * point_term[p];
 
-					if(term[t].method[i] == 'r' || d != powers_taylor[0][0] || face[f].n_borders == 0 || face[f].n_boundaries[v])
+					if(term[t].method[i] == 'r' || d != powers_taylor[0][0] || face[f].n_borders < 2 || face[f].n_boundaries[v])
 					{
+						alpha = face[f].border[b]->orient[opposite[b]];
 						for(j = 0; j < face[f].n_borders; j ++)
 						{
 							dgemm_(&trans[1],&trans[0],&n_basis[v],&n_basis[q],&n_gauss,
-									&one,
+									&alpha,
 									face[f].Q[v][d][j*n_basis[v]],&n_gauss,
 									A[0],&lda,
-									&one,
-									&local_value[b][local_element[q]][j == b ? local_element[v] : local_index[b][v]],&ldl);
+									&dbl_1,
+									&local_value[b][local_element[q]][j == b ? local_element[v] : local_adjacent[b][v]],&ldl);
+						}
+					}
+					else if(term[t].method[i] == 'a')
+					{
+						alpha = 0.5 * face[f].border[b]->orient[opposite[b]];
+						for(j = 0; j < face[f].n_borders; j ++)
+						{
+							dgemm_(&trans[1],&trans[0],&n_basis[v],&n_basis[q],&n_gauss,
+									&alpha,
+									face[f].border[j]->Q[opposite[j]][0],&n_gauss,
+									A[0],&lda,
+									&dbl_1,
+									&local_value[b][local_element[q]][j == b ? local_element[v] : local_adjacent[b][v]],&ldl);
 						}
 					}
 				}
@@ -486,17 +520,17 @@ void calculate_system(int n_variables, int *variable_order, int n_faces, struct 
 			// residual
 			expression_evaluate(n_gauss, point_term, term[t].residual, point_value, expression_work);
 			expression_evaluate(n_gauss, point_term_old, term[t].residual, point_value_old, expression_work);
-			for(p = 0; p < n_gauss; p ++)
-				point_term[p] = face[f].normal[x] * face[f].W[p] * (term[t].implicit * point_term[p] + (1.0 - term[t].implicit) * point_term_old[p]);
+			for(p = 0; p < n_gauss; p ++) point_term[p] = face[f].normal[x] * face[f].W[p] *
+				(term[t].implicit * point_term[p] + (1.0 - term[t].implicit) * point_term_old[p]);
 			for(b = 0; b < face[f].n_borders; b ++)
 			{
 				alpha = face[f].border[b]->orient[opposite[b]];
 				dgemv_(&trans[1],&n_gauss,&n_basis[q],
 						&alpha,
 						face[f].border[b]->Q[opposite[b]][0],&n_gauss,
-						point_term,&unit,
-						&one,
-						&local_residual[b][local_element[q]],&unit);
+						point_term,&int_1,
+						&dbl_1,
+						&local_residual[b][local_element[q]],&int_1);
 			}
 		}
 
@@ -519,7 +553,7 @@ void calculate_system(int n_variables, int *variable_order, int n_faces, struct 
 	destroy_matrix((void *)local_residual);
 	destroy_tensor((void *)local_value);
 	free(local_element);
-	destroy_matrix((void *)local_index);
+	destroy_matrix((void *)local_adjacent);
 
 	free(basis_value);
 	free(basis_value_old);
