@@ -17,6 +17,8 @@ void element_read_case(FILE *file, int n_variables, int *n_basis, int n_gauss, i
 void boundary_write_case(FILE *file, struct FACE *face, struct BOUNDARY *boundary);
 void boundary_read_case(FILE *file, struct FACE *face, struct BOUNDARY *boundary);
 
+int add_geometry_to_expression_string(char *string);
+
 #define MAX_N_INDICES 1000
 
 #define MAX_N_BOUNDARIES 20
@@ -659,9 +661,9 @@ void terms_input(FILE *file, int *n_terms, struct TERM **term)
 
 		// value expression string
 		fetch_get(fetch, i, 6, val_string);
-		sprintf(&cst_string[n_cst_string],";%s",val_string);
-		exit_if_false(t[n].residual = expression_generate(cst_string),"generating term residual expression");
-		cst_string[n_cst_string] = '\0';
+		sprintf(temp,"%s;%s",cst_string,val_string);
+		exit_if_false(add_geometry_to_expression_string(temp),"adding geometry to the residual expression string");
+		exit_if_false(t[n].residual = expression_generate(temp),"generating term residual expression");
 
 		//get the variable, differential, method and jacobian expression strings
 		fetch_get(fetch, i, 3, var_string); n_var_string = strlen(var_string);
@@ -703,9 +705,9 @@ void terms_input(FILE *file, int *n_terms, struct TERM **term)
 			mth_offset += strlen(&mth_string[mth_offset]) + 1;
 
 			//read the jacobian expressions
-			info *= sprintf(&cst_string[n_cst_string],";%s",&jac_string[jac_offset]) > 0;
-			info *= (t[n].jacobian[t[n].n_variables] = expression_generate(cst_string)) != NULL;
-			cst_string[n_cst_string] = '\0';
+			info *= sprintf(temp,"%s;%s",cst_string,&jac_string[jac_offset]) > 0;
+			info *= add_geometry_to_expression_string(temp);
+			info *= (t[n].jacobian[t[n].n_variables] = expression_generate(temp)) != NULL;
 			jac_offset += strlen(&jac_string[jac_offset]) + 1;
 
 			// warn
@@ -741,6 +743,47 @@ void terms_input(FILE *file, int *n_terms, struct TERM **term)
 	free(val_string);
 	free(jac_string);
 	free(temp);
+}
+
+//////////////////////////////////////////////////////////////////
+
+int add_geometry_to_expression_string(char *string)
+{
+	int i, j, s;
+	char *label, location_labels[] = EXPRESSION_LOCATION_LABELS, normal_labels[] = EXPRESSION_NORMAL_LABELS;
+	char *temp = (char *)malloc(MAX_STRING_LENGTH * sizeof(char));
+	exit_if_false(temp != NULL,"allocating temporary string");
+
+	for(i = 0; i < strlen(string); i ++)
+	{
+		if(string[i] == '$')
+		{
+			if(sscanf(&string[i+1],"%i",&s) == 1)
+			{
+				s += EXPRESSION_VARIABLE_INDEX;
+				j = i + 1;
+				while('0' <= string[j] && string[j] <= '9') j ++;
+			}
+			else if((label = strchr(location_labels,string[i+1])) != NULL)
+			{
+				s = (int)(label - location_labels) + EXPRESSION_LOCATION_INDEX;
+				j = i + 2;
+			}
+			else if((label = strchr(normal_labels,string[i+1])) != NULL)
+			{
+				s = (int)(label - normal_labels) + EXPRESSION_NORMAL_INDEX;
+				j = i + 2;
+			}
+			else return 0;
+
+			sprintf(temp,"$%i%s",s,&string[j]);
+			strcpy(&string[i],temp);
+		}
+	}
+
+	free(temp);
+
+	return 1;
 }
 
 //////////////////////////////////////////////////////////////////

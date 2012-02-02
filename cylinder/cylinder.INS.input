@@ -3,8 +3,8 @@
 case_file_path cylinder.INS.case
 geometry_file_path cylinder.geometry
 
-number_of_outer_iterations 1000
-number_of_inner_iterations 3
+number_of_outer_iterations 1
+number_of_inner_iterations 10
 
 data_file_path cylinder.INS.?.data
 #initial_data_file_path cylinder.INS.000000000.data
@@ -30,17 +30,17 @@ boundary 9396:9445,9471:9520,9521:9545,9546:9608 2 d 0.0
 
 #------------------------------------------------------------------------------#
 
-constant rho=1.0;mu=0.005;dt=0.1
+constant rho=1.0;mu=0.02;dt=0.1
 
 # term > equation type implicit variables differentials methods residual jacobian
 term 0 x 1.0 1       0       i       $0                     1
 term 0 y 1.0 2       0       i       $0                     1
-term 1 s 1.0 1       0       -       rho/dt*$0              rho/dt
-term 1 s 0.0 1       0       -       0-rho/dt*$0            0-rho/dt
+#term 1 s 1.0 1       0       -       rho/dt*$0              rho/dt
+#term 1 s 0.0 1       0       -       0-rho/dt*$0            0-rho/dt
 term 1 x 1.0 0,1,1   0,0,x   a,i,i   0-$0-rho*$1*$1+2*mu*$2 0-1,0-2*rho*$1,2*mu
 term 1 y 1.0 1,2,1,2 0,0,y,x i,i,i,i 0-rho*$0*$1+mu*($2+$3) 0-rho*$1,0-rho*$0,mu,mu
-term 2 s 1.0 2       0       -       rho/dt*$0              rho/dt
-term 2 s 0.0 2       0       -       0-rho/dt*$0            0-rho/dt
+#term 2 s 1.0 2       0       -       rho/dt*$0              rho/dt
+#term 2 s 0.0 2       0       -       0-rho/dt*$0            0-rho/dt
 term 2 y 1.0 0,2,2   0,0,y   a,i,i   0-$0-rho*$1*$1+2*mu*$2 0-1,0-2*rho*$1,2*mu
 term 2 x 1.0 1,2,1,2 0,0,y,x i,i,i,i 0-rho*$0*$1+mu*($2+$3) 0-rho*$1,0-rho*$0,mu,mu
 

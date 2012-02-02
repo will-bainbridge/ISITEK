@@ -48,6 +48,13 @@
 #define MAX_ELEMENT_N_FACES 4
 #define MAX_STRING_LENGTH 128
 
+// expression ordering
+#define EXPRESSION_LOCATION_INDEX 0
+#define EXPRESSION_LOCATION_LABELS "xy"
+#define EXPRESSION_NORMAL_INDEX 2
+#define EXPRESSION_NORMAL_LABELS "ab"
+#define EXPRESSION_VARIABLE_INDEX 4
+
 // calculate number of basis functions from order
 #define ORDER_TO_N_BASIS(x) ((x)*(x+1)/2)
 #define ORDER_TO_N_GAUSS(x) (2*(x)-1)
