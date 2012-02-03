@@ -16,7 +16,7 @@ display_number_of_outer_iterations 10
 number_of_variables 3
 variable_name pressure x-momentum y-momentum
 variable_order 2 3 3
-#variable_initial_value 1.0 0.0 $x*$y
+variable_initial_value 1.0 0.0 0.0
 
 #------------------------------------------------------------------------------#
 

@@ -7,6 +7,8 @@
 
 #include "expression.h"
 
+#define LARGER '>'
+#define SMALLER '<'
 #define PLUS '+'
 #define MINUS '-'
 #define MULTIPLY '*'
@@ -26,6 +28,8 @@
 #define END '\0'
 
 #define IS_OPERATOR(x) ( \
+		(x) == LARGER || \
+		(x) == SMALLER || \
 		(x) == PLUS || \
 		(x) == MINUS || \
 		(x) == MULTIPLY || \
@@ -57,12 +61,12 @@ static int precedence[128] = {
 	0,0,0,0,0,0,0,0,0,0,
 	0,0,0,0,0,0,0,0,0,0,
 	0,0,0,0,0,0,0,0,0,0,
-	0,0,2,1,0,1,0,2,0,0,
+	0,0,3,2,0,2,0,3,0,0, // * + - /
+	0,0,0,0,0,0,0,0,0,0,
+	1,0,1,0,0,0,0,0,0,0, // < >
 	0,0,0,0,0,0,0,0,0,0,
 	0,0,0,0,0,0,0,0,0,0,
-	0,0,0,0,0,0,0,0,0,0,
-	0,0,0,0,0,0,0,0,0,0,
-	0,0,0,0,3,0,0,0,0,0,
+	0,0,0,0,4,0,0,0,0,0, // ^
 	0,0,0,0,0,0,0,0,0,0,
 	0,0,0,0,0,0,0,0,0,0,
 	0,0,0,0,0,0,0,0};
@@ -349,6 +353,8 @@ void expression_evaluate(int n, double *value, EXPRESSION expression, double **s
 				case DIVIDE  : for(i = 0; i < n; i ++) work[w-2][i] =      work[w-2][i] / work[w-1][i]  ; break;
 				case PLUS    : for(i = 0; i < n; i ++) work[w-2][i] =      work[w-2][i] + work[w-1][i]  ; break;
 				case MINUS   : for(i = 0; i < n; i ++) work[w-2][i] =      work[w-2][i] - work[w-1][i]  ; break;
+				case LARGER  : for(i = 0; i < n; i ++) work[w-2][i] =      work[w-2][i] > work[w-1][i]  ; break;
+				case SMALLER : for(i = 0; i < n; i ++) work[w-2][i] =      work[w-2][i] < work[w-1][i]  ; break;
 			}
 			w --;
 		}

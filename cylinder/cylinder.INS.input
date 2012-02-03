@@ -4,7 +4,7 @@ case_file_path cylinder.INS.case
 geometry_file_path cylinder.geometry
 
 number_of_outer_iterations 1
-number_of_inner_iterations 10
+number_of_inner_iterations 5
 
 data_file_path cylinder.INS.?.data
 #initial_data_file_path cylinder.INS.000000000.data
