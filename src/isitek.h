@@ -4,6 +4,7 @@
 #include <string.h>
 #include <time.h>
 
+#include "expression.h"
 #include "fetch.h"
 #include "memory.h"
 #include "sparse.h"

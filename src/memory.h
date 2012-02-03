@@ -32,6 +32,7 @@ double ** allocate_element_x(struct ELEMENT *element, int n_points);
 double * allocate_element_w(struct ELEMENT *element, int n_points);
 double *** allocate_element_p(struct ELEMENT *element, int n_basis, int n_points);
 double *** allocate_element_q(struct ELEMENT *element, int n_basis, int n_points);
+double *** allocate_element_i(struct ELEMENT *element, int n_variables, int *n_basis, int n_points);
 void destroy_elements(int n_elements, struct ELEMENT *element, int n_variables);
 
 struct BOUNDARY * allocate_boundaries(int n_boundaries);
@@ -44,5 +45,8 @@ int * allocate_term_differential(struct TERM *term);
 char * allocate_term_method(struct TERM *term);
 EXPRESSION * allocate_term_jacobian(struct TERM *term);
 void destroy_terms(int n_terms, struct TERM *term);
+
+EXPRESSION *allocate_initial(int n_variables);
+void destroy_initial(int n_variables, EXPRESSION *initial);
 
 #endif

@@ -10,6 +10,7 @@ void process_geometry(int n_nodes, struct NODE *node, int n_faces, struct FACE *
 
 void boundaries_input(FILE *file, int n_faces, struct FACE *face, int *n_boundaries, struct BOUNDARY **boundary);
 void terms_input(FILE *file, int *n_terms, struct TERM **term);
+int initial_input(FILE *file, int n_variables, EXPRESSION **initial);
 
 void update_face_integration(int n_variables_old, int n_variables, int *variable_order_old, int *variable_order, int n_faces, struct FACE *face);
 void update_element_integration(int n_variables_old, int n_variables, int *variable_order_old, int *variable_order, int n_elements, struct ELEMENT *element);
@@ -21,7 +22,7 @@ void update_face_boundaries(int n_variables, int n_faces, struct FACE *face, int
 void update_element_numerics(int n_variables_old, int n_variables, int *variable_order_old, int *variable_order, int n_elements, struct ELEMENT *element);
 void update_face_numerics(int n_variables_old, int n_variables, int *variable_order_old, int *variable_order, int n_faces, struct FACE *face, int n_boundaries_old, struct BOUNDARY *boundary_old);
 
-void initialise_values(int n_variables, int *variable_order, int n_elements, struct ELEMENT *element, double *initial, double *u);
+void initialise_values(int n_variables, int *variable_order, int n_elements, struct ELEMENT *element, EXPRESSION *initial, double *u);
 void initialise_system(int n_variables, int *variable_order, int n_elements, struct ELEMENT *element, int n_u, SPARSE *system);
 
 void calculate_system(int n_variables, int *variable_order, int n_faces, struct FACE *face, int n_elements, struct ELEMENT *element, int n_terms, struct TERM *term, int n_u, double *u_old, double *u, SPARSE system, double *residual);
@@ -35,7 +36,7 @@ void generate_numbered_file_path(char *file_path, char *base_path, int number);
 void read_data(FILE *file, int *n_u, double **u, int *number);
 void write_data(FILE *file, int n_u, double *u, int number);
 
-void write_display(FILE *file, int n_variables, int n_elements, struct ELEMENT *element, int n_u, double *u);
+void write_display(FILE *file, int n_variables, char **variable_name, int *variable_order, int n_nodes, struct NODE *node, int n_elements, struct ELEMENT *element, int n_u, double *u);
 
 //////////////////////////////////////////////////////////////////
 
@@ -71,6 +72,7 @@ int main(int argc, char *argv[])
 	struct ELEMENT *element;
 	struct BOUNDARY *boundary_old = NULL, *boundary;
 	struct TERM *term;
+	EXPRESSION *initial = NULL;
 	
 	// solution vectors
 	int n_u_old = 0, n_u;
@@ -79,10 +81,6 @@ int main(int argc, char *argv[])
 	// get the number of variables from the input file
 	int n_variables_old = 0, n_variables;
 	exit_if_false(fetch_value(input_file,"number_of_variables",'i',&n_variables) == FETCH_SUCCESS,"reading number_of_variables from the input file");
-
-	// allocate initial values
-	double *initial = (double *)malloc(n_variables * sizeof(double));
-	exit_if_false(initial != NULL,"allocating initial values");
 
 	// read the orders
 	int *variable_order_old = NULL, *variable_order = (int *)malloc(n_variables * sizeof(int));
@@ -163,15 +161,14 @@ int main(int argc, char *argv[])
 	write_case(case_file, n_variables, variable_order, n_nodes, node, n_faces, face, n_elements, element, n_boundaries, boundary);
 	fclose(case_file);
 
-	// initialise the values
-	if(fetch_vector(input_file,"variable_initial_value",'d',n_variables,initial) == FETCH_SUCCESS)
-		initialise_values(n_variables, variable_order, n_elements, element, initial, u);
-
-	// display
+	// display path an frequency
 	if(
 			fetch_value(input_file,"display_file_path",'s',display_file_path) != FETCH_SUCCESS ||
 			fetch_value(input_file,"display_number_of_outer_iterations",'i',&display_n_outer_iterations) != FETCH_SUCCESS
 	  ) display_n_outer_iterations = 0;
+
+	// initialise the values
+	if(initial_input(input_file, n_variables, &initial)) initialise_values(n_variables, variable_order, n_elements, element, initial, u);
 
 	// initialise the system and solution vectors
 	SPARSE system = NULL;
@@ -209,11 +206,12 @@ int main(int argc, char *argv[])
 			write_data(data_file, n_u, u, outer_iteration);
 			fclose(data_file);
 		}
+
 		if(display_n_outer_iterations && outer_iteration % display_n_outer_iterations == 0)
 		{
 			generate_numbered_file_path(display_numbered_file_path, display_file_path, outer_iteration);
 			exit_if_false(display_file = fopen(display_numbered_file_path,"w"),"opening display file");
-			write_display(display_file, n_variables, n_elements, element, n_u, u);
+			write_display(display_file, n_variables, variable_name, variable_order, n_nodes, node, n_elements, element, n_u, u);
 			fclose(display_file);
 		}
 	}
@@ -234,8 +232,7 @@ int main(int argc, char *argv[])
 	destroy_boundaries(n_boundaries_old,boundary_old);
 	destroy_boundaries(n_boundaries,boundary);
 	destroy_terms(n_terms,term);
-
-	free(initial);
+	destroy_initial(n_variables,initial);
 
 	free(variable_order_old);
 	free(variable_order);

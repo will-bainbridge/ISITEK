@@ -303,7 +303,7 @@ double * allocate_face_w(struct FACE *face, int n_points)
 
 double **** allocate_face_q(struct FACE *face, int n_variables, int *n_basis, int n_points)
 {
-	double ****new = (double ****)realloc(face->Q, n_variables * sizeof(int ***));
+	double ****new = (double ****)realloc(face->Q, n_variables * sizeof(double ***));
 	if(new == NULL) return NULL;
 
 	int i;
@@ -345,7 +345,7 @@ struct ELEMENT * allocate_elements(int n_elements)
 	if(new == NULL) return NULL;
 
 	int i;
-	struct ELEMENT z = {0,NULL,NULL,{0.0,0.0},0.0,NULL,NULL,NULL,NULL,NULL};
+	struct ELEMENT z = {0,NULL,NULL,{0.0,0.0},0.0,NULL,NULL,NULL,NULL,NULL,NULL};
 	for(i = 0; i < n_elements; i ++) new[i] = z;
 
 	return new;
@@ -399,6 +399,24 @@ double *** allocate_element_q(struct ELEMENT *element, int n_basis, int n_points
 	return allocate_double_tensor(element->Q, element->n_faces, n_basis, n_points);
 }
 
+double *** allocate_element_i(struct ELEMENT *element, int n_variables, int *n_basis, int n_points)
+{
+	double ***new = (double ***)realloc(element->I, n_variables * sizeof(double **));
+	if(new == NULL) return NULL;
+
+	int i;
+
+	if(element->I == NULL) for(i = 0; i < n_variables; i ++) new[i] = NULL;
+
+	for(i = 0; i < n_variables; i ++)
+	{
+		new[i] = allocate_double_matrix(new[i], n_points, n_basis[i]);
+		if(new[i] == NULL) return NULL;
+	}
+
+	return new;
+}
+
 void destroy_elements(int n_elements, struct ELEMENT *element, int n_variables)
 {
         int i, j;
@@ -412,6 +430,8 @@ void destroy_elements(int n_elements, struct ELEMENT *element, int n_variables)
 		free(element[i].W);
 		destroy_tensor((void *)element[i].P);
 		destroy_tensor((void *)element[i].Q);
+		if(element[i].I) for(j = 0; j < n_variables; j ++) destroy_matrix((void *)element[i].I[j]);
+		free(element[i].I);
         }
         free(element);
 }
@@ -492,6 +512,29 @@ void destroy_terms(int n_terms, struct TERM *term)
 		free(term[i].jacobian);
 	}
 	free(term);
+}
+
+//////////////////////////////////////////////////////////////////////////////////
+
+EXPRESSION *allocate_initial(int n_variables)
+{
+	EXPRESSION *new = (EXPRESSION *)malloc(n_variables * sizeof(EXPRESSION));
+	if(new == NULL) return NULL;
+
+	int i;
+	for(i = 0; i < n_variables; i ++) new[i] = NULL;
+
+	return new;
+}
+
+void destroy_initial(int n_variables, EXPRESSION *initial)
+{
+	int i;
+	if(initial)
+	{
+		for(i = 0; i < n_variables; i ++) if(initial[i]) expression_destroy(initial[i]);
+		free(initial);
+	}
 }
 
 //////////////////////////////////////////////////////////////////////////////////

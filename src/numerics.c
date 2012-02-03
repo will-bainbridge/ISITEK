@@ -145,53 +145,79 @@ void update_element_numerics(int n_variables_old, int n_variables, int *variable
 {
 	int e, i, j, v;
 
+	// old and new maximum variable orders
 	int max_variable_order = 0, max_variable_order_old = 0;
 	for(v = 0; v < n_variables; v ++) max_variable_order = MAX(max_variable_order,variable_order[v]);
 	for(v = 0; v < n_variables_old; v ++) max_variable_order_old = MAX(max_variable_order_old,variable_order_old[v]);
 
-	if(max_variable_order == max_variable_order_old) return;
+	// what needs updating
+	int max_update = max_variable_order != max_variable_order_old, any_update = n_variables_old < n_variables;
+	for(v = 0; v < MIN(n_variables_old,n_variables); v ++) any_update = any_update || (variable_order_old[v] != variable_order[v]);
+	if(!any_update) return;
 
-	int max_n_basis = ORDER_TO_N_BASIS(max_variable_order);
+	// numbers of basis functions
+	int *n_basis, max_n_basis = ORDER_TO_N_BASIS(max_variable_order);
+	exit_if_false(n_basis = (int *)malloc(n_variables * sizeof(int)),"allocating n_basis");
+        for(v = 0; v < n_variables; v ++) n_basis[v] = ORDER_TO_N_BASIS(variable_order[v]);
 
+	// numbers of points
 	int n_gauss = ORDER_TO_N_GAUSS(max_variable_order), n_hammer = ORDER_TO_N_HAMMER(max_variable_order), n_points;
 
-	int zero[2] = {0,0};
+	// no differential
+	int no_differential[2] = {0,0};
+
+	// working matrices
+	int lds = max_n_basis, ldm = max_n_basis;
+	double **S = allocate_double_matrix(NULL,(MAX_ELEMENT_N_FACES-2)*n_hammer,lds);
+	double **M = allocate_double_matrix(NULL,max_n_basis,ldm);
+
+	// lapack and blas
+	int info, *pivot = (int *)malloc(max_n_basis * sizeof(int));
+        exit_if_false(pivot != NULL,"allocating pivot");
+        char trans[2] = "NT";
+        int int_1 = 1;
+        double dbl_0 = 0.0, dbl_1 = 1.0;
 
 	for(e = 0; e < n_elements; e ++)
 	{
 		n_points = n_hammer*(element[e].n_faces - 2);
 
-		exit_if_false(element[e].P = allocate_element_p(&element[e],max_n_basis,n_points),"allocating element P");
-		exit_if_false(element[e].Q = allocate_element_q(&element[e],max_n_basis,n_gauss),"allocating element Q");
+		if(max_update)
+		{
+			exit_if_false(element[e].P = allocate_element_p(&element[e],max_n_basis,n_points),"allocating element P");
+			exit_if_false(element[e].Q = allocate_element_q(&element[e],max_n_basis,n_gauss),"allocating element Q");
 
-		for(i = 0; i < max_n_basis; i ++)
-			for(j = 0; j < max_n_basis; j ++)
-				basis(n_points,element[e].P[i][j],element[e].X,element[e].centre,element[e].size,j,taylor_powers[i]);
+			// interior matrices
+			for(i = 0; i < max_n_basis; i ++)
+				for(j = 0; j < max_n_basis; j ++)
+					basis(n_points,element[e].P[i][j],element[e].X,element[e].centre,element[e].size,j,taylor_powers[i]);
 
-		for(i = 0; i < element[e].n_faces; i ++)
-			for(j = 0; j < max_n_basis; j ++)
-				basis(n_gauss,element[e].Q[i][j],element[e].face[i]->X,element[e].centre,element[e].size,j,zero);
+			// face matrices
+			for(i = 0; i < element[e].n_faces; i ++)
+				for(j = 0; j < max_n_basis; j ++)
+					basis(n_gauss,element[e].Q[i][j],element[e].face[i]->X,element[e].centre,element[e].size,j,no_differential);
+
+			exit_if_false(element[e].I = allocate_element_i(&element[e],n_variables,n_basis,n_points),"allocating element I");
+		}
+
+		// initialising matrix
+                for(i = 0; i < max_n_basis; i ++) dcopy_(&n_points,element[e].P[powers_taylor[0][0]][i],&int_1,&S[0][i],&lds);
+                for(i = 0; i < n_points; i ++) dscal_(&max_n_basis,&element[e].W[i],S[i],&int_1);
+                dgemm_(&trans[0],&trans[0],&max_n_basis,&max_n_basis,&n_points,&dbl_1,S[0],&lds,element[e].P[powers_taylor[0][0]][0],&n_points,&dbl_0,M[0],&ldm);
+                for(v = 0; v < n_variables; v ++)
+                {
+			if(n_variables_old > v) if(variable_order_old[v] == variable_order[v]) continue;
+			for(i = 0; i < n_basis[v]; i ++) dcopy_(&n_points,&S[0][i],&lds,&element[e].I[v][0][i],&n_basis[v]);
+                        dgesv_(&n_basis[v],&n_points,M[0],&ldm,pivot,element[e].I[v][0],&n_basis[v],&info);
+		}
 	}
 
+	free(n_basis);
+	destroy_matrix((void *)S);
+	destroy_matrix((void *)M);
+	free(pivot);
+
 	printf("updated element numerics\n");
-
-	/*e = 10;
-	n_points = n_hammer*(element[e].n_faces - 2);
-
-	for(i = 0; i < max_n_basis; i ++) { for(j = 0; j < n_gauss; j ++) { printf("%+e ",element[e].Q[0][i][j]); } printf("\n"); } printf("\n");
-
-	int n = n_points * max_n_basis, inc = 1;
-	char trans[2] = "TN";
-	double alpha = 1.0;
-
-	double **S = allocate_double_matrix(NULL,max_n_basis,n_points);
-	double **M = allocate_double_matrix(NULL,max_n_basis,max_n_basis);
-
-	dcopy_(&n,element[e].P[0][0],&inc,S[0],&inc);
-	for(i = 0; i < n_points; i ++) dscal_(&max_n_basis,&element[e].W[i],&S[0][i],&n_points);
-	dgemm_(&trans[0],&trans[1],&max_n_basis,&max_n_basis,&n_points,&alpha,element[e].P[1][0],&n_points,S[0],&n_points,&alpha,M[0],&max_n_basis);
-
-	for(i = 0; i < max_n_basis; i ++) { for(j = 0; j < max_n_basis; j ++) { printf("%+e ",M[i][j]); } printf("\n"); } printf("\n");*/
 }
 
 //////////////////////////////////////////////////////////////////

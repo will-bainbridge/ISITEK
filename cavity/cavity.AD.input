@@ -10,11 +10,11 @@ data_file_path cavity.AD.?.data
 #initial_data_file_path cavity.AD.000000000.data
 data_number_of_outer_iterations 10
 
-display_file_path cavity.AD.?.display
+display_file_path cavity.AD.?.vtu
 display_number_of_outer_iterations 10
 
 number_of_variables 1
-variable_name U
+variable_name u
 variable_order 3
 variable_initial_value 0.0
 

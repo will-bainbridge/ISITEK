@@ -3,7 +3,6 @@
 #include "isitek.h"
 
 #include "constants.h"
-#include "expression.h"
 #include "linear.h"
 
 //////////////////////////////////////////////////////////////////
@@ -139,14 +138,51 @@ void update_face_boundaries(int n_variables, int n_faces, struct FACE *face, int
 
 //////////////////////////////////////////////////////////////////
 
-void initialise_values(int n_variables, int *variable_order, int n_elements, struct ELEMENT *element, double *initial, double *u)
+void initialise_values(int n_variables, int *variable_order, int n_elements, struct ELEMENT *element, EXPRESSION *initial, double *u)
 {
-	int e, v, i, z = powers_taylor[0][0];
+	int e, i, v;
+
+	int max_variable_order = 0;
+	for(v = 0; v < n_variables; v ++) max_variable_order = MAX(max_variable_order,variable_order[v]);
+	int *n_basis, max_n_basis = ORDER_TO_N_BASIS(max_variable_order), sum_n_basis = 0;
+	exit_if_false(n_basis = (int *)malloc(n_variables * sizeof(int)),"allocating n_basis");
+	for(v = 0; v < n_variables; v ++) sum_n_basis += n_basis[v] = ORDER_TO_N_BASIS(variable_order[v]);
+	int n_hammer = ORDER_TO_N_HAMMER(max_variable_order), n_points;
+
+	int expression_max_recusions = 1;
+	for(v = 0; v < n_variables; v ++) expression_max_recusions = MAX(expression_max_recusions,expression_number_of_recursions(initial[v]));
+	double **expression_work;
+	exit_if_false(expression_work = allocate_double_matrix(NULL,expression_max_recusions,(MAX_ELEMENT_N_FACES-2)*n_hammer),"allocating expression work");
+
+	double *point_initial = (double *)malloc((MAX_ELEMENT_N_FACES-2)*n_hammer * sizeof(double));
+	double *basis_initial = (double *)malloc(max_n_basis * sizeof(double));
+
+	char trans[2] = "NT";
+	int int_1 = 1;
+	double dbl_0 = 0.0, dbl_1 = 1.0;
 
 	for(e = 0; e < n_elements; e ++)
+	{
+		n_points = n_hammer * (element[e].n_faces - 2);
+
 		for(v = 0; v < n_variables; v ++)
-			for(i = 0; i < ORDER_TO_N_BASIS(variable_order[v]); i ++)
-				u[element[e].unknown[v][i]] = initial[v]*(i == z);
+		{
+			expression_evaluate(n_points,point_initial,initial[v],element[e].X,expression_work);
+			dgemv_(&trans[0],&n_basis[v],&n_points,
+					&dbl_1,
+					element[e].I[v][0],&n_basis[v],
+					point_initial,&int_1,
+					&dbl_0,
+					basis_initial,&int_1);
+
+			for(i = 0; i < n_basis[v]; i ++) u[element[e].unknown[v][i]] = basis_initial[i];
+		}
+	}
+
+	free(n_basis);
+	destroy_matrix((void *)expression_work);
+	free(point_initial);
+	free(basis_initial);
 }
 
 //////////////////////////////////////////////////////////////////
@@ -248,7 +284,7 @@ void calculate_system(int n_variables, int *variable_order, int n_faces, struct 
 	double **A = allocate_double_matrix(NULL,max_n_basis,lda);
 
 	// expression evaluation working memory
-	int expression_max_recusions = 0;
+	int expression_max_recusions = 1;
 	for(t = 0; t < n_terms; t ++) expression_max_recusions = MAX(expression_max_recusions,expression_number_of_recursions(term[t].residual));
 	double **expression_work;
 	exit_if_false(expression_work = allocate_double_matrix(NULL,expression_max_recusions,MAX(n_gauss,(MAX_ELEMENT_N_FACES-1)*n_hammer)),"allocating expression work");

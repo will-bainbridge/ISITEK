@@ -10,13 +10,13 @@ data_file_path cavity.INS.?.data
 #initial_data_file_path cavity.INS.000000000.data
 data_number_of_outer_iterations 10
 
-display_file_path cavity.INS.?.display
+display_file_path cavity.INS.?.vtu
 display_number_of_outer_iterations 10
 
 number_of_variables 3
-variable_name P U V
+variable_name pressure x-momentum y-momentum
 variable_order 2 3 3
-variable_initial_value 1.0 0.0 0.0
+#variable_initial_value 1.0 0.0 $x*$y
 
 #------------------------------------------------------------------------------#
 

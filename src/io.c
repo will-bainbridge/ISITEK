@@ -2,7 +2,7 @@
 
 #include "isitek.h"
 #include "constants.h"
-#include "expression.h"
+#include "linear.h"
 
 void node_read_geometry(FILE *file, struct NODE *node);
 void face_read_geometry(FILE *file, struct FACE *face, struct NODE *node);
@@ -385,6 +385,12 @@ void element_write_case(FILE *file, int n_variables, int *n_basis, int n_gauss, 
 	n = element->n_faces*max_n_basis*n_gauss;
 	exit_if_false(fwrite(element->Q[0][0], sizeof(double), n, file) == n,"writing element exterior interpolaton");
 
+	for(i = 0; i < n_variables; i ++) 
+	{
+		n = n_points*n_basis[i];
+		exit_if_false(fwrite(element->I[i][0], sizeof(double), n, file) == n,"writing element initialisation");
+	}
+
 	free(index);
 }
 
@@ -426,6 +432,13 @@ void element_read_case(FILE *file, int n_variables, int *n_basis, int n_gauss, i
 	n = element->n_faces*max_n_basis*n_gauss;
 	exit_if_false(element->Q = allocate_element_q(element, max_n_basis, n_gauss),"allocating element exterior interpolaton");
 	exit_if_false(fread(element->Q[0][0], sizeof(double), n, file) == n,"reading element exterior interpolaton");
+
+	exit_if_false(element->I = allocate_element_i(element, n_variables, n_basis, n_points),"allocating element initialisation");
+	for(i = 0; i < n_variables; i ++) 
+	{
+		n = n_points*n_basis[i];
+		exit_if_false(fread(element->I[i][0], sizeof(double), n, file) == n,"reading element initialisation");
+	}
 
 	free(index);
 }
@@ -788,31 +801,144 @@ int add_geometry_to_expression_string(char *string)
 
 //////////////////////////////////////////////////////////////////
 
-void write_display(FILE *file, int n_variables, int n_elements, struct ELEMENT *element, int n_u, double *u)
+int initial_input(FILE *file, int n_variables, EXPRESSION **initial)
 {
-	int e, f, i, j, v;
+	int v;
 
+	char *temp, *constant_string, **initial_string;
+	exit_if_false(temp = (char *)malloc(MAX_STRING_LENGTH * sizeof(char)),"allocating the temporary string");
+	exit_if_false(constant_string = (char *)malloc(MAX_STRING_LENGTH * sizeof(char)),"allocating the constant string");
+	exit_if_false(initial_string = allocate_character_matrix(NULL,n_variables,MAX_STRING_LENGTH),"allocating initial strings");
+
+	if(fetch_value(file,"constant",'s',constant_string) != FETCH_SUCCESS) constant_string[0] = '\0';
+	if(fetch_vector(file,"variable_initial_value",'s',n_variables,initial_string) != FETCH_SUCCESS) return 0;
+
+	exit_if_false(*initial = allocate_initial(n_variables),"allocating initial expressions");
+
+	for(v = 0; v < n_variables; v ++)
+	{
+		sprintf(temp,"%s;%s",constant_string,initial_string[v]);
+		add_geometry_to_expression_string(temp);
+		exit_if_false((*initial)[v] = expression_generate(temp),"generating initial expression");
+	}
+
+	free(temp);
+	free(constant_string);
+	destroy_matrix((void *)initial_string);
+
+	return 1;
+}
+
+//////////////////////////////////////////////////////////////////
+
+void write_display(FILE *file, int n_variables, char **variable_name, int *variable_order, int n_nodes, struct NODE *node, int n_elements, struct ELEMENT *element, int n_u, double *u)
+{
+	int e, f, i, j, n, v;
+
+	char trans[2] = "NT";
+	int int_0 = 0, int_1 = 1;
+	double dbl_0 = 0, dbl_1 = 1;
+
+	int max_variable_order = 0;
+	for(v = 0; v < n_variables; v ++) max_variable_order = MAX(max_variable_order,variable_order[v]);
+
+	int *n_basis, max_n_basis = ORDER_TO_N_BASIS(max_variable_order);
+	exit_if_false(n_basis = (int *)malloc(n_variables * sizeof(int)),"allocating numbers of basis functions");
+	for(v = 0; v < n_variables; v ++) n_basis[v] = ORDER_TO_N_BASIS(variable_order[v]);
+
+	int n_hammer = ORDER_TO_N_HAMMER(max_variable_order), n_points;
+
+	double *basis_value, *point_value;
+	exit_if_false(basis_value = (double *)malloc(max_n_basis * sizeof(double)),"allocating basis values");
+	exit_if_false(point_value = (double *)malloc(n_hammer * (MAX_ELEMENT_N_FACES - 2) * sizeof(double)),"allocating point values");
+
+	// header
+	fprintf(file,"<VTKFile type=\"UnstructuredGrid\" version=\"0.1\" byte_order=\"LittleEndian\">\n");
+	fprintf(file,"<UnstructuredGrid>\n");
+	fprintf(file,"<Piece NumberOfPoints=\"%i\" NumberOfCells=\"%i\">\n",n_nodes,n_elements);
+
+	// no point data
+	fprintf(file,"<PointData>\n</PointData>\n");
+
+	// cell averaged data
+	fprintf(file,"<CellData>\n");
+	for(v = 0; v < n_variables; v ++)
+	{
+		fprintf(file,"<DataArray type=\"Float64\" Name=\"%s\" format=\"ascii\">\n",variable_name[v]);
+		for(e = 0; e < n_elements; e ++)
+		{
+			n_points = n_hammer * (element[e].n_faces - 2);
+
+			for(i = 0; i < n_basis[v]; i ++) basis_value[i] = u[element[e].unknown[v][i]];
+
+			dgemv_(&trans[0],&n_points,&n_basis[v],
+					&dbl_1,
+					element[e].P[powers_taylor[0][0]][0],&n_points,
+					basis_value,&int_1,
+					&dbl_0,
+					point_value,&int_1);
+
+			fprintf(file,"%.10e ",ddot_(&n_points,point_value,&int_1,element[e].W,&int_1) / ddot_(&n_points,&dbl_1,&int_0,element[e].W,&int_1));
+		}
+		fprintf(file,"\n</DataArray>\n");
+	}
+	fprintf(file,"</CellData>\n");
+
+	// output all the nodes
+	fprintf(file,"<Points>\n<DataArray type=\"Float64\" Name=\"Points\" NumberOfComponents=\"3\" format=\"ascii\">\n");
+	for(n = 0; n < n_nodes; n ++)
+	{
+		for(i = 0; i < 2; i ++) fprintf(file,"%.10e ",node[n].x[i]);
+		fprintf(file,"0.0 ");
+	}
+	fprintf(file,"\n</DataArray>\n</Points>\n");
+
+	// output the element polygons
+	fprintf(file,"<Cells>\n");
+	fprintf(file,"<DataArray type=\"Int32\" Name=\"connectivity\" format=\"ascii\">\n");
 	for(e = 0; e < n_elements; e ++)
 	{
-		for(f = 0; f < element[e].n_faces; f ++)
-		{
-			for(i = 0; i < 2; i ++)
-			{
-				for(j = 0; j < 2; j ++) fprintf(file,"%+.10e ",element[e].centre[j]);
-				for(v = 0; v < n_variables; v ++) fprintf(file,"%+.10e ",u[element[e].unknown[v][0]]);
-				fprintf(file,"\n");
-			}
-			fprintf(file,"\n");
+		f = 0;
 
-			for(i = 0; i < element[e].face[f]->n_nodes; i ++)
+		for(i = 0; i < element[e].n_faces; i ++)
+		{
+			fprintf(file,"%i ",(int)(element[e].face[f]->node[element[e].orient[f] < 0] - &node[0]));
+			
+			if(i == element[e].n_faces - 1) break;
+
+			for(j = 0; j < element[e].n_faces; j ++)
 			{
-				for(j = 0; j < 2; j ++) fprintf(file,"%+.10e ",element[e].face[f]->node[i]->x[j]);
-				for(v = 0; v < n_variables; v ++) fprintf(file,"%+.10e ",u[element[e].unknown[v][0]]);
-				fprintf(file,"\n");
+				if(j == f) continue;
+				if(element[e].face[j]->node[element[e].orient[j] < 0] == element[e].face[f]->node[element[e].orient[f] > 0])
+				{
+					f = j;
+					break;
+				}
 			}
-			fprintf(file,"\n\n");
+
+			exit_if_false(j < element[e].n_faces,"error finding the next vertex");
 		}
 	}
+	fprintf(file,"\n</DataArray>\n");
+	
+	// output the element offsets
+	fprintf(file,"<DataArray type=\"Int32\" Name=\"offsets\" format=\"ascii\">\n");
+	n = 0;
+	for(e = 0; e < n_elements; e ++) { fprintf(file,"%i ",n += element[e].n_faces); }
+	fprintf(file,"\n</DataArray>\n");
+
+	// output the element types
+	fprintf(file,"<DataArray type=\"Int32\" Name=\"types\" format=\"ascii\">\n");
+	for(e = 0; e < n_elements; e ++) fprintf(file,"7 ");
+	fprintf(file,"\n</DataArray>\n");
+
+	// close the xml
+	fprintf(file,"</Cells>\n</Piece>\n</UnstructuredGrid>\n</VTKFile>");
+
+	// clean up
+	free(n_basis);
+	free(basis_value);
+	free(point_value);
 }
 
 //////////////////////////////////////////////////////////////////

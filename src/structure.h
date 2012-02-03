@@ -43,6 +43,7 @@ struct ELEMENT
 	double    *W; // n_points
 	double  ***P; // n_differentials * n_basis * n_points
 	double  ***Q; // n_faces * n_basis * n_points
+	double  ***I; // n_variables * n_points * n_basis
 };
 
 struct BOUNDARY
