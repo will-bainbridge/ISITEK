@@ -244,7 +244,352 @@ void initialise_system(int n_variables, int *variable_order, int n_elements, str
 
 //////////////////////////////////////////////////////////////////
 
-void calculate_system(int n_variables, int *variable_order, int n_faces, struct FACE *face, int n_elements, struct ELEMENT *element, int n_terms, struct TERM *term, int n_u, double *u_old, double *u, SPARSE system, double *residual)
+void calculate_system(int n_variables, int *variable_order, int n_elements, struct ELEMENT *element, int n_terms, struct TERM *term, double *u_old, double *u, SPARSE system, double *residual)
+{
+	int b, d, e, f, i, j, k, n, o, p, q, t, v, x;
+
+	// orders and numbers of bases
+	int max_variable_order = 0;
+	for(v = 0; v < n_variables; v ++) max_variable_order = MAX(max_variable_order,variable_order[v]);
+
+	int *n_basis, max_n_basis = ORDER_TO_N_BASIS(max_variable_order), sum_n_basis = 0;
+	exit_if_false(n_basis = (int *)malloc(n_variables * sizeof(int)),"allocating n_basis");
+	for(v = 0; v < n_variables; v ++) sum_n_basis += n_basis[v] = ORDER_TO_N_BASIS(variable_order[v]);
+
+	int n_gauss = ORDER_TO_N_GAUSS(max_variable_order), n_hammer = ORDER_TO_N_HAMMER(max_variable_order), n_points;
+
+	// max term variables
+	int max_term_n_variables = 0;
+	for(t = 0; t < n_terms; t ++) max_term_n_variables = MAX(max_term_n_variables,term[t].n_variables);
+	int max_point_n_variables = max_term_n_variables + EXPRESSION_VARIABLE_INDEX;
+
+	// local dense system
+	double **local_value, *local_residual;
+	int local_n, ldl = (1 + MAX_ELEMENT_N_FACES)*sum_n_basis;
+	exit_if_false(local_value = allocate_double_matrix(NULL,sum_n_basis,(1+MAX_ELEMENT_N_FACES)*sum_n_basis),"allocating local values");
+	exit_if_false(local_residual = (double *)malloc(sum_n_basis * sizeof(double)),"allocating local residuals");
+
+	// indices into the local dense system
+	int *local_element, **local_adjacent;
+	exit_if_false(local_element = (int *)malloc(n_variables * sizeof(int)),"allocating element local indices");
+	exit_if_false(local_adjacent = allocate_integer_matrix(NULL,MAX_ELEMENT_N_FACES,n_variables),"allocating adjcent local indices");
+
+	// opposite border
+	int opposite[2];
+
+	// normal
+	double normal;
+
+	// working arrays
+	double *basis_value, *basis_value_old, **point_value, **point_value_old, *point_term, *point_term_old;
+	exit_if_false(basis_value = (double *)malloc((2*max_n_basis + MAX_FACE_N_BOUNDARIES) * sizeof(double)),"allocating basis values");
+	exit_if_false(basis_value_old = (double *)malloc((2*max_n_basis + MAX_FACE_N_BOUNDARIES) * sizeof(double)),"allocating old basis values");
+	exit_if_false(point_value = allocate_double_matrix(NULL,max_point_n_variables,MAX(n_gauss,(MAX_ELEMENT_N_FACES-1)*n_hammer)),"allocating point values");
+	exit_if_false(point_value_old = allocate_double_matrix(NULL,max_point_n_variables,MAX(n_gauss,(MAX_ELEMENT_N_FACES-1)*n_hammer)),"allocating old point values");
+	exit_if_false(point_term = (double *)malloc(MAX(n_gauss,(MAX_ELEMENT_N_FACES-1)*n_hammer) * sizeof(double)),"allocating point term values");
+	exit_if_false(point_term_old = (double *)malloc(MAX(n_gauss,(MAX_ELEMENT_N_FACES-1)*n_hammer) * sizeof(double)),"allocating old point term values");
+	int lda = MAX(n_gauss,(MAX_ELEMENT_N_FACES-1)*n_hammer);
+	double **A = allocate_double_matrix(NULL,max_n_basis,lda);
+
+	// expression evaluation working memory
+	int expression_max_recusions = 0;
+	for(t = 0; t < n_terms; t ++) expression_max_recusions = MAX(expression_max_recusions,expression_number_of_recursions(term[t].residual));
+	double **expression_work;
+	exit_if_false(expression_work = allocate_double_matrix(NULL,expression_max_recusions,MAX(n_gauss,(MAX_ELEMENT_N_FACES-1)*n_hammer)),"allocating expression work");
+
+	// blas parameters
+	char trans[2] = "NT";
+	int int_0 = 0, int_1 = 1;
+	double dbl_0 = 0.0, dbl_h = 0.5, dbl_1 = 1.0;
+
+	// loop over the elements
+	for(e = 0; e < n_elements; e ++)
+	{
+		// local system indices
+		local_n = 0;
+		for(v = 0; v < n_variables; v ++)
+		{
+			local_element[v] = local_n;
+			local_n += n_basis[v];
+		}
+		for(f = 0; f < element[e].n_faces; f ++)
+		{
+			for(i = 0; i < element[e].face[f]->n_borders; i ++)
+			{
+				if(element[e].face[f]->border[i] != &element[e])
+				{
+					for(v = 0; v < n_variables; v ++)
+					{
+						local_adjacent[f][v] = local_n;
+						local_n += n_basis[v];
+					}
+					for(j = 0; j < element[e].face[f]->border[i]->n_faces; j ++)
+					{
+						for(k = 0; k < element[e].face[f]->border[i]->face[j]->n_borders; k ++)
+						{
+							if(element[e].face[f]->border[i]->face[j]->border[k] == &element[e])
+							{
+								opposite[f] = j;
+							}
+						}
+					}
+				}
+			}
+		}
+
+		// initialise the local system
+		for(i = 0; i < sum_n_basis; i ++)
+			for(j = 0; j < local_n; j ++)
+				local_value[i][j] = 0.0;
+		for(i = 0; i < sum_n_basis; i ++)
+			local_residual[i] = 0.0;
+
+		// integration points
+		n_points = (element[e].n_faces - 2)*n_hammer;
+
+		// location values at the integration points
+		for(i = 0; i < 2; i ++)
+		{
+			dcopy_(&n_points,element[e].X[i],&int_1,point_value[i+EXPRESSION_LOCATION_INDEX],&int_1);
+			dcopy_(&n_points,element[e].X[i],&int_1,point_value_old[i+EXPRESSION_LOCATION_INDEX],&int_1);
+		}
+
+		// loop over the terms
+		for(t = 0; t < n_terms; t ++)
+		{
+			// equation and direction
+			q = term[t].equation;
+			x = powers_taylor[term[t].type == 'x'][term[t].type == 'y'];
+
+			// FEM component -----------------------//
+
+			// values at the integration points
+			for(i = 0; i < term[t].n_variables; i ++)
+			{
+				v = term[t].variable[i];
+				d = term[t].differential[i];
+
+				for(j = 0; j < n_basis[v]; j ++)
+				{
+					basis_value[j] = u[element[e].unknown[v][j]];
+					basis_value_old[j] = u_old[element[e].unknown[v][j]];
+				}
+
+				dgemv_(&trans[0],&n_points,&n_basis[v],
+						&dbl_1,
+						element[e].P[d][0],&n_points,
+						basis_value,&int_1,
+						&dbl_0,
+						point_value[i+EXPRESSION_VARIABLE_INDEX],&int_1);
+				dgemv_(&trans[0],&n_points,&n_basis[v],
+						&dbl_1,
+						element[e].P[d][0],&n_points,
+						basis_value_old,&int_1,
+						&dbl_0,
+						point_value_old[i+EXPRESSION_VARIABLE_INDEX],&int_1);
+			}
+
+			// jacobian
+			for(i = 0; i < term[t].n_variables; i ++)
+			{
+				v = term[t].variable[i];
+				d = term[t].differential[i];
+
+				expression_evaluate(n_points, point_term, term[t].jacobian[i], point_value, expression_work);
+				for(p = 0; p < n_points; p ++) point_term[p] *= - element[e].W[p] * term[t].implicit;
+
+				for(j = 0; j < n_basis[q]; j ++)
+					for(p = 0; p < n_points; p ++)
+						A[j][p] = element[e].P[x][j][p] * point_term[p];
+
+				dgemm_(&trans[1],&trans[0],&n_basis[v],&n_basis[q],&n_points,
+						&dbl_1,
+						element[e].P[d][0],&n_points,
+						A[0],&lda,
+						&dbl_1,
+						&local_value[local_element[q]][local_element[v]],&ldl);
+			}
+
+			// residual
+			expression_evaluate(n_points, point_term, term[t].residual, point_value, expression_work);
+			expression_evaluate(n_points, point_term_old, term[t].residual, point_value_old, expression_work);
+			for(p = 0; p < n_points; p ++) point_term[p] = - element[e].W[p] *
+				(term[t].implicit * point_term[p] + (1.0 - term[t].implicit) * point_term_old[p]);
+			dgemv_(&trans[1],&n_points,&n_basis[q],
+					&dbl_1,
+					element[e].P[x][0],&n_points,
+					point_term,&int_1,
+					&dbl_1,
+					&local_residual[local_element[q]],&int_1);
+
+			// DG FEM component --------------------//
+
+			// break if a source term
+			if(term[t].type == 's') continue;
+
+			// direction
+			x = term[t].type == 'y';
+
+			// loop over the adjacent elements
+			for(f = 0; f < element[e].n_faces; f ++)
+			{
+				// location and normal values at the intergration points
+				for(i = 0; i < 2; i ++)
+				{
+					dcopy_(&n_gauss,element[e].face[f]->X[i],&int_1,point_value[i+EXPRESSION_LOCATION_INDEX],&int_1);
+					dcopy_(&n_gauss,element[e].face[f]->X[i],&int_1,point_value_old[i+EXPRESSION_LOCATION_INDEX],&int_1);
+					normal = element[e].orient[f] * element[e].face[f]->normal[i];
+					dcopy_(&n_gauss,&normal,&int_0,point_value[i+EXPRESSION_NORMAL_INDEX],&int_1);
+					dcopy_(&n_gauss,&normal,&int_0,point_value_old[i+EXPRESSION_NORMAL_INDEX],&int_1);
+				}
+
+				// values at the intergration points
+				for(i = 0; i < term[t].n_variables; i ++)
+				{
+					v = term[t].variable[i];
+					d = term[t].differential[i];
+
+					for(j = 0; j < element[e].face[f]->n_borders; j ++)
+					{
+						for(k = 0; k < n_basis[v]; k ++)
+						{
+							basis_value[k+j*n_basis[v]] = u[element[e].face[f]->border[j]->unknown[v][k]];
+							basis_value_old[k+j*n_basis[v]] = u_old[element[e].face[f]->border[j]->unknown[v][k]];
+						}
+					}
+					for(j = 0; j < element[e].face[f]->n_boundaries[v]; j ++)
+					{
+						basis_value[j+element[e].face[f]->n_borders*n_basis[v]] = element[e].face[f]->boundary[v][j]->value;
+						basis_value_old[j+element[e].face[f]->n_borders*n_basis[v]] = element[e].face[f]->boundary[v][j]->value;
+					}
+
+					if(term[t].method[i] == 'i' || d != powers_taylor[0][0] || element[e].face[f]->n_borders < 2 || element[e].face[f]->n_boundaries[v])
+					{
+						n = element[e].face[f]->n_borders*n_basis[v] + element[e].face[f]->n_boundaries[v];
+						dgemv_(&trans[0],&n_gauss,&n,
+								&dbl_1,
+								element[e].face[f]->Q[v][d][0],&n_gauss,
+								basis_value,&int_1,
+								&dbl_0,
+								point_value[i+EXPRESSION_VARIABLE_INDEX],&int_1);
+						dgemv_(&trans[0],&n_gauss,&n,
+								&dbl_1,
+								element[e].face[f]->Q[v][d][0],&n_gauss,
+								basis_value_old,&int_1,
+								&dbl_0,
+								point_value_old[i+EXPRESSION_VARIABLE_INDEX],&int_1);
+					}
+					else if(term[t].method[i] == 'a')
+					{
+						dcopy_(&n_gauss,&dbl_0,&int_0,point_value[i+EXPRESSION_VARIABLE_INDEX],&int_1);
+						dcopy_(&n_gauss,&dbl_0,&int_0,point_value_old[i+EXPRESSION_VARIABLE_INDEX],&int_1);
+
+						for(j = 0; j < element[e].face[f]->n_borders; j ++)
+						{
+							o = element[e].face[f]->border[j] == &element[e] ? f : opposite[f];
+							dgemv_(&trans[0],&n_gauss,&n_basis[v],
+									&dbl_h,
+									element[e].face[f]->border[j]->Q[o][0],&n_gauss,
+									&basis_value[j*n_basis[v]],&int_1,
+									&dbl_1,
+									point_value[i+EXPRESSION_VARIABLE_INDEX],&int_1);
+							dgemv_(&trans[0],&n_gauss,&n_basis[v],
+									&dbl_h,
+									element[e].face[f]->border[j]->Q[o][0],&n_gauss,
+									&basis_value_old[j*n_basis[v]],&int_1,
+									&dbl_1,
+									point_value_old[i+EXPRESSION_VARIABLE_INDEX],&int_1);
+						}
+					}
+				}
+
+				// jacobian
+				for(i = 0; i < term[t].n_variables; i ++)
+				{
+					v = term[t].variable[i];
+					d = term[t].differential[i];
+
+					expression_evaluate(n_gauss, point_term, term[t].jacobian[i], point_value, expression_work);
+					for(p = 0; p < n_gauss; p ++) point_term[p] *= element[e].orient[f] *
+						element[e].face[f]->normal[x] * term[t].implicit * element[e].face[f]->W[p];
+
+					for(j = 0; j < n_basis[q]; j ++)
+						for(p = 0; p < n_gauss; p ++)
+							A[j][p] = element[e].Q[f][j][p] * point_term[p];
+
+					if(term[t].method[i] == 'i' || d != powers_taylor[0][0] || element[e].face[f]->n_borders < 2 || element[e].face[f]->n_boundaries[v])
+					{
+						for(j = 0; j < element[e].face[f]->n_borders; j ++)
+						{
+							b = element[e].face[f]->border[j] == &element[e] ? local_element[v] : local_adjacent[f][v];
+							dgemm_(&trans[1],&trans[0],&n_basis[v],&n_basis[q],&n_gauss,
+									&dbl_1,
+									element[e].face[f]->Q[v][d][j*n_basis[v]],&n_gauss,
+									A[0],&lda,
+									&dbl_1,
+									&local_value[local_element[q]][b],&ldl);
+						}
+					}
+					else if(term[t].method[i] == 'a')
+					{
+						for(j = 0; j < element[e].face[f]->n_borders; j ++)
+						{
+							b = element[e].face[f]->border[j] == &element[e] ? local_element[v] : local_adjacent[f][v];
+							o = element[e].face[f]->border[j] == &element[e] ? f : opposite[f];
+							dgemm_(&trans[1],&trans[0],&n_basis[v],&n_basis[q],&n_gauss,
+									&dbl_h,
+									element[e].face[f]->border[j]->Q[o][0],&n_gauss,
+									A[0],&lda,
+									&dbl_1,
+									&local_value[local_element[q]][b],&ldl);
+						}
+					}
+				}
+
+				// residual
+				expression_evaluate(n_gauss, point_term, term[t].residual, point_value, expression_work);
+				expression_evaluate(n_gauss, point_term_old, term[t].residual, point_value_old, expression_work);
+				for(p = 0; p < n_gauss; p ++) point_term[p] = element[e].orient[f] * element[e].face[f]->normal[x] * element[e].face[f]->W[p] *
+					(term[t].implicit * point_term[p] + (1.0 - term[t].implicit) * point_term_old[p]);
+				dgemv_(&trans[1],&n_gauss,&n_basis[q],
+						&dbl_1,
+						element[e].Q[f][0],&n_gauss,
+						point_term,&int_1,
+						&dbl_1,
+						&local_residual[local_element[q]],&int_1);
+			}
+		}
+
+		// add to the global system
+		for(v = 0; v < n_variables; v ++)
+		{
+			for(i = 0; i < n_basis[v]; i ++)
+			{
+				sparse_set_row_values(system, element[e].unknown[v][i], local_value[local_element[v]+i]);
+				residual[element[e].unknown[v][i]] = local_residual[local_element[v]+i];
+			}
+		}
+	}
+
+	free(n_basis);
+
+	free(local_residual);
+	destroy_matrix((void *)local_value);
+	free(local_element);
+	destroy_matrix((void *)local_adjacent);
+
+	free(basis_value);
+	free(basis_value_old);
+	destroy_matrix((void *)point_value);
+	destroy_matrix((void *)point_value_old);
+	free(point_term);
+	free(point_term_old);
+	destroy_matrix((void *)A);
+
+	destroy_matrix((void *)expression_work);
+}
+
+/*void calculate_system(int n_variables, int *variable_order, int n_faces, struct FACE *face, int n_elements, struct ELEMENT *element, int n_terms, struct TERM *term, int n_u, double *u_old, double *u, SPARSE system, double *residual)
 {
 	int b, d, e, f, i, j, k, n, p, q, t, v, x;
 
@@ -619,7 +964,7 @@ void calculate_system(int n_variables, int *variable_order, int n_faces, struct 
 	destroy_matrix((void *)A);
 
 	destroy_matrix((void *)expression_work);
-}
+}*/
 
 //////////////////////////////////////////////////////////////////
 
