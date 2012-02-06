@@ -507,11 +507,8 @@ void calculate_system(int n_variables, int *variable_order, int n_faces, struct 
 				}
 				else if(term[t].method[i] == 'a' || term[t].method[i] == 'b')
 				{
-					s = 
-						(face[f].border[0]->orient[opposite[0]] < 0 && term[t].method[i] == 'a') ||
-						(face[f].border[0]->orient[opposite[0]] > 0 && term[t].method[i] == 'b') ?
-						0 : 1;
-
+					s = (face[f].border[0]->orient[opposite[0]] > 0 && term[t].method[i] == 'a') ||
+						(face[f].border[0]->orient[opposite[0]] < 0 && term[t].method[i] == 'b');
 					dgemv_(&trans[0],&n_gauss,&n_basis[v],
 							&dbl_1,
 							face[f].border[s]->Q[opposite[s]][0],&n_gauss,
@@ -556,11 +553,8 @@ void calculate_system(int n_variables, int *variable_order, int n_faces, struct 
 					}
 					else if(term[t].method[i] == 'a' || term[t].method[i] == 'b')
 					{
-						s = 
-							(face[f].border[0]->orient[opposite[0]] < 0 && term[t].method[i] == 'a') ||
-							(face[f].border[0]->orient[opposite[0]] > 0 && term[t].method[i] == 'b') ?
-							0 : 1;
-
+						s = (face[f].border[0]->orient[opposite[0]] > 0 && term[t].method[i] == 'a') ||
+							(face[f].border[0]->orient[opposite[0]] < 0 && term[t].method[i] == 'b');
 						dgemm_(&trans[1],&trans[0],&n_basis[v],&n_basis[q],&n_gauss,
 								&dbl_1,
 								face[f].border[s]->Q[opposite[s]][0],&n_gauss,
