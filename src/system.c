@@ -246,7 +246,7 @@ void initialise_system(int n_variables, int *variable_order, int n_elements, str
 
 void calculate_system(int n_variables, int *variable_order, int n_faces, struct FACE *face, int n_elements, struct ELEMENT *element, int n_terms, struct TERM *term, int n_u, double *u_old, double *u, SPARSE system, double *residual)
 {
-	int b, d, e, f, i, j, k, n, p, q, t, v, x;
+	int b, d, e, f, i, j, k, n, p, q, s, t, v, x;
 
 	// orders and numbers of bases
 	int max_variable_order = 0;
@@ -289,7 +289,7 @@ void calculate_system(int n_variables, int *variable_order, int n_faces, struct 
 	double **expression_work;
 	exit_if_false(expression_work = allocate_double_matrix(NULL,expression_max_recusions,MAX(n_gauss,(MAX_ELEMENT_N_FACES-1)*n_hammer)),"allocating expression work");
 
-	// opposite face index
+	// connectivity
 	int opposite[MAX_FACE_N_BORDERS];
 
 	// blas parameters
@@ -326,6 +326,8 @@ void calculate_system(int n_variables, int *variable_order, int n_faces, struct 
 		{
 			dcopy_(&n_points,element[e].X[i],&int_1,point_value[i+EXPRESSION_LOCATION_INDEX],&int_1);
 			dcopy_(&n_points,element[e].X[i],&int_1,point_value_old[i+EXPRESSION_LOCATION_INDEX],&int_1);
+			dcopy_(&n_points,&dbl_0,&int_0,point_value[i+EXPRESSION_NORMAL_INDEX],&int_1);
+			dcopy_(&n_points,&dbl_0,&int_0,point_value_old[i+EXPRESSION_NORMAL_INDEX],&int_1);
 		}
 
 		// loop over the terms
@@ -503,27 +505,25 @@ void calculate_system(int n_variables, int *variable_order, int n_faces, struct 
 							&dbl_0,
 							point_value_old[i+EXPRESSION_VARIABLE_INDEX],&int_1);
 				}
-				else if(term[t].method[i] == 'a' || term[t].method[i] == 'd')
+				else if(term[t].method[i] == 'a' || term[t].method[i] == 'b')
 				{
-					dcopy_(&n_gauss,&dbl_0,&int_0,point_value[i+EXPRESSION_VARIABLE_INDEX],&int_1);
-					dcopy_(&n_gauss,&dbl_0,&int_0,point_value_old[i+EXPRESSION_VARIABLE_INDEX],&int_1);
+					s = 
+						(face[f].border[0]->orient[opposite[0]] < 0 && term[t].method[i] == 'a') ||
+						(face[f].border[0]->orient[opposite[0]] > 0 && term[t].method[i] == 'b') ?
+						0 : 1;
 
-					for(b = 0; b < face[f].n_borders; b ++)
-					{
-						alpha = term[t].method[i] == 'a' ? 0.5 : 0.5 * face[f].border[b]->orient[opposite[b]];
-						dgemv_(&trans[0],&n_gauss,&n_basis[v],
-								&alpha,
-								face[f].border[b]->Q[opposite[b]][0],&n_gauss,
-								&basis_value[b*n_basis[v]],&int_1,
-								&dbl_1,
-								point_value[i+EXPRESSION_VARIABLE_INDEX],&int_1);
-						dgemv_(&trans[0],&n_gauss,&n_basis[v],
-								&alpha,
-								face[f].border[b]->Q[opposite[b]][0],&n_gauss,
-								&basis_value_old[b*n_basis[v]],&int_1,
-								&dbl_1,
-								point_value_old[i+EXPRESSION_VARIABLE_INDEX],&int_1);
-					}
+					dgemv_(&trans[0],&n_gauss,&n_basis[v],
+							&dbl_1,
+							face[f].border[s]->Q[opposite[s]][0],&n_gauss,
+							&basis_value[s*n_basis[v]],&int_1,
+							&dbl_0,
+							point_value[i+EXPRESSION_VARIABLE_INDEX],&int_1);
+					dgemv_(&trans[0],&n_gauss,&n_basis[v],
+							&dbl_1,
+							face[f].border[s]->Q[opposite[s]][0],&n_gauss,
+							&basis_value_old[s*n_basis[v]],&int_1,
+							&dbl_0,
+							point_value_old[i+EXPRESSION_VARIABLE_INDEX],&int_1);
 				}
 			}
 
@@ -540,33 +540,33 @@ void calculate_system(int n_variables, int *variable_order, int n_faces, struct 
 				{
 					for(j = 0; j < n_basis[q]; j ++)
 						for(p = 0; p < n_gauss; p ++)
-							A[j][p] = face[f].border[b]->Q[opposite[b]][j][p] * point_term[p];
+							A[j][p] = face[f].border[b]->orient[opposite[b]] * face[f].border[b]->Q[opposite[b]][j][p] * point_term[p];
 
 					if(term[t].method[i] == 'i' || d != powers_taylor[0][0] || face[f].n_borders < 2 || face[f].n_boundaries[v])
 					{
-						alpha = face[f].border[b]->orient[opposite[b]];
 						for(j = 0; j < face[f].n_borders; j ++)
 						{
 							dgemm_(&trans[1],&trans[0],&n_basis[v],&n_basis[q],&n_gauss,
-									&alpha,
+									&dbl_1,
 									face[f].Q[v][d][j*n_basis[v]],&n_gauss,
 									A[0],&lda,
 									&dbl_1,
 									&local_value[b][local_element[q]][j == b ? local_element[v] : local_adjacent[b][v]],&ldl);
 						}
 					}
-					else if(term[t].method[i] == 'a' || term[t].method[i] == 'd')
+					else if(term[t].method[i] == 'a' || term[t].method[i] == 'b')
 					{
-						alpha = 0.5 * face[f].border[b]->orient[opposite[b]];
-						for(j = 0; j < face[f].n_borders; j ++)
-						{
-							dgemm_(&trans[1],&trans[0],&n_basis[v],&n_basis[q],&n_gauss,
-									&alpha,
-									face[f].border[j]->Q[opposite[j]][0],&n_gauss,
-									A[0],&lda,
-									&dbl_1,
-									&local_value[b][local_element[q]][j == b ? local_element[v] : local_adjacent[b][v]],&ldl);
-						}
+						s = 
+							(face[f].border[0]->orient[opposite[0]] < 0 && term[t].method[i] == 'a') ||
+							(face[f].border[0]->orient[opposite[0]] > 0 && term[t].method[i] == 'b') ?
+							0 : 1;
+
+						dgemm_(&trans[1],&trans[0],&n_basis[v],&n_basis[q],&n_gauss,
+								&dbl_1,
+								face[f].border[s]->Q[opposite[s]][0],&n_gauss,
+								A[0],&lda,
+								&dbl_1,
+								&local_value[b][local_element[q]][s == b ? local_element[v] : local_adjacent[b][v]],&ldl);
 					}
 				}
 			}
