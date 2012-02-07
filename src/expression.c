@@ -192,7 +192,7 @@ EXPRESSION expression_generate(char *original)
 
 		do
 		{
-			if(strncmp(&string[i],name,n_name) == 0)
+			if(strncmp(&string[i],name,n_name) == 0 && (!IS_VARIABLE(string[i+n_name]) || string[i+n_name] == '\0'))
 			{
 				string[i] = '\0';
 

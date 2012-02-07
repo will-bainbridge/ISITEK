@@ -1,23 +1,23 @@
 #------------------------------------------------------------------------------#
 
-case_file_path line.AD.case
+case_file_path line.B.case
 geometry_file_path line.geometry
 
-number_of_outer_iterations 1
-number_of_inner_iterations 1
+number_of_outer_iterations 200
+number_of_inner_iterations 5
 
-data_file_path line.AD.?.data
-#initial_data_file_path line.AD.000000000.data
+data_file_path line.B.?.data
+#initial_data_file_path line.B.000000000.data
 data_number_of_outer_iterations 1000000000
 
-display_file_path line.AD.?.vtu
+display_file_path line.B.?.vtu
 display_number_of_outer_iterations 1
 
 number_of_variables 1
 variable_name u
 variable_order 3
-#variable_initial_value 10000*($x>0.2)*($x<0.4)*($x-0.2)^2*($x-0.4)^2
-variable_initial_value ($x>0.2)*($x<0.4)
+variable_initial_value 10000*($x>0.2)*($x<0.4)*($x-0.2)^2*($x-0.4)^2
+#ariable_initial_value ($x>0.2)*($x<0.4)
 
 #------------------------------------------------------------------------------#
 
@@ -25,20 +25,17 @@ variable_initial_value ($x>0.2)*($x<0.4)
 
 # boundary > indices variable condition value
 boundary 0:199 0 n 0.0
-boundary 200:200,300:300 0 d 0.0
+boundary 200:200 0 d 0.0
+#oundary 200:200,300:300 0 d 0.0
 
 #------------------------------------------------------------------------------#
 
-constant u=1.0;d=0.02;f=1.0;w=$a*u>0
+constant u=1.0;d=0.005;f=1.0;dt=5e-3;w=$a*($0+$1)>0
 
 # term > equation type implicit variables differentials methods residual jacobian
 
-#term 0 s 1.0 0   0   -   1/dt*$0             1/dt
-#term 0 s 0.0 0   0   -   0-1/dt*$0           0-1/dt
-
-term 0 x 1.0 0,0 0,0 a,b 0-(1-w)*u*$0-w*u*$1 0-(1-w)*u,0-w*u
-#erm 0 x 1.0 0   0   i   0-u*$0              0-u
-term 0 x 1.0 0   x   i   d*$0                d
-term 0 s 1.0 0   0   -   0-f                 0
+term 0 s 1.0 0   0   -   1/dt*$0               1/dt
+term 0 s 0.0 0   0   -   0-1/dt*$0             0-1/dt
+term 0 x 1.0 0,0 0,0 a,b 0-(1-w)*$0*$0-w*$1*$1 0-(1-w)*2*$0,0-w*2*$1
 
 #------------------------------------------------------------------------------#
