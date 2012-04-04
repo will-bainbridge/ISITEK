@@ -284,10 +284,8 @@ void calculate_system(int n_variables, int *variable_order, int n_faces, struct 
 	double **A = allocate_double_matrix(NULL,max_n_basis,lda);
 
 	// expression evaluation working memory
-	int expression_max_recusions = 1;
-	for(t = 0; t < n_terms; t ++) expression_max_recusions = MAX(expression_max_recusions,expression_number_of_recursions(term[t].residual));
 	double **expression_work;
-	exit_if_false(expression_work = allocate_double_matrix(NULL,expression_max_recusions,MAX(n_gauss,(MAX_ELEMENT_N_FACES-1)*n_hammer)),"allocating expression work");
+	exit_if_false(expression_work = allocate_double_matrix(NULL,MAX_EXPRESSION_N_RECURSIONS,MAX(n_gauss,(MAX_ELEMENT_N_FACES-1)*n_hammer)),"allocating expression work");
 
 	// connectivity
 	int opposite[MAX_FACE_N_BORDERS];
@@ -295,7 +293,7 @@ void calculate_system(int n_variables, int *variable_order, int n_faces, struct 
 	// blas parameters
 	char trans[2] = "NT";
 	int int_0 = 0, int_1 = 1;
-	double dbl_0 = 0.0, dbl_1 = 1.0, alpha;
+	double dbl_0 = 0.0, dbl_1 = 1.0, dbl_minus_1 = -1.0, alpha;
 
 	// zero the system
 	sparse_set_zero(system);
@@ -337,6 +335,9 @@ void calculate_system(int n_variables, int *variable_order, int n_faces, struct 
 			q = term[t].equation;
 			x = powers_taylor[term[t].type == 'x'][term[t].type == 'y'];
 
+			// skip if the order is too low
+			if(x >= max_n_basis) continue;
+
 			// values at the intergration points
 			for(i = 0; i < term[t].n_variables; i ++)
 			{
@@ -370,14 +371,14 @@ void calculate_system(int n_variables, int *variable_order, int n_faces, struct 
 				d = term[t].differential[i];
 
 				expression_evaluate(n_points, point_term, term[t].jacobian[i], point_value, expression_work);
-				for(p = 0; p < n_points; p ++) point_term[p] *= - element[e].W[p] * term[t].implicit;
+				for(p = 0; p < n_points; p ++) point_term[p] *= element[e].W[p] * term[t].implicit;
 
 				for(j = 0; j < n_basis[q]; j ++)
 					for(p = 0; p < n_points; p ++)
 						A[j][p] = element[e].P[x][j][p] * point_term[p];
 
 				dgemm_(&trans[1],&trans[0],&n_basis[v],&n_basis[q],&n_points,
-						&dbl_1,
+						(term[t].type == 's' ? &dbl_1 : &dbl_minus_1),
 						element[e].P[d][0],&n_points,
 						A[0],&lda,
 						&dbl_1,
@@ -387,10 +388,10 @@ void calculate_system(int n_variables, int *variable_order, int n_faces, struct 
 			// residual
 			expression_evaluate(n_points, point_term, term[t].residual, point_value, expression_work);
 			expression_evaluate(n_points, point_term_old, term[t].residual, point_value_old, expression_work);
-			for(p = 0; p < n_points; p ++) point_term[p] = - element[e].W[p] *
+			for(p = 0; p < n_points; p ++) point_term[p] = element[e].W[p] *
 				(term[t].implicit * point_term[p] + (1.0 - term[t].implicit) * point_term_old[p]);
 			dgemv_(&trans[1],&n_points,&n_basis[q],
-					&dbl_1,
+					(term[t].type == 's' ? &dbl_1 : &dbl_minus_1),
 					element[e].P[x][0],&n_points,
 					point_term,&int_1,
 					&dbl_1,

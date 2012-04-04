@@ -724,7 +724,7 @@ void terms_input(FILE *file, int *n_terms, struct TERM **term)
 			jac_offset += strlen(&jac_string[jac_offset]) + 1;
 
 			// warn
-			warn_if_false(info,"skipping term with unrecognised variable format");
+			warn_if_false(info,"skipping term with unrecognised format");
 
 			//next variable
 			if(info) t[n].n_variables ++;

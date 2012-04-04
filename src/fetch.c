@@ -6,7 +6,7 @@
 
 #include "fetch.h"
 
-#define FETCH_MAX_STRING_LENGTH 128
+#define FETCH_MAX_STRING_LENGTH 1024
 
 ////////////////////////////////////////////////////////////////////////////////
 

@@ -3,7 +3,7 @@
 case_file_path line.B.case
 geometry_file_path line.geometry
 
-number_of_outer_iterations 200
+number_of_outer_iterations 201
 number_of_inner_iterations 5
 
 data_file_path line.B.?.data
@@ -11,7 +11,7 @@ data_file_path line.B.?.data
 data_number_of_outer_iterations 1000000000
 
 display_file_path line.B.?.vtu
-display_number_of_outer_iterations 1
+display_number_of_outer_iterations 10
 
 number_of_variables 1
 variable_name u
@@ -20,8 +20,6 @@ variable_initial_value 10000*($x>0.2)*($x<0.4)*($x-0.2)^2*($x-0.4)^2
 #ariable_initial_value ($x>0.2)*($x<0.4)
 
 #------------------------------------------------------------------------------#
-
-# north east south west > 604:617 618:631 632:645 646:659
 
 # boundary > indices variable condition value
 boundary 0:199 0 n 0.0
@@ -34,8 +32,8 @@ constant u=1.0;d=0.005;f=1.0;dt=5e-3;w=$a*($0+$1)>0
 
 # term > equation type implicit variables differentials methods residual jacobian
 
-term 0 s 1.0 0   0   -   1/dt*$0               1/dt
-term 0 s 0.0 0   0   -   0-1/dt*$0             0-1/dt
-term 0 x 1.0 0,0 0,0 a,b 0-(1-w)*$0*$0-w*$1*$1 0-(1-w)*2*$0,0-w*2*$1
+term 0 s 1.0 0   0   -   1/dt*$0             1/dt
+term 0 s 0.0 0   0   -   0-1/dt*$0           0-1/dt
+term 0 x 0.6 0,0 0,0 a,b (1-w)*$0*$0+w*$1*$1 (1-w)*2*$0,w*2*$1
 
 #------------------------------------------------------------------------------#

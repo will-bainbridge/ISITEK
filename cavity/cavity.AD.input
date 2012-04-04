@@ -32,8 +32,8 @@ constant u=4*$x*(1-$x)*(2*$y-1);v=4*$y*(1-$y)*(1-2*$x);d=0.005;f=1.0
 
 # term > equation type implicit variables differentials methods residual jacobian
 
-term 0 x 1.0 0,0 0,x a,i 0-u*$0+d*$1 0-u,d
-term 0 y 1.0 0,0 0,y a,i 0-v*$0+d*$1 0-v,d
-#erm 0 s 1.0 0   0   -   0-f         0.0,0.0
+term 0 x 1.0 0,0 0,x a,i u*$0-d*$1 u,0-d
+term 0 y 1.0 0,0 0,y a,i v*$0-d*$1 v,0-d
+#erm 0 s 1.0 0   0   -   0-f       0.0,0.0
 
 #------------------------------------------------------------------------------#
