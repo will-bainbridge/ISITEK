@@ -8,7 +8,7 @@ ISITEK
 LICENSE
 -------
 
-ISITEK is provided under the terms of the Eclipse Public License v1.0. See LICENSE or <http://www.eclipse.org/legal/epl-v10.html> for details.
+ISITEK is provided under the terms of the MIT License. See LICENSE or <http://www.opensource.org/licenses/MIT> for details.
 
 DESCRIPTION
 -----------
