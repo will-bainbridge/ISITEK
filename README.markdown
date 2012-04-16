@@ -14,3 +14,29 @@ DESCRIPTION
 -----------
 
 * ISITEK is a 2D unstructured discontinuous galerkin PDE solver.
+
+INSTALLATION
+------------
+
+Use the install script in the third party directory to obtain and build the necessary linear algebra packages, GotoBLAS and UMFPACK
+
+	cd thirdparty
+	./install.sh
+
+Back in the root directory, build the solver
+
+	cd ..
+	make
+
+USAGE
+-----
+
+Move into one of the example directories
+
+	cd cavity
+
+Run the program with the input file as the sole argument
+
+	../isitek cavity.INS.input
+
+Paraview can then be used to view the resulting vtu files

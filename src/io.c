@@ -641,13 +641,12 @@ void terms_input(FILE *file, int *n_terms, struct TERM **term)
 			cst_string != NULL && var_string != NULL && dif_string != NULL &&
 			mth_string != NULL && val_string != NULL && jac_string != NULL,
 			"allocating temporary strings");
-	int n_cst_string, n_var_string, n_dif_string, n_mth_string, n_jac_string;
+	int n_var_string, n_dif_string, n_mth_string, n_jac_string;
 	int var_offset, dif_offset, mth_offset, jac_offset;
 	int dif[2];
 
 	// fetch the constants
 	if(fetch_value(file,"constant",'s',cst_string) != FETCH_SUCCESS) cst_string[0] = '\0';
-	n_cst_string = strlen(cst_string);
 
 	for(i = 0; i < n_fetch; i ++)
 	{
