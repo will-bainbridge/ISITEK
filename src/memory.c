@@ -345,7 +345,7 @@ struct ELEMENT * allocate_elements(int n_elements)
 	if(new == NULL) return NULL;
 
 	int i;
-	struct ELEMENT z = {0,NULL,NULL,{0.0,0.0},0.0,NULL,NULL,NULL,NULL,NULL,NULL};
+	struct ELEMENT z = {0,NULL,{0.0,0.0},0.0,NULL,NULL,NULL,NULL,NULL,NULL};
 	for(i = 0; i < n_elements; i ++) new[i] = z;
 
 	return new;
@@ -354,11 +354,6 @@ struct ELEMENT * allocate_elements(int n_elements)
 struct FACE ** allocate_element_face(struct ELEMENT *element)
 {
         return (struct FACE **)realloc(element->face, element->n_faces * sizeof(struct FACE *));
-}
-
-int * allocate_element_orient(struct ELEMENT *element)
-{
-        return (int *)realloc(element->orient, element->n_faces * sizeof(int));
 }
 
 int ** allocate_element_unknown(struct ELEMENT *element, int n_variables, int *n_basis)
@@ -423,7 +418,6 @@ void destroy_elements(int n_elements, struct ELEMENT *element, int n_variables)
         for(i = 0; i < n_elements; i ++)
         {
                 free(element[i].face);
-                free(element[i].orient);
 		if(element[i].unknown) for(j = 0; j < n_variables; j ++) free(element[i].unknown[j]);
 		free(element[i].unknown);
 		destroy_matrix((void *)element[i].X);

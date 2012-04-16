@@ -32,7 +32,6 @@ struct ELEMENT
 {
 	int n_faces;
 	struct FACE **face;
-	int *orient;
 
 	double centre[2];
 	double size;

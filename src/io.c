@@ -365,7 +365,6 @@ void element_write_case(FILE *file, int n_variables, int *n_basis, int n_gauss, 
 	exit_if_false(fwrite(&(element->n_faces), sizeof(int), 1, file) == 1,"writing the number of element faces");
 	for(i = 0; i < element->n_faces; i ++) index[i] = (int)(element->face[i] - &face[0]);
 	exit_if_false(fwrite(index, sizeof(int), element->n_faces, file) == element->n_faces,"writing the element faces");
-	exit_if_false(fwrite(element->orient, sizeof(int), element->n_faces, file) == element->n_faces,"writing the element orientations");
 
 	exit_if_false(fwrite(element->centre, sizeof(double), 2, file) == 2,"writing the element centre");
 	exit_if_false(fwrite(&(element->size), sizeof(double), 1, file) == 1,"writing the element size");
@@ -407,8 +406,6 @@ void element_read_case(FILE *file, int n_variables, int *n_basis, int n_gauss, i
 	exit_if_false(element->face = allocate_element_face(element),"allocating element faces");
 	exit_if_false(fread(index, sizeof(int), element->n_faces, file) == element->n_faces,"reading the element faces");
 	for(i = 0; i < element->n_faces; i ++) element->face[i] = &face[index[i]];
-	exit_if_false(element->orient = allocate_element_orient(element),"allocating element orientations");
-	exit_if_false(fread(element->orient, sizeof(int), element->n_faces, file) == element->n_faces,"reading the element orientations");
 
 	exit_if_false(fread(element->centre, sizeof(double), 2, file) == 2,"reading the element centre");
 	exit_if_false(fread(&(element->size), sizeof(double), 1, file) == 1,"reading the element size");
@@ -902,14 +899,17 @@ void write_display(FILE *file, int n_variables, char **variable_name, int *varia
 
 		for(i = 0; i < element[e].n_faces; i ++)
 		{
-			fprintf(file,"%i ",(int)(element[e].face[f]->node[element[e].orient[f] < 0] - &node[0]));
+			fprintf(file,"%i ",(int)(element[e].face[f]->node[element[e].face[f]->border[0] != &element[e]] - &node[0]));
 			
 			if(i == element[e].n_faces - 1) break;
 
 			for(j = 0; j < element[e].n_faces; j ++)
 			{
 				if(j == f) continue;
-				if(element[e].face[j]->node[element[e].orient[j] < 0] == element[e].face[f]->node[element[e].orient[f] > 0])
+				if(
+						element[e].face[j]->node[element[e].face[j]->border[0] != &element[e]] ==
+						element[e].face[f]->node[element[e].face[f]->border[0] == &element[e]]
+				  )
 				{
 					f = j;
 					break;

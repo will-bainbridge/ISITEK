@@ -72,6 +72,11 @@ void update_element_integration(int n_variables_old, int n_variables, int *varia
 		exit_if_false(element[e].X = allocate_element_x(&element[e],n_hammer*(element[e].n_faces - 2)),"allocating element X");
 		exit_if_false(element[e].W = allocate_element_w(&element[e],n_hammer*(element[e].n_faces - 2)),"allocating element W");
 
+		// NOT SURE ABOUT THIS
+		// might be getting fixed edge multiple vertices > wrong
+		// want fixed vertex multiple edges
+		// OK for triangle tests
+
 		// triangulate
 		n_vertices = 0;
 		for(i = 0; i < element[e].n_faces; i ++)
@@ -86,7 +91,8 @@ void update_element_integration(int n_variables_old, int n_variables, int *varia
 			}
 		}
 
-		o = element[e].orient[0] > 0;
+		// orientation of first face
+		o = element[e].face[0]->border[0] == &element[e];
 
 		// locations and weights
 		for(i = 0; i < n_vertices; i ++)

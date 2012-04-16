@@ -27,49 +27,44 @@ void process_geometry(int n_nodes, struct NODE *node, int n_faces, struct FACE *
 		exit_if_false(face[f].border = allocate_face_border(&face[f]),"allocating face borders");
 	}
 
-	// ascertain element face orientations
+	// face ordering and element geometry
 	int index;
-	struct NODE *vertex;
+	double area, cross;
+	struct NODE *temp;
 	for(e = 0; e < n_elements; e ++)
 	{
-		exit_if_false(element[e].orient = allocate_element_orient(&element[e]),"allocating the element face orientations");
-
+		// order the face nodes around the element
 		index = 0;
-		element[e].orient[0] = 0;
-
 		for(i = 1; i < element[e].n_faces; i ++)
 		{
-			vertex = element[e].face[index]->node[!element[e].orient[index]];
-
 			for(j = 0; j < element[e].n_faces; j ++)
 			{
 				if(j == index) continue;
-				if(element[e].face[j]->node[0] == vertex || element[e].face[j]->node[1] == vertex)
+				if(element[e].face[j]->node[0] == element[e].face[index]->node[1])
 				{
 					index = j;
-					element[e].orient[j] = element[e].face[j]->node[1] == vertex;
+					break;
+				}
+				if(element[e].face[j]->node[1] == element[e].face[index]->node[1])
+				{
+					element[e].face[j]->node[1] = element[e].face[j]->node[0];
+					element[e].face[j]->node[0] = element[e].face[index]->node[1];
+					index = j;
 					break;
 				}
 			}
-
-			exit_if_false(j < element[e].n_faces,"finding the next face");
 		}
 
-		for(i = 0; i < element[e].n_faces; i ++) element[e].orient[i] = 2*element[e].orient[i] - 1;
-	}
-
-	// calculate element sizes and centroids
-	double area, cross;
-	for(e = 0; e < n_elements; e ++)
-	{
+		// signed area and centroid
 		area = 0.0;
 		for(i = 0; i < 2; i ++) element[e].centre[i] = 0.0;
 
 		for(i = 0; i < element[e].n_faces; i ++)
 		{
-			cross = element[e].orient[i] * (
+			cross = (
 					element[e].face[i]->node[0]->x[0] * element[e].face[i]->node[1]->x[1] -
-					element[e].face[i]->node[1]->x[0] * element[e].face[i]->node[0]->x[1] );
+					element[e].face[i]->node[1]->x[0] * element[e].face[i]->node[0]->x[1]
+				);
 			area += cross;
 			for(j = 0; j < 2; j ++) element[e].centre[j] += cross * ( element[e].face[i]->node[0]->x[j] + element[e].face[i]->node[1]->x[j] );
 		}
@@ -77,13 +72,29 @@ void process_geometry(int n_nodes, struct NODE *node, int n_faces, struct FACE *
 		area *= 0.5;
 		for(i = 0; i < 2; i ++) element[e].centre[i] /= 6*area;
 
+		// unsigned size
+		element[e].size = sqrt(fabs(area));
+
+		// flip faces if the area is -ve
 		if(area < 0)
 		{
-			area = - area;
-			for(i = 0; i < element[e].n_faces; i ++) element[e].orient[i] = - element[e].orient[i];
+			for(i = 0; i < element[e].n_faces; i ++)
+			{
+				temp = element[e].face[i]->node[0];
+				element[e].face[i]->node[0] = element[e].face[i]->node[1];
+				element[e].face[i]->node[1] = temp;
+			}
 		}
 
-		element[e].size = sqrt(area);
+		// order the face borders
+		for(i = 0; i < element[e].n_faces; i ++)
+		{
+			if(element[e].face[i]->border[0] != &element[e])
+			{
+				element[e].face[i]->border[1] = element[e].face[i]->border[0];
+				element[e].face[i]->border[0] = &element[e];
+			}
+		}
 	}
 
 	// calculate face normals, centres and sizes
