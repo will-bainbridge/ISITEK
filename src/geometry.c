@@ -75,7 +75,7 @@ void process_geometry(int n_nodes, struct NODE *node, int n_faces, struct FACE *
 		// unsigned size
 		element[e].size = sqrt(fabs(area));
 
-		// flip faces if the area is -ve
+		// reverse all faces if the area is negative
 		if(area < 0)
 		{
 			for(i = 0; i < element[e].n_faces; i ++)
@@ -86,7 +86,7 @@ void process_geometry(int n_nodes, struct NODE *node, int n_faces, struct FACE *
 			}
 		}
 
-		// order the face borders
+		// order the face borders so that the face normal points from border 0 to border 1
 		for(i = 0; i < element[e].n_faces; i ++)
 		{
 			if(element[e].face[i]->border[0] != &element[e])
