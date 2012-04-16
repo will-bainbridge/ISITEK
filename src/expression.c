@@ -141,7 +141,7 @@ EXPRESSION expression_generate(char *original)
 	char *string = (char *)malloc(MAX_STRING * sizeof(char));
 	strcpy(string,original);
 
-	//remove whitespace
+	// remove whitespace
 
 	offset = 0;
 	length = strlen(string);
@@ -374,7 +374,7 @@ void expression_simplify(EXPRESSION expression)
 	int type;
 	double value;
 
-	// fudge to make a non-allocated matrix act like an allocated one
+	// fudge to make a non-allocated 2x1 matrix act like an allocated one
 	double work[2], *p_work[2];
 	p_work[0] = &work[0];
 	p_work[1] = &work[1];

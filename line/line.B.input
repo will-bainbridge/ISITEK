@@ -17,23 +17,22 @@ number_of_variables 1
 variable_name u
 variable_order 3
 variable_initial_value 10000*($x>0.2)*($x<0.4)*($x-0.2)^2*($x-0.4)^2
-#ariable_initial_value ($x>0.2)*($x<0.4)
 
 #------------------------------------------------------------------------------#
 
 # boundary > indices variable condition value
+
 boundary 0:199 0 n 0.0
 boundary 200:200 0 d 0.0
-#oundary 200:200,300:300 0 d 0.0
 
 #------------------------------------------------------------------------------#
 
-constant u=1.0;d=0.005;f=1.0;dt=5e-3;w=$a*($0+$1)>0
+constant dt=5e-3;w=$a*($0+$1)>0;u=(1-w)*$0+w*$1;du_d0=(1-w);du_d1=w
 
 # term > equation type implicit variables differentials methods residual jacobian
 
-term 0 s 1.0 0   0   -   1/dt*$0             1/dt
-term 0 s 0.0 0   0   -   0-1/dt*$0           0-1/dt
-term 0 x 0.6 0,0 0,0 a,b (1-w)*$0*$0+w*$1*$1 (1-w)*2*$0,w*2*$1
+term 0 s 1.0 0   0 -   1/dt*$0   1/dt
+term 0 s 0.0 0   0 -   0-1/dt*$0 0-1/dt
+term 0 x 0.6 0,0 0 a,b u*u       2*u*du_d0,2*u*du_d1
 
 #------------------------------------------------------------------------------#

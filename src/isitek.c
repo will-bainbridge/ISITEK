@@ -161,7 +161,7 @@ int main(int argc, char *argv[])
 	write_case(case_file, n_variables, variable_order, n_nodes, node, n_faces, face, n_elements, element, n_boundaries, boundary);
 	fclose(case_file);
 
-	// display path an frequency
+	// display path and frequency
 	if(
 			fetch_value(input_file,"display_file_path",'s',display_file_path) != FETCH_SUCCESS ||
 			fetch_value(input_file,"display_number_of_outer_iterations",'i',&display_n_outer_iterations) != FETCH_SUCCESS
