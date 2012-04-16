@@ -53,7 +53,7 @@ void update_face_integration(int n_variables_old, int n_variables, int *variable
 
 void update_element_integration(int n_variables_old, int n_variables, int *variable_order_old, int *variable_order, int n_elements, struct ELEMENT *element)
 {
-	int e, h, i, j, k, o, v;
+	int e, f, h, i, j, k, o, v;
 
 	int max_variable_order = 0, max_variable_order_old = 0;
 	for(v = 0; v < n_variables; v ++) max_variable_order = MAX(max_variable_order,variable_order[v]);
@@ -62,54 +62,35 @@ void update_element_integration(int n_variables_old, int n_variables, int *varia
 	if(max_variable_order == max_variable_order_old) return;
 
 	int n_hammer = ORDER_TO_N_HAMMER(max_variable_order);
-
 	double dx[2][2], size;
-	struct NODE *vertex[MAX_ELEMENT_N_FACES];
-	int n_vertices;
 
 	for(e = 0; e < n_elements; e ++)
 	{
 		exit_if_false(element[e].X = allocate_element_x(&element[e],n_hammer*(element[e].n_faces - 2)),"allocating element X");
 		exit_if_false(element[e].W = allocate_element_w(&element[e],n_hammer*(element[e].n_faces - 2)),"allocating element W");
 
-		// NOT SURE ABOUT THIS
-		// might be getting fixed edge multiple vertices > wrong
-		// want fixed vertex multiple edges
-		// OK for triangle tests
+		f = 0;
 
-		// triangulate
-		n_vertices = 0;
-		for(i = 0; i < element[e].n_faces; i ++)
+		for(i = 0; i < element[e].n_faces - 2; i ++)
 		{
+			// triangulate
+			f ++;
+			while(element[e].face[f]->node[0] == element[e].face[0]->node[0] || element[e].face[f]->node[1] == element[e].face[0]->node[0]) f ++;
+			o = element[e].face[f]->border[0] == &element[e];
 			for(j = 0; j < 2; j ++)
-			{
-				if(element[e].face[i]->node[j] == element[e].face[0]->node[0] || element[e].face[i]->node[j] == element[e].face[0]->node[1]) continue;
+				for(k = 0; k < 2; k ++)
+					dx[j][k] = element[e].face[f]->node[j == o]->x[k] - element[e].face[0]->node[0]->x[k];
 
-				for(k = 0; k < n_vertices; k ++) if(element[e].face[i]->node[j] == vertex[k]) break;
-
-				if(k == n_vertices) vertex[n_vertices ++] = element[e].face[i]->node[j];
-			}
-		}
-
-		// orientation of first face
-		o = element[e].face[0]->border[0] == &element[e];
-
-		// locations and weights
-		for(i = 0; i < n_vertices; i ++)
-		{
-			for(j = 0; j < 2; j ++) for(k = 0; k < 2; k ++) dx[j][k] = element[e].face[0]->node[j == o]->x[k] - vertex[i]->x[k];
-
+			// hammer locations and weights
 			size = dx[0][0]*dx[1][1] - dx[0][1]*dx[1][0];
-
 			for(h = 0; h < n_hammer; h ++)
 			{
 				for(j = 0; j < 2; j ++)
 				{
-					element[e].X[j][i*n_hammer+h] = vertex[i]->x[j] +
+					element[e].X[j][i*n_hammer+h] = element[e].face[0]->node[0]->x[j] +
 						hammer_locations[n_hammer-1][0][h]*dx[0][j] +
 						hammer_locations[n_hammer-1][1][h]*dx[1][j];
 				}
-
 				element[e].W[i*n_hammer+h] = hammer_weights[n_hammer-1][h] * size;
 			}
 		}
