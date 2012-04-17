@@ -28,7 +28,7 @@ mv -f temp UFconfig/UFconfig.mk
 # build
 
 cd GotoBLAS2
-make USE_THREAD=0
+make USE_THREAD=0 CC=gcc FC=gfortran
 
 cd ../UFconfig/
 make
