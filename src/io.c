@@ -17,6 +17,7 @@ void element_read_case(FILE *file, int n_variables, int *n_basis, int n_gauss, i
 void boundary_write_case(FILE *file, struct FACE *face, struct BOUNDARY *boundary);
 void boundary_read_case(FILE *file, struct FACE *face, struct BOUNDARY *boundary);
 
+void constants_input(FILE *file, char *constants);
 int add_geometry_to_expression_string(char *string);
 
 #define MAX_N_INDICES 1000
@@ -30,6 +31,10 @@ int add_geometry_to_expression_string(char *string);
 #define MAX_TERM_N_VARIABLES 10
 #define TERM_LABEL "term"
 #define TERM_FORMAT "icdsssss"
+
+#define MAX_N_CONSTANTS 20
+#define CONSTANT_LABEL "constant"
+#define CONSTANT_FORMAT "s"
 
 //////////////////////////////////////////////////////////////////
 
@@ -615,21 +620,20 @@ void boundaries_input(FILE *file, int n_faces, struct FACE *face, int *n_boundar
 
 void terms_input(FILE *file, int *n_terms, struct TERM **term)
 {
-	//fetch the data
+	int i, j, n = 0, info;
+
+	// fetch the data
 	FETCH fetch = fetch_new(TERM_FORMAT,MAX_N_TERMS);
 	exit_if_false(fetch != NULL,"allocating fetch");
 	int n_fetch = fetch_read(file,TERM_LABEL,fetch);
 	exit_if_false(n_fetch > 0,"no terms found in input file");
 	warn_if_false(n_fetch < MAX_N_TERMS,"maximum number of terms reached");
 
-	//allocate pointers
+	// allocate pointers
 	struct TERM *t = allocate_terms(n_fetch);
 	exit_if_false(t != NULL,"allocating terms");
 
-	//counters
-	int i, j, n = 0, info;
-
-	//temporary storage
+	// temporary storage
 	char *cst_string = (char *)malloc(MAX_STRING_LENGTH * sizeof(char));
 	char *var_string = (char *)malloc(MAX_STRING_LENGTH * sizeof(char));
 	char *dif_string = (char *)malloc(MAX_STRING_LENGTH * sizeof(char));
@@ -645,9 +649,10 @@ void terms_input(FILE *file, int *n_terms, struct TERM **term)
 	int var_offset, dif_offset, mth_offset, jac_offset;
 	int dif[2];
 
-	// fetch the constants
-	if(fetch_value(file,"constant",'s',cst_string) != FETCH_SUCCESS) cst_string[0] = '\0';
+	// get the constants
+	constants_input(file,cst_string);
 
+	// loop over fetched data
 	for(i = 0; i < n_fetch; i ++)
 	{
 		// initial allocation
@@ -658,14 +663,14 @@ void terms_input(FILE *file, int *n_terms, struct TERM **term)
 		exit_if_false(t[n].jacobian = allocate_term_jacobian(&t[n]),"allocating term jacobians");
 		t[n].n_variables = 0;
 
-		//equation
+		// equation
 		fetch_get(fetch, i, 0, &t[n].equation);
 
-		//type
+		// type
 		fetch_get(fetch, i, 1, &t[n].type);
 		warn_if_false(t[n].type == 's' || t[n].type == 'x' || t[n].type == 'y',"skipping term with unrecognised type");
 
-		//implicit fraction
+		// implicit fraction
 		fetch_get(fetch, i, 2, &t[n].implicit);
 
 		// value expression string
@@ -674,7 +679,7 @@ void terms_input(FILE *file, int *n_terms, struct TERM **term)
 		exit_if_false(add_geometry_to_expression_string(temp),"adding geometry to the residual expression string");
 		exit_if_false(t[n].residual = expression_generate(temp),"generating term residual expression");
 
-		//get the variable, differential, method and jacobian expression strings
+		// get the variable, differential, method and jacobian expression strings
 		fetch_get(fetch, i, 3, var_string); n_var_string = strlen(var_string);
 		fetch_get(fetch, i, 4, dif_string); n_dif_string = strlen(dif_string);
 		fetch_get(fetch, i, 5, mth_string); n_mth_string = strlen(mth_string);
@@ -684,17 +689,17 @@ void terms_input(FILE *file, int *n_terms, struct TERM **term)
 		for(j = 0; j < n_mth_string; j ++) if(mth_string[j] == ',') mth_string[j] = '\0';
 		for(j = 0; j < n_jac_string; j ++) if(jac_string[j] == ',') jac_string[j] = '\0';
 
-		//read each variable in turn
+		// read each variable in turn
 		var_offset = dif_offset = mth_offset = jac_offset = t[n].n_variables = 0;
 		while(var_offset < n_var_string)
 		{
 			info = 1;
 
-			//read the variable indices
+			// read the variable indices
 			info *= sscanf(&var_string[var_offset],"%i",&t[n].variable[t[n].n_variables]) == 1;
 			var_offset += strlen(&var_string[var_offset]) + 1;
 
-			//read the x and y differentials and convert to a differential index
+			// read the x and y differentials and convert to a differential index
 			info *= sscanf(&dif_string[dif_offset],"%s",temp) == 1;
 			j = dif[0] = dif[1] = 0;
 			if(info)
@@ -709,11 +714,11 @@ void terms_input(FILE *file, int *n_terms, struct TERM **term)
 			}
 			dif_offset += strlen(&dif_string[dif_offset]) + 1;
 
-			//read the methods
+			// read the methods
 			info *= sscanf(&mth_string[mth_offset],"%c",&t[n].method[t[n].n_variables]) == 1;
 			mth_offset += strlen(&mth_string[mth_offset]) + 1;
 
-			//read the jacobian expressions
+			// read the jacobian expressions
 			info *= sprintf(temp,"%s;%s",cst_string,&jac_string[jac_offset]) > 0;
 			info *= add_geometry_to_expression_string(temp);
 			info *= (t[n].jacobian[t[n].n_variables] = expression_generate(temp)) != NULL;
@@ -722,28 +727,28 @@ void terms_input(FILE *file, int *n_terms, struct TERM **term)
 			// warn
 			warn_if_false(info,"skipping term with unrecognised format");
 
-			//next variable
+			// next variable
 			if(info) t[n].n_variables ++;
 		}
 
-		//re-allocate
+		// re-allocate
 		exit_if_false(t[n].variable = allocate_term_variable(&t[n]),"re-allocating term variables");
 		exit_if_false(t[n].differential = allocate_term_differential(&t[n]),"re-allocating term differentials");
 		exit_if_false(t[n].method = allocate_term_method(&t[n]),"re-allocating term methods");
 		exit_if_false(t[n].jacobian = allocate_term_jacobian(&t[n]),"re-allocating term jacobians");
 
-		//increment the number of terms
+		// increment the number of terms
 		n ++;
 	}
 
-	//check numbers
+	// check numbers
 	warn_if_false(n_fetch == n,"skipping terms with unrecognised formats");
 
-	//copy pointers
+	// copy pointers
 	*term = t;
 	*n_terms = n;
 
-	//clean up
+	// clean up
 	fetch_destroy(fetch);
 	free(cst_string);
 	free(var_string);
@@ -752,6 +757,35 @@ void terms_input(FILE *file, int *n_terms, struct TERM **term)
 	free(val_string);
 	free(jac_string);
 	free(temp);
+}
+
+//////////////////////////////////////////////////////////////////
+
+void constants_input(FILE *file, char *constants)
+{
+	int i, n = 0;
+
+	// initialise
+	constants[0] = '\0';
+
+	// fetch the constants
+	FETCH fetch = fetch_new(CONSTANT_FORMAT,MAX_N_CONSTANTS);
+	exit_if_false(fetch != NULL,"allocating fetch constants");
+	int n_fetch = fetch_read(file,CONSTANT_LABEL,fetch);
+
+	// concatenate the constants onto one semicolon-delimited string
+	for(i = 0; i < n_fetch; i ++)
+	{
+		fetch_get(fetch, i, 0, &constants[n]);
+		n = strlen(constants);
+		constants[n++] = ';';
+	}
+
+	// terminate the string
+	if(n) constants[--n] = '\0';
+
+	// clean up
+	fetch_destroy(fetch);
 }
 
 //////////////////////////////////////////////////////////////////

@@ -1,19 +1,10 @@
 COMPILER	= gcc
 FLAG		= -O2 -Wall
 
-HOMEPATH	= $(shell pwd)
+HOMEPATH	= .
 BUILDPATH	= $(HOMEPATH)/src
 THIRDPATH	= $(HOMEPATH)/thirdparty
-
-#------------------------------------------------------------------------------#
-
-INCLUDE		+= -I$(THIRDPATH)/UMFPACK/Include -I$(THIRDPATH)/AMD/Include -I$(THIRDPATH)/UFconfig
-LIBRARY		+= -L$(THIRDPATH)/UMFPACK/Lib -L$(THIRDPATH)/AMD/Lib -lumfpack -lamd
-
-#LIBRARY		+= -llapack -lblas
-LIBRARY		+= -L$(THIRDPATH)/GotoBLAS2 -Wl,-R$(THIRDPATH)/GotoBLAS2 -lgoto2
-
-LIBRARY		+= -lm -lrt -lgfortran
+THIRDFULLPATH	= $(shell cd $(THIRDPATH);pwd)
 
 #------------------------------------------------------------------------------#
 
@@ -29,6 +20,14 @@ COMMONOBJECT	= $(COMMONSOURCE:.c=.o)
 ALLOBJECT	= $(MAINOBJECT) $(COMMONOBJECT)
 
 EXECUTABLES	= $(MAINFILES:.c=)
+
+#------------------------------------------------------------------------------#
+
+$(BUILDPATH)/sparse.o: INCLUDE += -I$(THIRDPATH)/UMFPACK/Include -I$(THIRDPATH)/AMD/Include -I$(THIRDPATH)/UFconfig
+
+LIBRARY += -L$(THIRDPATH)/UMFPACK/Lib -L$(THIRDPATH)/AMD/Lib -lumfpack -lamd
+LIBRARY += -L$(THIRDPATH)/GotoBLAS2 -Wl,-R$(THIRDFULLPATH)/GotoBLAS2 -lgoto2
+LIBRARY += -lm -lrt -lgfortran
 
 ################################################################################
 
