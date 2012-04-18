@@ -660,6 +660,7 @@ void terms_input(FILE *file, int *n_terms, struct TERM **term)
 		exit_if_false(t[n].variable = allocate_term_variable(&t[n]),"allocating term variables");
 		exit_if_false(t[n].differential = allocate_term_differential(&t[n]),"allocating term differentials");
 		exit_if_false(t[n].method = allocate_term_method(&t[n]),"allocating term methods");
+		exit_if_false(t[n].weight = allocate_term_weight(&t[n]),"allocating term weights");
 		exit_if_false(t[n].jacobian = allocate_term_jacobian(&t[n]),"allocating term jacobians");
 		t[n].n_variables = 0;
 
@@ -716,6 +717,12 @@ void terms_input(FILE *file, int *n_terms, struct TERM **term)
 
 			// read the methods
 			info *= sscanf(&mth_string[mth_offset],"%c",&t[n].method[t[n].n_variables]) == 1;
+			if(t[n].method[t[n].n_variables] == 'w')
+			{
+				info *= sprintf(temp,"%s;%s",cst_string,&mth_string[mth_offset+1]) > 0;
+				info *= add_geometry_to_expression_string(temp);
+				info *= (t[n].weight[t[n].n_variables] = expression_generate(temp)) != NULL;
+			}
 			mth_offset += strlen(&mth_string[mth_offset]) + 1;
 
 			// read the jacobian expressions

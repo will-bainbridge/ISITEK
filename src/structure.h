@@ -64,6 +64,7 @@ struct TERM
 	int *variable;
 	int *differential;
 	char *method;
+	EXPRESSION *weight;
 	EXPRESSION residual;
 	EXPRESSION *jacobian;
 };

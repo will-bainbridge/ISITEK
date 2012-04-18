@@ -273,13 +273,14 @@ void calculate_system(int n_variables, int *variable_order, int n_faces, struct 
 	exit_if_false(local_adjacent = allocate_integer_matrix(NULL,MAX_FACE_N_BORDERS,n_variables),"allocating adjacent local indices");
 
 	// working arrays
-	double *basis_value, *basis_value_old, **point_value, **point_value_old, *point_term, *point_term_old;
+	double *basis_value, *basis_value_old, **point_value, **point_value_old, *point_term, *point_term_old, **point_weight;
 	exit_if_false(basis_value = (double *)malloc((2*max_n_basis + MAX_FACE_N_BOUNDARIES) * sizeof(double)),"allocating basis values");
 	exit_if_false(basis_value_old = (double *)malloc((2*max_n_basis + MAX_FACE_N_BOUNDARIES) * sizeof(double)),"allocating old basis values");
-	exit_if_false(point_value = allocate_double_matrix(NULL,max_point_n_variables,MAX(n_gauss,(MAX_ELEMENT_N_FACES-1)*n_hammer)),"allocating point values");
-	exit_if_false(point_value_old = allocate_double_matrix(NULL,max_point_n_variables,MAX(n_gauss,(MAX_ELEMENT_N_FACES-1)*n_hammer)),"allocating old point values");
+	exit_if_false(point_value = allocate_double_matrix(NULL,max_point_n_variables+1,MAX(n_gauss,(MAX_ELEMENT_N_FACES-1)*n_hammer)),"allocating point values");
+	exit_if_false(point_value_old = allocate_double_matrix(NULL,max_point_n_variables+1,MAX(n_gauss,(MAX_ELEMENT_N_FACES-1)*n_hammer)),"allocating old point values");
 	exit_if_false(point_term = (double *)malloc(MAX(n_gauss,(MAX_ELEMENT_N_FACES-1)*n_hammer) * sizeof(double)),"allocating point term values");
 	exit_if_false(point_term_old = (double *)malloc(MAX(n_gauss,(MAX_ELEMENT_N_FACES-1)*n_hammer) * sizeof(double)),"allocating old point term values");
+	exit_if_false(point_weight = allocate_double_matrix(NULL,max_term_n_variables,n_gauss),"allocating point weights");
 	int lda = MAX(n_gauss,(MAX_ELEMENT_N_FACES-1)*n_hammer);
 	double **A = allocate_double_matrix(NULL,max_n_basis,lda);
 
@@ -506,22 +507,39 @@ void calculate_system(int n_variables, int *variable_order, int n_faces, struct 
 							&dbl_0,
 							point_value_old[i+EXPRESSION_VARIABLE_INDEX],&int_1);
 				}
-				else if(term[t].method[i] == 'a' || term[t].method[i] == 'b')
+				else if(term[t].method[i] == 'w')
 				{
-					s = term[t].method[i] == 'a';
+					expression_evaluate(n_gauss, point_weight[i], term[t].weight[i], point_value, expression_work);
 
-					dgemv_(&trans[0],&n_gauss,&n_basis[v],
-							&dbl_1,
-							face[f].border[s]->Q[opposite[s]][0],&n_gauss,
-							&basis_value[s*n_basis[v]],&int_1,
-							&dbl_0,
-							point_value[i+EXPRESSION_VARIABLE_INDEX],&int_1);
-					dgemv_(&trans[0],&n_gauss,&n_basis[v],
-							&dbl_1,
-							face[f].border[s]->Q[opposite[s]][0],&n_gauss,
-							&basis_value_old[s*n_basis[v]],&int_1,
-							&dbl_0,
-							point_value_old[i+EXPRESSION_VARIABLE_INDEX],&int_1);
+					for(s = 0; s < face[f].n_borders; s ++)
+					{
+						/*dgemv_(...
+								temp[]);
+						for(p = 0; p < n_gauss; p ++) point_value[i+EXPRESSION_VARIABLE_INDEX] += (!s+(2*s-1)*point_weight[i][p])*temp[p];*/
+
+						dgemv_(&trans[0],&n_gauss,&n_basis[v],
+								&dbl_1,
+								face[f].border[s]->Q[opposite[s]][0],&n_gauss,
+								&basis_value[s*n_basis[v]],&int_1,
+								&dbl_0,
+								point_value[i+s+EXPRESSION_VARIABLE_INDEX],&int_1);
+						dgemv_(&trans[0],&n_gauss,&n_basis[v],
+								&dbl_1,
+								face[f].border[s]->Q[opposite[s]][0],&n_gauss,
+								&basis_value_old[s*n_basis[v]],&int_1,
+								&dbl_0,
+								point_value_old[i+s+EXPRESSION_VARIABLE_INDEX],&int_1);
+					}
+
+					for(p = 0; p < n_gauss; p ++)
+					{
+						point_value[i+EXPRESSION_VARIABLE_INDEX][p] = 
+							(1-point_weight[i][p]) * point_value[i+EXPRESSION_VARIABLE_INDEX][p] + 
+							point_weight[i][p] * point_value[i+1+EXPRESSION_VARIABLE_INDEX][p];
+						point_value_old[i+EXPRESSION_VARIABLE_INDEX][p] = 
+							(1-point_weight[i][p]) * point_value_old[i+EXPRESSION_VARIABLE_INDEX][p] + 
+							point_weight[i][p] * point_value_old[i+1+EXPRESSION_VARIABLE_INDEX][p];
+					}
 				}
 			}
 
@@ -536,32 +554,39 @@ void calculate_system(int n_variables, int *variable_order, int n_faces, struct 
 
 				for(b = 0; b < face[f].n_borders; b ++)
 				{
-					for(j = 0; j < n_basis[q]; j ++)
-						for(p = 0; p < n_gauss; p ++)
-							A[j][p] = (1 - 2*b) * face[f].border[b]->Q[opposite[b]][j][p] * point_term[p];
+					alpha = 1 - 2*b;
 
 					if(term[t].method[i] == 'i' || d != powers_taylor[0][0] || face[f].n_borders < 2 || face[f].n_boundaries[v])
 					{
-						for(j = 0; j < face[f].n_borders; j ++)
+						for(j = 0; j < n_basis[q]; j ++)
+							for(p = 0; p < n_gauss; p ++)
+								A[j][p] = face[f].border[b]->Q[opposite[b]][j][p] * point_term[p];
+
+						for(s = 0; s < face[f].n_borders; s ++)
 						{
 							dgemm_(&trans[1],&trans[0],&n_basis[v],&n_basis[q],&n_gauss,
-									&dbl_1,
-									face[f].Q[v][d][j*n_basis[v]],&n_gauss,
+									&alpha,
+									face[f].Q[v][d][s*n_basis[v]],&n_gauss,
 									A[0],&lda,
 									&dbl_1,
-									&local_value[b][local_element[q]][j == b ? local_element[v] : local_adjacent[b][v]],&ldl);
+									&local_value[b][local_element[q]][s == b ? local_element[v] : local_adjacent[b][v]],&ldl);
 						}
 					}
-					else if(term[t].method[i] == 'a' || term[t].method[i] == 'b')
+					else if(term[t].method[i] == 'w')
 					{
-						s = term[t].method[i] == 'a';
+						for(s = 0; s < face[f].n_borders; s ++)
+						{
+							for(j = 0; j < n_basis[q]; j ++)
+								for(p = 0; p < n_gauss; p ++)
+									A[j][p] = face[f].border[b]->Q[opposite[b]][j][p] * point_term[p] * (!s+(2*s-1)*point_weight[i][p]);
 
-						dgemm_(&trans[1],&trans[0],&n_basis[v],&n_basis[q],&n_gauss,
-								&dbl_1,
-								face[f].border[s]->Q[opposite[s]][0],&n_gauss,
-								A[0],&lda,
-								&dbl_1,
-								&local_value[b][local_element[q]][s == b ? local_element[v] : local_adjacent[b][v]],&ldl);
+							dgemm_(&trans[1],&trans[0],&n_basis[v],&n_basis[q],&n_gauss,
+									&alpha,
+									face[f].border[s]->Q[opposite[s]][0],&n_gauss,
+									A[0],&lda,
+									&dbl_1,
+									&local_value[b][local_element[q]][s == b ? local_element[v] : local_adjacent[b][v]],&ldl);
+						}
 					}
 				}
 			}
@@ -610,6 +635,7 @@ void calculate_system(int n_variables, int *variable_order, int n_faces, struct 
 	destroy_matrix((void *)point_value_old);
 	free(point_term);
 	free(point_term_old);
+	destroy_matrix((void *)point_weight);
 
 	destroy_matrix((void *)A);
 

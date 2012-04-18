@@ -467,7 +467,7 @@ struct TERM * allocate_terms(int n_terms)
 	if(new == NULL) return NULL;
 
 	int i;
-	struct TERM z = {0,'\0',0.0,0,NULL,NULL,NULL,NULL,NULL};
+	struct TERM z = {0,'\0',0.0,0,NULL,NULL,NULL,NULL,NULL,NULL};
 	for(i = 0; i < n_terms; i ++) new[i] = z;
 
 	return new;
@@ -488,9 +488,26 @@ char * allocate_term_method(struct TERM *term)
 	return (char *)realloc(term->method, (term->n_variables + 1) * sizeof(char));
 }
 
+EXPRESSION * allocate_term_weight(struct TERM *term)
+{
+	EXPRESSION *new = (EXPRESSION *)realloc(term->weight, term->n_variables * sizeof(EXPRESSION));
+	if(new == NULL) return NULL;
+
+	int i;
+	if(term->weight == NULL) for(i = 0; i < term->n_variables; i ++) new[i] = NULL;
+
+	return new;
+}
+
 EXPRESSION * allocate_term_jacobian(struct TERM *term)
 {
-	return (EXPRESSION *)realloc(term->jacobian, term->n_variables * sizeof(EXPRESSION));
+	EXPRESSION *new = (EXPRESSION *)realloc(term->jacobian, term->n_variables * sizeof(EXPRESSION));
+	if(new == NULL) return NULL;
+
+	int i;
+	if(term->jacobian == NULL) for(i = 0; i < term->n_variables; i ++) new[i] = NULL;
+
+	return new;
 }
 
 void destroy_terms(int n_terms, struct TERM *term)
@@ -502,6 +519,8 @@ void destroy_terms(int n_terms, struct TERM *term)
 		free(term[i].differential);
 		free(term[i].method);
 		if(term[i].residual) expression_destroy(term[i].residual);
+		for(j = 0; j < term[i].n_variables; j ++) if(term[i].weight[j]) expression_destroy(term[i].weight[j]);
+		free(term[i].weight);
 		for(j = 0; j < term[i].n_variables; j ++) if(term[i].jacobian[j]) expression_destroy(term[i].jacobian[j]);
 		free(term[i].jacobian);
 	}

@@ -43,6 +43,7 @@ struct TERM * allocate_terms(int n_terms);
 int * allocate_term_variable(struct TERM *term);
 int * allocate_term_differential(struct TERM *term);
 char * allocate_term_method(struct TERM *term);
+EXPRESSION * allocate_term_weight(struct TERM *term);
 EXPRESSION * allocate_term_jacobian(struct TERM *term);
 void destroy_terms(int n_terms, struct TERM *term);
 

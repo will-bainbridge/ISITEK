@@ -46,6 +46,8 @@ constant g=1.4;R=287.04;p_l=1E5;p_r=1E4;T_l=300;T_r=300;dt=5E-7
 # flux on side with greatest nx*ux       = $a*$1
 #                   greatest nx*ux+ny*uy = $a*$1+$b*$?
 
+#term 0 x 1.0 1,1   0,0   i,w$a*$0>0
+
 term 0 s 1.0 0     0     -     1/dt*$0                        1/dt
 term 0 s 0.0 0     0     -     0-1/dt*$0                      0-1/dt
 term 0 x 1.0 1     0     i     $0                             1
