@@ -3,7 +3,7 @@
 case_file_path line.E.case
 geometry_file_path line.geometry
 
-number_of_outer_iterations 2000
+number_of_outer_iterations 1001
 number_of_inner_iterations 5
 
 data_file_path line.E.?.data
@@ -15,7 +15,7 @@ display_number_of_outer_iterations 100
 
 number_of_variables 3
 variable_name r u e
-variable_order 1 1 1
+variable_order 2 2 1
 variable_initial_value ($x<0.5)*(p_l/R/T_l)+(1-($x<0.5))*(p_r/R/T_r) 0 ($x<0.5)*(p_l/(g-1))+(1-($x<0.5))*(p_r/(g-1))
 
 #------------------------------------------------------------------------------#
@@ -34,30 +34,18 @@ constant g=1.4;R=287.04;p_l=1E5;p_r=1E4;T_l=300;T_r=300;dt=5E-7
 
 # term > equation type implicit variables differentials methods residual jacobian
 
-#constant w=$a*($2+$3)>0
-#constant r=(1-w)*$0+w*$1
-#constant u=(1-w)*$2+w*$3
-#constant e=(1-w)*$4+w*$5
+#term 0 x 1.0 1,1   0,0   i,w$a*$0<0
 
-#term 0 x 1.0 0,0,1,1        0,0,0,0        a,b,a,b        u                            0,0,(1-w),w
-#term 1 x 1.0 0,0,1,1,2,2    0,0,0,0,0,0    a,b,a,b,a,b    (1.5-0.5*g)*u^2/r+(g-1)*e    (0.5*g-1.5)*(u/r)^2*(1-w),(0.5*g-1.5)*(u/r)^2*w,(3-g)*u/r*(1-w),(3-g)*u/r*w,(g-1)*(1-w),(g-1)*w
-#term 2 x 1.0 0,0,1,1,2,2    0,0,0,0,0,0    a,b,a,b,a,b    0.5*(1-g)*u^3/r^2+g*u*e/r    ((g-1)*(u/r)^3-g*u*e/r^2)*(1-w),((g-1)*(u/r)^3-g*u*e/r^2)*w,(1.5*(1-g)*(u/r)^2+g*e/r)*(1-w),(1.5*(1-g)*(u/r)^2+g*e/r)*w,g*u/r*(1-w),g*u/r*w
+term 0 s 1.0 0       0       -                               1/dt*$0                        1/dt
+term 0 s 0.0 0       0       -                               0-1/dt*$0                      0-1/dt
+term 0 x 0.5 1,1   0,0       w0.5,w$a*$0<0                    $1                            0,1
 
-# flux on side with greatest nx*ux       = $a*$1
-#                   greatest nx*ux+ny*uy = $a*$1+$b*$?
+term 1 s 1.0 1       0       -                               1/dt*$0                        1/dt
+term 1 s 0.0 1       0       -                               0-1/dt*$0                      0-1/dt
+term 1 x 0.5 1,0,1,2 0,0,0,0 w0.5,w$a*$0<0,w$a*$0<0,w0.5     (1.5-0.5*g)*$2^2/$1+(g-1)*$3   0,(0.5*g-1.5)*($2/$1)^2,(3-g)*$2/$1,g-1
 
-#term 0 x 1.0 1,1   0,0   i,w$a*$0>0
-
-term 0 s 1.0 0     0     -     1/dt*$0                        1/dt
-term 0 s 0.0 0     0     -     0-1/dt*$0                      0-1/dt
-term 0 x 1.0 1     0     i     $0                             1
-
-term 1 s 1.0 1     0     -     1/dt*$0                        1/dt
-term 1 s 0.0 1     0     -     0-1/dt*$0                      0-1/dt
-term 1 x 1.0 0,1,2 0,0,0 i,i,i (1.5-0.5*g)*$1^2/$0+(g-1)*$2   (0.5*g-1.5)*($1/$0)^2,(3-g)*$1/$0,g-1
-
-term 2 s 1.0 2     0     -     1/dt*$0                        1/dt
-term 2 s 0.0 2     0     -     0-1/dt*$0                      0-1/dt
-term 2 x 1.0 0,1,2 0,0,0 i,i,i 0.5*(1-g)*$1^3/$0^2+g*$1*$2/$0 (g-1)*($1/$0)^3-g*$1*$2/$0^2,1.5*(1-g)*($1/$0)^2+g*$2/$0,g*$1/$0
+term 2 s 1.0 2       0       -                               1/dt*$0                        1/dt
+term 2 s 0.0 2       0       -                               0-1/dt*$0                      0-1/dt
+term 2 x 0.5 1,0,1,2 0,0,0,0 w0.5,w$a*$0<0,w$a*$0<0,w$a*$0<0 0.5*(1-g)*$2^3/$1^2+g*$2*$3/$1 0,(g-1)*($2/$1)^3-g*$2*$3/$1^2,1.5*(1-g)*($2/$1)^2+g*$3/$1,g*$2/$1
 
 #------------------------------------------------------------------------------#
