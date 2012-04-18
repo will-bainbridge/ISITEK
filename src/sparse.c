@@ -5,7 +5,6 @@
 #include <math.h>
 
 #include "sparse.h"
-#include "umfpack.h"
 
 //////////////////////////////////////////////////////////////////
 
@@ -131,7 +130,11 @@ void sparse_set_zero(SPARSE sparse)
 
 //////////////////////////////////////////////////////////////////
 
-int sparse_solve_umfpack(SPARSE sparse, double *x, double *b)
+#if defined(SOLVE_UMFPACK)
+
+#include "umfpack.h"
+
+int sparse_solve(SPARSE sparse, double *x, double *b)
 {
 	double info[UMFPACK_INFO], control[UMFPACK_CONTROL];
 	void *symbolic, *numeric;
@@ -154,6 +157,72 @@ int sparse_solve_umfpack(SPARSE sparse, double *x, double *b)
 
 	return SPARSE_SUCCESS;
 }
+
+//////////////////////////////////////////////////////////////////
+
+#elif defined(SOLVE_PARDISO)
+
+#include "mkl_pardiso.h"
+#include "mkl_types.h"
+
+int sparse_solve(SPARSE sparse, double *x, double *b)
+{
+	// auxilliary variables
+	int i, idum;
+	double ddum;
+
+	// control parameters
+	int maxfct, mnum, mtype, phase, nrhs, iparm[64], msglvl, error;
+	maxfct = 1; // max 1 numerical factorisations
+	mnum = 1; // sngle matrix to factorise
+	mtype = 11; // real unsymmetric matrix
+	nrhs = 1; // single right hand side
+	for (i = 0; i < 64; i++) iparm[i] = 0; // initialise integer parameters
+	iparm[0] = 1; // no defaults
+	iparm[1] = 2; // metis reordering
+	iparm[2] = 1; // 1 processor
+	iparm[3] = 0; // no iterative-direct algorithm
+	iparm[4] = 0; // no user fill-in reducing permutation
+	iparm[5] = 0; // solution in x
+	iparm[7] = 2; // max 2 iterative refinement steps
+	iparm[9] = 13; // perturb the pivot elements with 1E-13
+	iparm[10] = 1; // nonsymmetric permutation and scaling MPS
+	iparm[12] = 1; // maximum weighted matching algorithm
+	iparm[34] = 1; // c-style indexing from 0
+	msglvl = 0; // print nothing
+	error = 0; // initialise error flag
+
+	// internal solver memory pointer
+	void *pt[64];
+	for (i = 0; i < 64; i++) pt[i] = 0;
+
+	// reordering and symbolic factorisation
+	phase = 11;
+	PARDISO(pt, &maxfct, &mnum, &mtype, &phase, &(sparse->n), sparse->value, sparse->row, sparse->index, &idum, &nrhs, iparm, &msglvl, &ddum, &ddum, &error);
+	if (error != 0) return SPARSE_SOLVE_ERROR;
+
+	// numerical factorisation
+	phase = 22;
+	PARDISO(pt, &maxfct, &mnum, &mtype, &phase, &(sparse->n), sparse->value, sparse->row, sparse->index, &idum, &nrhs, iparm, &msglvl, &ddum, &ddum, &error);
+	if (error != 0) return SPARSE_SOLVE_ERROR;
+
+	// back substitution and iterative refinement
+	phase = 33;
+	PARDISO(pt, &maxfct, &mnum, &mtype, &phase, &(sparse->n), sparse->value, sparse->row, sparse->index, &idum, &nrhs, iparm, &msglvl, b, x, &error);
+	if (error != 0) return SPARSE_SOLVE_ERROR;
+
+	// termination and release of memory
+	phase = -1;
+	PARDISO(pt, &maxfct, &mnum, &mtype, &phase, &(sparse->n), &ddum, sparse->row, sparse->index, &idum, &nrhs, iparm, &msglvl, &ddum, &ddum, &error);
+
+	return SPARSE_SUCCESS;
+}
+
+//////////////////////////////////////////////////////////////////
+
+#else
+#error solver definition not found or recognised
+#endif
 
 //////////////////////////////////////////////////////////////////
 

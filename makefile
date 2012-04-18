@@ -23,11 +23,17 @@ EXECUTABLES	= $(MAINFILES:.c=)
 
 #------------------------------------------------------------------------------#
 
-$(BUILDPATH)/sparse.o: INCLUDE += -I$(THIRDPATH)/UMFPACK/Include -I$(THIRDPATH)/AMD/Include -I$(THIRDPATH)/UFconfig
+LIBRARY += -lm -lrt
 
+$(BUILDPATH)/sparse.o depend: FLAG += -DSOLVE_UMFPACK
+$(BUILDPATH)/sparse.o depend: INCLUDE += -I$(THIRDPATH)/UMFPACK/Include -I$(THIRDPATH)/AMD/Include -I$(THIRDPATH)/UFconfig
 LIBRARY += -L$(THIRDPATH)/UMFPACK/Lib -L$(THIRDPATH)/AMD/Lib -lumfpack -lamd
-LIBRARY += -L$(THIRDPATH)/GotoBLAS2 -Wl,-R$(THIRDFULLPATH)/GotoBLAS2 -lgoto2
-LIBRARY += -lm -lrt -lgfortran
+LIBRARY += -L$(THIRDPATH)/GotoBLAS2 -Wl,-R$(THIRDFULLPATH)/GotoBLAS2 -lgoto2 -lgfortran
+
+#$(BUILDPATH)/sparse.o depend: FLAG += -DSOLVE_PARDISO
+#$(BUILDPATH)/sparse.o depend: INCLUDE += -I/opt/intel/mkl/include
+#LIBRARY += -L/opt/intel/mkl/lib/intel64 -Wl,-R/opt/intel/mkl/lib/intel64 -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -lmkl_solver_lp64
+#LIBRARY += -L/opt/intel/composerxe-2011.1.107/compiler/lib/intel64 -liomp5 -lpthread
 
 ################################################################################
 

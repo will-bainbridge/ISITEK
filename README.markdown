@@ -23,6 +23,8 @@ Use the install script in the third party directory to obtain and build the nece
 	cd thirdparty
 	./install.sh
 
+Alternatively, edit the makefile to reference intel MKL libraries
+
 Back in the root directory, build the solver
 
 	cd ..

@@ -191,7 +191,7 @@ int main(int argc, char *argv[])
 		{
 			calculate_system(n_variables, variable_order, n_faces, face, n_elements, element, n_terms, term, n_u, u_old, u, system, residual);
 
-			exit_if_false(sparse_solve_umfpack(system, du, residual) == SPARSE_SUCCESS,"solving system");
+			exit_if_false(sparse_solve(system, du, residual) == SPARSE_SUCCESS,"solving system");
 			for(i = 0; i < n_u; i ++) u[i] -= du[i];
 
 			calculate_maximum_residuals(n_variables, variable_order, n_elements, element, residual, max_residual);
