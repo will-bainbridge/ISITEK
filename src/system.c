@@ -644,16 +644,19 @@ void calculate_system(int n_variables, int *variable_order, int n_faces, struct 
 
 //////////////////////////////////////////////////////////////////
 
-void calculate_maximum_residuals(int n_variables, int *variable_order, int n_elements, struct ELEMENT *element, double *residual, double *max_residual)
+void calculate_maximum_changes_and_residuals(int n_variables, int *variable_order, int n_elements, struct ELEMENT *element, double *du, double *max_du, double *residual, double *max_residual)
 {
 	int e, i, v;
 
-	for(v = 0; v < n_variables; v ++) max_residual[v] = 0.0;
+	for(v = 0; v < n_variables; v ++) max_residual[v] = max_du[v] = 0.0;
 
 	for(e = 0; e < n_elements; e ++)
 		for(v = 0; v < n_variables; v ++)
 			for(i = 0; i < ORDER_TO_N_BASIS(variable_order[v]); i ++)
+			{
 				max_residual[v] = MAX(max_residual[v],fabs(residual[element[e].unknown[v][i]]));
+				max_du[v] = MAX(max_du[v],fabs(du[element[e].unknown[v][i]]));
+			}
 }
 
 //////////////////////////////////////////////////////////////////

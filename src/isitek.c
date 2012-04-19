@@ -26,7 +26,7 @@ void initialise_values(int n_variables, int *variable_order, int n_elements, str
 void initialise_system(int n_variables, int *variable_order, int n_elements, struct ELEMENT *element, int n_u, SPARSE *system);
 
 void calculate_system(int n_variables, int *variable_order, int n_faces, struct FACE *face, int n_elements, struct ELEMENT *element, int n_terms, struct TERM *term, int n_u, double *u_old, double *u, SPARSE system, double *residual);
-void calculate_maximum_residuals(int n_variables, int *variable_order, int n_elements, struct ELEMENT *element, double *residual, double *max_residual);
+void calculate_maximum_changes_and_residuals(int n_variables, int *variable_order, int n_elements, struct ELEMENT *element, double *du, double *max_u, double *residual, double *max_residual);
 
 void write_case(FILE *file, int n_variables, int *variable_order, int n_nodes, struct NODE *node, int n_faces, struct FACE *face, int n_elements, struct ELEMENT *element, int n_boundaries, struct BOUNDARY *boundary);
 void read_case(FILE *file, int *n_variables, int **variable_order, int *n_nodes, struct NODE **node, int *n_faces, struct FACE **face, int *n_elements, struct ELEMENT **element, int *n_boundaries, struct BOUNDARY **boundary);
@@ -173,10 +173,11 @@ int main(int argc, char *argv[])
 	// initialise the system and solution vectors
 	SPARSE system = NULL;
 	initialise_system(n_variables, variable_order, n_elements, element, n_u, &system);
-	double *residual, *max_residual, *du;
+	double *residual, *max_residual, *du, *max_du;
 	exit_if_false(residual = (double *)malloc(n_u * sizeof(double)),"allocating the residuals");
 	exit_if_false(max_residual = (double *)malloc(n_variables * sizeof(double)),"allocating the maximum residuals");
 	exit_if_false(du = (double *)malloc(n_u * sizeof(double)),"allocating du");
+	exit_if_false(max_du = (double *)malloc(n_variables * sizeof(double)),"allocating the maximum changes");
 	exit_if_false(u_old = (double *)realloc(u_old, n_u * sizeof(double)),"re-allocating u_old");
 
 	// iterate
@@ -194,8 +195,8 @@ int main(int argc, char *argv[])
 			exit_if_false(sparse_solve(system, du, residual) == SPARSE_SUCCESS,"solving system");
 			for(i = 0; i < n_u; i ++) u[i] -= du[i];
 
-			calculate_maximum_residuals(n_variables, variable_order, n_elements, element, residual, max_residual);
-			for(i = 0; i < n_variables; i ++) printf("%.10e ",max_residual[i]);
+			calculate_maximum_changes_and_residuals(n_variables, variable_order, n_elements, element, du, max_du, residual, max_residual);
+			for(i = 0; i < n_variables; i ++) printf("%.6e|%.6e ",max_du[i],max_residual[i]);
 			printf("\n");
 		}
 
@@ -245,6 +246,7 @@ int main(int argc, char *argv[])
 	free(residual);
 	free(max_residual);
 	free(du);
+	free(max_du);
 
 	return 0;
 }

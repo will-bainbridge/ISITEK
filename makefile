@@ -32,8 +32,10 @@ LIBRARY += -L$(THIRDPATH)/GotoBLAS2 -Wl,-R$(THIRDFULLPATH)/GotoBLAS2 -lgoto2 -lg
 
 #$(BUILDPATH)/sparse.o depend: FLAG += -DSOLVE_PARDISO
 #$(BUILDPATH)/sparse.o depend: INCLUDE += -I/opt/intel/mkl/include
-#LIBRARY += -L/opt/intel/mkl/lib/intel64 -Wl,-R/opt/intel/mkl/lib/intel64 -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -lmkl_solver_lp64
-#LIBRARY += -L/opt/intel/composerxe-2011.1.107/compiler/lib/intel64 -liomp5 -lpthread
+##LIBRARY += -L/opt/intel/mkl/lib/intel64 -Wl,-R/opt/intel/mkl/lib/intel64 -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -lmkl_solver_lp64
+##LIBRARY += -L/opt/intel/composerxe-2011.1.107/compiler/lib/intel64 -liomp5
+#LIBRARY += -L/opt/intel/mkl/lib/intel64 -Wl,-R/opt/intel/mkl/lib/intel64 -lmkl_intel_lp64 -lmkl_sequential -lmkl_core -lmkl_solver_lp64
+#LIBRARY += -lpthread
 
 ################################################################################
 

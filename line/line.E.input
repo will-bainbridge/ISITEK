@@ -3,19 +3,19 @@
 case_file_path line.E.case
 geometry_file_path line.geometry
 
-number_of_outer_iterations 1001
+number_of_outer_iterations 2001
 number_of_inner_iterations 5
 
 data_file_path line.E.?.data
 #initial_data_file_path line.E.000000000.data
-data_number_of_outer_iterations 1000000000
+data_number_of_outer_iterations 1000
 
 display_file_path line.E.?.vtu
 display_number_of_outer_iterations 100
 
 number_of_variables 3
 variable_name r u e
-variable_order 2 2 1
+variable_order 2 2 2
 variable_initial_value ($x<0.5)*(p_l/R/T_l)+(1-($x<0.5))*(p_r/R/T_r) 0 ($x<0.5)*(p_l/(g-1))+(1-($x<0.5))*(p_r/(g-1))
 
 #------------------------------------------------------------------------------#
@@ -30,22 +30,29 @@ boundary 200:200,300:300 2 n 0.0
 
 #------------------------------------------------------------------------------#
 
-constant g=1.4;R=287.04;p_l=1E5;p_r=1E4;T_l=300;T_r=300;dt=5E-7
+constant g=1.4;R=287.04;p_l=1e5;p_r=1e4;T_l=300;T_r=300;dt=5e-7
+
+constant p=(g-1)*($2-0.5*$1^2/$0)
+constant dp_dr=(g-1)*0.5*($1/$0)^2
+constant dp_du=(1-g)*$1/$0
+constant dp_de=g-1
 
 # term > equation type implicit variables differentials methods residual jacobian
 
-#term 0 x 1.0 1,1   0,0   i,w$a*$0<0
-
 term 0 s 1.0 0       0       -                               1/dt*$0                        1/dt
 term 0 s 0.0 0       0       -                               0-1/dt*$0                      0-1/dt
-term 0 x 0.5 1,1   0,0       w0.5,w$a*$0<0                    $1                            0,1
+term 0 x 0.8 1,1     0,0     w0.5,w$a*$0<0                   $1                             0,1
 
 term 1 s 1.0 1       0       -                               1/dt*$0                        1/dt
 term 1 s 0.0 1       0       -                               0-1/dt*$0                      0-1/dt
-term 1 x 0.5 1,0,1,2 0,0,0,0 w0.5,w$a*$0<0,w$a*$0<0,w0.5     (1.5-0.5*g)*$2^2/$1+(g-1)*$3   0,(0.5*g-1.5)*($2/$1)^2,(3-g)*$2/$1,g-1
+#erm 1 x 0.8 1,0,1,2 0,0,0,0 w0.5,w$a*$0<0,w$a*$0<0,w$a*$0<0 (1.5-0.5*g)*$2^2/$1+(g-1)*$3   0,(0.5*g-1.5)*($2/$1)^2,(3-g)*$2/$1,g-1
+term 1 x 0.8 1,0,1   0,0,0   w0.5,w$a*$0<0,w$a*$0<0          $2^2/$1                        0,0-($2/$1)^2,2*$2/$1
+term 1 x 0.8 0,1,2   0,0,0   i,i,i                           p                              dp_dr,dp_du,dp_de
 
 term 2 s 1.0 2       0       -                               1/dt*$0                        1/dt
 term 2 s 0.0 2       0       -                               0-1/dt*$0                      0-1/dt
-term 2 x 0.5 1,0,1,2 0,0,0,0 w0.5,w$a*$0<0,w$a*$0<0,w$a*$0<0 0.5*(1-g)*$2^3/$1^2+g*$2*$3/$1 0,(g-1)*($2/$1)^3-g*$2*$3/$1^2,1.5*(1-g)*($2/$1)^2+g*$3/$1,g*$2/$1
+#erm 2 x 0.8 1,0,1,2 0,0,0,0 w0.5,w$a*$0<0,w$a*$0<0,w$a*$0<0 0.5*(1-g)*$2^3/$1^2+g*$2*$3/$1 0,(g-1)*($2/$1)^3-g*$2*$3/$1^2,1.5*(1-g)*($2/$1)^2+g*$3/$1,g*$2/$1
+term 2 x 0.8 1,0,1,2 0,0,0,0 w0.5,w$a*$0<0,w$a*$0<0,w$a*$0<0 $2*$3/$1                       0,0-$2*$3/$1^2,$3/$1,$2/$1
+term 2 x 0.8 0,1,2   0,0,0   i,i,i                           $1/$0*p                        (dp_dr-p/$0)*$1/$0,($1*dp_du+p)/$0,$1/$0*dp_de
 
 #------------------------------------------------------------------------------#

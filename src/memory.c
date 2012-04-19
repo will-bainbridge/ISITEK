@@ -8,112 +8,50 @@
 
 ////////////////////////////////////////////////////////////////////////////////
 
-/*{
-  int m = 3,n = 4,i,j;
-  int **A;
-  A = allocate_integer_matrix(NULL,m,n);
-  for(i = 0; i < m; i ++) for(j = 0; j < n; j ++) A[i][j] = (i+1)*(j+1);
-  for(i = 0; i < m; i ++) { for(j = 0; j < n; j ++) { printf("%2i ",A[i][j]); } printf("\n"); } printf("\n");
-  m = 4;n = 5;  
-  A = allocate_integer_matrix(A,m,n);
-  for(i = 0; i < m; i ++) { for(j = 0; j < n; j ++) { printf("%2i ",A[i][j]); } printf("\n"); } printf("\n");
-  destroy_matrix((void *)A);
-  }*/
-
-////////////////////////////////////////////////////////////////////////////////
-
 int ** allocate_integer_matrix(int **old, int height, int width)
 {
-	int i, j, n = 0;
-	int height_old = 0, width_old = 0;
+	int i;
 
-	if(old) while(old[height_old]) height_old ++;
-	if(old) width_old = old[1] - old[0];
-
-	int height_min = height_old < height ? height_old : height;
-	int width_min = width_old < width ? width_old : width;
-
-	for(i = 0; i < height_min; i ++)
-		for(j = 0; j < width_min; j ++)
-			old[0][n++] = old[i][j];
-
-	int **new = (int **)realloc(old, (height+1) * sizeof(int *));
+	int **new = (int **)realloc(old, height * sizeof(int *));
 	if(new == NULL) return NULL;
 	if(old == NULL) new[0] = NULL;
-	new[height] = NULL;
 
 	new[0] = (int *)realloc(new[0], height * width * sizeof(int));
 	if(new[0] == NULL) return NULL;
 
 	for(i = 1; i < height; i++) new[i] = new[i-1] + width;
 
-	for(i = height_min - 1; i >= 0; i --)
-		for(j = width_min - 1; j >= 0; j --)
-			new[i][j] = new[0][--n];
-
 	return new;
 }
 
 double ** allocate_double_matrix(double **old, int height, int width)
 {
-	int i, j, n = 0;
-	int height_old = 0, width_old = 0;
+	int i;
 
-	if(old) while(old[height_old]) height_old ++;
-	if(old) width_old = old[1] - old[0];
-
-	int height_min = height_old < height ? height_old : height;
-	int width_min = width_old < width ? width_old : width;
-
-	for(i = 0; i < height_min; i ++)
-		for(j = 0; j < width_min; j ++)
-			old[0][n++] = old[i][j];
-
-	double **new = (double **)realloc(old, (height+1) * sizeof(double *));
+	double **new = (double **)realloc(old, height * sizeof(double *));
 	if(new == NULL) return NULL;
 	if(old == NULL) new[0] = NULL;
-	new[height] = NULL;
 
 	new[0] = (double *)realloc(new[0], height * width * sizeof(double));
 	if(new[0] == NULL) return NULL;
 
 	for(i = 1; i < height; i++) new[i] = new[i-1] + width;
 
-	for(i = height_min - 1; i >= 0; i --)
-		for(j = width_min - 1; j >= 0; j --)
-			new[i][j] = new[0][--n];
-
 	return new;
 }
 
 char ** allocate_character_matrix(char **old, int height, int width)
 {
-	int i, j, n = 0;
-	int height_old = 0, width_old = 0;
+	int i;
 
-	if(old) while(old[height_old]) height_old ++;
-	if(old) width_old = old[1] - old[0];
-
-	int height_min = height_old < height ? height_old : height;
-	int width_min = width_old < width ? width_old : width;
-
-	for(i = 0; i < height_min; i ++)
-		for(j = 0; j < width_min; j ++)
-			old[0][n++] = old[i][j];
-
-	char **new = (char **)realloc(old, (height+1) * sizeof(char *));
+	char **new = (char **)realloc(old, height * sizeof(char *));
 	if(new == NULL) return NULL;
 	if(old == NULL) new[0] = NULL;
-	new[height] = NULL;
 
 	new[0] = (char *)realloc(new[0], height * width * sizeof(char));
 	if(new[0] == NULL) return NULL;
 
 	for(i = 1; i < height; i++) new[i] = new[i-1] + width;
-
-	for(i = height_min - 1; i >= 0; i --)
-		for(j = width_min - 1; j >= 0; j --)
-			new[i][j] = new[0][--n];
 
 	return new;
 }
@@ -129,26 +67,11 @@ void destroy_matrix(void **matrix)
 
 int *** allocate_integer_tensor(int ***old, int height, int width, int depth)
 {
-        int i, j, k, n = 0;
-	int height_old = 0, width_old = 0, depth_old = 0;
+        int i, j;
 
-	if(old) while(old[height_old]) height_old ++;
-	if(old) width_old = old[1] - old[0];
-	if(old) depth_old = old[0][1] - old[0][0];
-
-	int height_min = height_old < height ? height_old : height;
-	int width_min = width_old < width ? width_old : width;
-	int depth_min = depth_old < depth ? depth_old : depth;
-
-	for(i = 0; i < height_min; i ++)
-		for(j = 0; j < width_min; j ++)
-			for(k = 0; k < depth_min; k ++)
-				old[0][0][n++] = old[i][j][k];
-
-        int ***new = (int ***)realloc(old, (height+1) * sizeof(int **));
+        int ***new = (int ***)realloc(old, height * sizeof(int **));
         if(new == NULL) return NULL;
 	if(old == NULL) new[0] = NULL;
-	new[height] = NULL;
 
         new[0] = (int **)realloc(new[0], height * width * sizeof(int *));
         if(new[0] == NULL) return NULL;
@@ -161,36 +84,16 @@ int *** allocate_integer_tensor(int ***old, int height, int width, int depth)
         for(i = 1; i < height; i ++) new[i][0] = new[i-1][0] + width*depth;
         for(i = 0; i < height; i ++) for(j = 1; j < width; j ++) new[i][j] = new[i][j-1] + depth;
 
-	for(i = height_min - 1; i >= 0; i --)
-		for(j = width_min - 1; j >= 0; j --)
-			for(k = depth_min - 1; k >= 0; k --)
-				new[i][j][k] = new[0][0][--n];
-
         return new;
 }
 
 double *** allocate_double_tensor(double ***old, int height, int width, int depth)
 {
-        int i, j, k, n = 0;
-	int height_old = 0, width_old = 0, depth_old = 0;
+        int i, j;
 
-	if(old) while(old[height_old]) height_old ++;
-	if(old) width_old = old[1] - old[0];
-	if(old) depth_old = old[0][1] - old[0][0];
-
-	int height_min = height_old < height ? height_old : height;
-	int width_min = width_old < width ? width_old : width;
-	int depth_min = depth_old < depth ? depth_old : depth;
-
-	for(i = 0; i < height_min; i ++)
-		for(j = 0; j < width_min; j ++)
-			for(k = 0; k < depth_min; k ++)
-				old[0][0][n++] = old[i][j][k];
-
-        double ***new = (double ***)realloc(old, (height+1) * sizeof(double **));
+        double ***new = (double ***)realloc(old, height * sizeof(double **));
         if(new == NULL) return NULL;
 	if(old == NULL) new[0] = NULL;
-	new[height] = NULL;
 
         new[0] = (double **)realloc(new[0], height * width * sizeof(double *));
         if(new[0] == NULL) return NULL;
@@ -202,11 +105,6 @@ double *** allocate_double_tensor(double ***old, int height, int width, int dept
         for(i = 1; i < height; i ++) new[i] = new[i-1] + width;
         for(i = 1; i < height; i ++) new[i][0] = new[i-1][0] + width*depth;
         for(i = 0; i < height; i ++) for(j = 1; j < width; j ++) new[i][j] = new[i][j-1] + depth;
-
-	for(i = height_min - 1; i >= 0; i --)
-		for(j = width_min - 1; j >= 0; j --)
-			for(k = depth_min - 1; k >= 0; k --)
-				new[i][j][k] = new[0][0][--n];
 
         return new;
 }

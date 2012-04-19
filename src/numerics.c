@@ -159,7 +159,7 @@ void update_element_numerics(int n_variables_old, int n_variables, int *variable
 	double **M = allocate_double_matrix(NULL,max_n_basis,ldm);
 
 	// lapack and blas
-	int info, *pivot = (int *)malloc(max_n_basis * sizeof(int));
+	int info, *pivot = (int *)malloc((max_n_basis + 2) * sizeof(int));
         exit_if_false(pivot != NULL,"allocating pivot");
         char trans[2] = "NT";
         int int_1 = 1;
@@ -171,23 +171,21 @@ void update_element_numerics(int n_variables_old, int n_variables, int *variable
 
 		if(max_update)
 		{
-			exit_if_false(element[e].P = allocate_element_p(&element[e],max_n_basis,n_points),"allocating element P");
-			exit_if_false(element[e].Q = allocate_element_q(&element[e],max_n_basis,n_gauss),"allocating element Q");
-
 			// interior matrices
+			exit_if_false(element[e].P = allocate_element_p(&element[e],max_n_basis,n_points),"allocating element P");
 			for(i = 0; i < max_n_basis; i ++)
 				for(j = 0; j < max_n_basis; j ++)
 					basis(n_points,element[e].P[i][j],element[e].X,element[e].centre,element[e].size,j,taylor_powers[i]);
 
 			// face matrices
+			exit_if_false(element[e].Q = allocate_element_q(&element[e],max_n_basis,n_gauss),"allocating element Q");
 			for(i = 0; i < element[e].n_faces; i ++)
 				for(j = 0; j < max_n_basis; j ++)
 					basis(n_gauss,element[e].Q[i][j],element[e].face[i]->X,element[e].centre,element[e].size,j,no_differential);
-
-			exit_if_false(element[e].I = allocate_element_i(&element[e],n_variables,n_basis,n_points),"allocating element I");
 		}
 
-		// initialising matrix
+		// initialise matrices
+		exit_if_false(element[e].I = allocate_element_i(&element[e],n_variables,n_basis,n_points),"allocating element I");
                 for(i = 0; i < max_n_basis; i ++) dcopy_(&n_points,element[e].P[powers_taylor[0][0]][i],&int_1,&S[0][i],&lds);
                 for(i = 0; i < n_points; i ++) dscal_(&max_n_basis,&element[e].W[i],S[i],&int_1);
                 dgemm_(&trans[0],&trans[0],&max_n_basis,&max_n_basis,&n_points,&dbl_1,S[0],&lds,element[e].P[powers_taylor[0][0]][0],&n_points,&dbl_0,M[0],&ldm);
@@ -222,7 +220,7 @@ void transformation_matrix(int order, double **T, double **R)
 		{
 			if(taylor_powers[j][0] + taylor_powers[j][1] == i - 1)
 			{
-				for(k = 0; k < order; k ++)
+				for(k = 0; k < ORDER_TO_N_BASIS(i); k ++)
 				{
 					row[0] = powers_taylor[taylor_powers[j][0]+1][taylor_powers[j][1]];
 					row[1] = powers_taylor[taylor_powers[j][0]][taylor_powers[j][1]+1];
