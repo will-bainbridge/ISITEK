@@ -154,9 +154,10 @@ void update_element_numerics(int n_variables_old, int n_variables, int *variable
 	int no_differential[2] = {0,0};
 
 	// working matrices
-	int lds = max_n_basis, ldm = max_n_basis;
-	double **S = allocate_double_matrix(NULL,(MAX_ELEMENT_N_FACES-2)*n_hammer,lds);
-	double **M = allocate_double_matrix(NULL,max_n_basis,ldm);
+	int lda = max_n_basis, sizea = max_n_basis*max_n_basis;
+	double **S = allocate_double_matrix(NULL,(MAX_ELEMENT_N_FACES-2)*n_hammer,lda);
+	double **M = allocate_double_matrix(NULL,max_n_basis,lda);
+	double **A = allocate_double_matrix(NULL,max_n_basis,lda);
 
 	// lapack and blas
 	int info, *pivot = (int *)malloc((max_n_basis + 2) * sizeof(int));
@@ -186,20 +187,22 @@ void update_element_numerics(int n_variables_old, int n_variables, int *variable
 
 		// initialise matrices
 		exit_if_false(element[e].I = allocate_element_i(&element[e],n_variables,n_basis,n_points),"allocating element I");
-                for(i = 0; i < max_n_basis; i ++) dcopy_(&n_points,element[e].P[powers_taylor[0][0]][i],&int_1,&S[0][i],&lds);
+                for(i = 0; i < max_n_basis; i ++) dcopy_(&n_points,element[e].P[powers_taylor[0][0]][i],&int_1,&S[0][i],&lda);
                 for(i = 0; i < n_points; i ++) dscal_(&max_n_basis,&element[e].W[i],S[i],&int_1);
-                dgemm_(&trans[0],&trans[0],&max_n_basis,&max_n_basis,&n_points,&dbl_1,S[0],&lds,element[e].P[powers_taylor[0][0]][0],&n_points,&dbl_0,M[0],&ldm);
+                dgemm_(&trans[0],&trans[0],&max_n_basis,&max_n_basis,&n_points,&dbl_1,S[0],&lda,element[e].P[powers_taylor[0][0]][0],&n_points,&dbl_0,M[0],&lda);
                 for(v = 0; v < n_variables; v ++)
                 {
 			if(n_variables_old > v) if(variable_order_old[v] == variable_order[v]) continue;
-			for(i = 0; i < n_basis[v]; i ++) dcopy_(&n_points,&S[0][i],&lds,&element[e].I[v][0][i],&n_basis[v]);
-                        dgesv_(&n_basis[v],&n_points,M[0],&ldm,pivot,element[e].I[v][0],&n_basis[v],&info);
+			for(i = 0; i < n_basis[v]; i ++) dcopy_(&n_points,&S[0][i],&lda,&element[e].I[v][0][i],&n_basis[v]);
+			dcopy_(&sizea,M[0],&int_1,A[0],&int_1);
+			dgesv_(&n_basis[v],&n_points,A[0],&lda,pivot,element[e].I[v][0],&n_basis[v],&info);
 		}
 	}
 
 	free(n_basis);
 	destroy_matrix((void *)S);
 	destroy_matrix((void *)M);
+	destroy_matrix((void *)A);
 	free(pivot);
 
 	printf("updated element numerics\n");

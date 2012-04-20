@@ -217,7 +217,7 @@ void initialise_system(int n_variables, int *variable_order, int n_elements, str
 	free(row_n_non_zeros);
 
 	// set the row indices
-	int *row_index = (int *)malloc(sum_n_basis * MAX_ELEMENT_N_FACES * sizeof(int));
+	int *row_index = (int *)malloc(sum_n_basis * (MAX_ELEMENT_N_FACES+1) * sizeof(int));
 	exit_if_false(row_index != NULL,"allocating row indices");
 	for(e = 0; e < n_elements; e ++)
 	{

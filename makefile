@@ -50,7 +50,7 @@ $(ALLOBJECT): makefile
 
 -include $(BUILDPATH)/depend
 depend: $(ALLSOURCE)
-	$(COMPILER) -MM $(INCLUDE) $^ | sed 's|^\(.*\.o\)|$(BUILDPATH)/\1|g' > $(BUILDPATH)/$@
+	$(COMPILER) $(FLAG) -MM $(INCLUDE) $^ | sed 's|^\(.*\.o\)|$(BUILDPATH)/\1|g' > $(BUILDPATH)/$@
 
 clean:
 	rm -f $(BUILDPATH)/*o

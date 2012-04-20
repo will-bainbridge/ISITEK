@@ -27,7 +27,7 @@ int add_geometry_to_expression_string(char *string);
 #define BOUNDARY_LABEL "boundary"
 #define BOUNDARY_FORMAT "sisd"
 
-#define MAX_N_TERMS 20
+#define MAX_N_TERMS 25
 #define MAX_TERM_N_VARIABLES 10
 #define TERM_LABEL "term"
 #define TERM_FORMAT "icdsssss"
@@ -847,7 +847,8 @@ int initial_input(FILE *file, int n_variables, EXPRESSION **initial)
 	exit_if_false(constant_string = (char *)malloc(MAX_STRING_LENGTH * sizeof(char)),"allocating the constant string");
 	exit_if_false(initial_string = allocate_character_matrix(NULL,n_variables,MAX_STRING_LENGTH),"allocating initial strings");
 
-	if(fetch_value(file,"constant",'s',constant_string) != FETCH_SUCCESS) constant_string[0] = '\0';
+	constants_input(file,constant_string);
+
 	if(fetch_vector(file,"variable_initial_value",'s',n_variables,initial_string) != FETCH_SUCCESS) return 0;
 
 	exit_if_false(*initial = allocate_initial(n_variables),"allocating initial expressions");
