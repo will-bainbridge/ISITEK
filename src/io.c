@@ -395,6 +395,9 @@ void element_write_case(FILE *file, int n_variables, int *n_basis, int n_gauss, 
 		exit_if_false(fwrite(element->I[i][0], sizeof(double), n, file) == n,"writing element initialisation");
 	}
 
+	n = max_n_basis*element->n_faces;
+	exit_if_false(fwrite(element->L[0], sizeof(double), n, file) == n,"writing element limit interpolaton");
+
 	free(index);
 }
 
@@ -441,6 +444,10 @@ void element_read_case(FILE *file, int n_variables, int *n_basis, int n_gauss, i
 		n = n_points*n_basis[i];
 		exit_if_false(fread(element->I[i][0], sizeof(double), n, file) == n,"reading element initialisation");
 	}
+
+	exit_if_false(element->L = allocate_element_l(element,max_n_basis),"allocating element limit interpolaton");
+	n = max_n_basis*element->n_faces;
+	exit_if_false(fread(element->L[0], sizeof(double), n, file) == n,"writing element limit interpolaton");
 
 	free(index);
 }
@@ -869,7 +876,7 @@ int initial_input(FILE *file, int n_variables, EXPRESSION **initial)
 
 //////////////////////////////////////////////////////////////////
 
-void write_display(FILE *file, int n_variables, char **variable_name, int *variable_order, int n_nodes, struct NODE *node, int n_elements, struct ELEMENT *element, int n_u, double *u)
+void write_display(FILE *file, int n_variables, char **variable_name, int *variable_order, int n_elements, struct ELEMENT *element, int n_u, double *u)
 {
 	int e, f, i, j, n, v;
 
@@ -890,13 +897,35 @@ void write_display(FILE *file, int n_variables, char **variable_name, int *varia
 	exit_if_false(basis_value = (double *)malloc(max_n_basis * sizeof(double)),"allocating basis values");
 	exit_if_false(point_value = (double *)malloc(n_hammer * (MAX_ELEMENT_N_FACES - 2) * sizeof(double)),"allocating point values");
 
+	int n_nodes = 0;
+	for(e = 0; e < n_elements; e ++) n_nodes += element[e].n_faces;
+
 	// header
 	fprintf(file,"<VTKFile type=\"UnstructuredGrid\" version=\"0.1\" byte_order=\"LittleEndian\">\n");
 	fprintf(file,"<UnstructuredGrid>\n");
 	fprintf(file,"<Piece NumberOfPoints=\"%i\" NumberOfCells=\"%i\">\n",n_nodes,n_elements);
 
-	// no point data
-	fprintf(file,"<PointData>\n</PointData>\n");
+	// point data
+	fprintf(file,"<PointData>\n");
+	for(v = 0; v < n_variables; v ++)
+	{
+		fprintf(file,"<DataArray type=\"Float64\" Name=\"%s\" format=\"ascii\">\n",variable_name[v]);
+		for(e = 0; e < n_elements; e ++)
+		{
+			for(i = 0; i < n_basis[v]; i ++) basis_value[i] = u[element[e].unknown[v][i]];
+
+			dgemv_(&trans[0],&element[e].n_faces,&n_basis[v],
+					&dbl_1,
+					element[e].L[0],&element[e].n_faces,
+					basis_value,&int_1,
+					&dbl_0,
+					point_value,&int_1);
+
+			for(i = 0; i < element[e].n_faces; i ++) fprintf(file,"%.10e ",point_value[i]);
+		}
+		fprintf(file,"\n</DataArray>\n");
+	}
+	fprintf(file,"\n</PointData>\n");
 
 	// cell averaged data
 	fprintf(file,"<CellData>\n");
@@ -924,32 +953,37 @@ void write_display(FILE *file, int n_variables, char **variable_name, int *varia
 
 	// output all the nodes
 	fprintf(file,"<Points>\n<DataArray type=\"Float64\" Name=\"Points\" NumberOfComponents=\"3\" format=\"ascii\">\n");
-	for(n = 0; n < n_nodes; n ++)
+	for(e = 0; e < n_elements; e ++)
 	{
-		for(i = 0; i < 2; i ++) fprintf(file,"%.10e ",node[n].x[i]);
-		fprintf(file,"0.0 ");
+		for(i = 0; i < element[e].n_faces; i ++)
+		{
+			for(j = 0; j < 2; j ++)
+			{
+				fprintf(file,"%.10e ",element[e].face[i]->node[element[e].face[i]->border[0] != &element[e]]->x[j]);
+			}
+			fprintf(file,"0.0 ");
+		}
 	}
 	fprintf(file,"\n</DataArray>\n</Points>\n");
 
 	// output the element polygons
 	fprintf(file,"<Cells>\n");
 	fprintf(file,"<DataArray type=\"Int32\" Name=\"connectivity\" format=\"ascii\">\n");
+	n = 0;
 	for(e = 0; e < n_elements; e ++)
 	{
 		f = 0;
 
 		for(i = 0; i < element[e].n_faces; i ++)
 		{
-			fprintf(file,"%i ",(int)(element[e].face[f]->node[element[e].face[f]->border[0] != &element[e]] - &node[0]));
-			
-			if(i == element[e].n_faces - 1) break;
+			fprintf(file,"%i ",n+f);
 
 			for(j = 0; j < element[e].n_faces; j ++)
 			{
-				if(j == f) continue;
+				if(j == i) continue;
 				if(
 						element[e].face[j]->node[element[e].face[j]->border[0] != &element[e]] ==
-						element[e].face[f]->node[element[e].face[f]->border[0] == &element[e]]
+						element[e].face[i]->node[element[e].face[i]->border[0] == &element[e]]
 				  )
 				{
 					f = j;
@@ -959,13 +993,15 @@ void write_display(FILE *file, int n_variables, char **variable_name, int *varia
 
 			exit_if_false(j < element[e].n_faces,"error finding the next vertex");
 		}
+
+		n += element[e].n_faces;
 	}
 	fprintf(file,"\n</DataArray>\n");
 	
 	// output the element offsets
 	fprintf(file,"<DataArray type=\"Int32\" Name=\"offsets\" format=\"ascii\">\n");
 	n = 0;
-	for(e = 0; e < n_elements; e ++) { fprintf(file,"%i ",n += element[e].n_faces); }
+	for(e = 0; e < n_elements; e ++) fprintf(file,"%i ",n += element[e].n_faces);
 	fprintf(file,"\n</DataArray>\n");
 
 	// output the element types

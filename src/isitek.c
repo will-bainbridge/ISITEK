@@ -36,7 +36,7 @@ void generate_numbered_file_path(char *file_path, char *base_path, int number);
 void read_data(FILE *file, int *n_u, double **u, int *number);
 void write_data(FILE *file, int n_u, double *u, int number);
 
-void write_display(FILE *file, int n_variables, char **variable_name, int *variable_order, int n_nodes, struct NODE *node, int n_elements, struct ELEMENT *element, int n_u, double *u);
+void write_display(FILE *file, int n_variables, char **variable_name, int *variable_order, int n_elements, struct ELEMENT *element, int n_u, double *u);
 
 //////////////////////////////////////////////////////////////////
 
@@ -212,7 +212,7 @@ int main(int argc, char *argv[])
 		{
 			generate_numbered_file_path(display_numbered_file_path, display_file_path, outer_iteration);
 			exit_if_false(display_file = fopen(display_numbered_file_path,"w"),"opening display file");
-			write_display(display_file, n_variables, variable_name, variable_order, n_nodes, node, n_elements, element, n_u, u);
+			write_display(display_file, n_variables, variable_name, variable_order, n_elements, element, n_u, u);
 			fclose(display_file);
 		}
 	}

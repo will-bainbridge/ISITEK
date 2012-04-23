@@ -158,6 +158,7 @@ void update_element_numerics(int n_variables_old, int n_variables, int *variable
 	double **S = allocate_double_matrix(NULL,(MAX_ELEMENT_N_FACES-2)*n_hammer,lda);
 	double **M = allocate_double_matrix(NULL,max_n_basis,lda);
 	double **A = allocate_double_matrix(NULL,max_n_basis,lda);
+	double **X = allocate_double_matrix(NULL,2,MAX_ELEMENT_N_FACES);
 
 	// lapack and blas
 	int info, *pivot = (int *)malloc((max_n_basis + 2) * sizeof(int));
@@ -183,6 +184,14 @@ void update_element_numerics(int n_variables_old, int n_variables, int *variable
 			for(i = 0; i < element[e].n_faces; i ++)
 				for(j = 0; j < max_n_basis; j ++)
 					basis(n_gauss,element[e].Q[i][j],element[e].face[i]->X,element[e].centre,element[e].size,j,no_differential);
+
+			// corner matrix
+			exit_if_false(element[e].L = allocate_element_l(&element[e],max_n_basis),"allocating element L");
+			for(i = 0; i < element[e].n_faces; i ++)
+				for(j = 0; j < 2; j ++)
+					X[j][i] = element[e].face[i]->node[element[e].face[i]->border[0] != &element[e]]->x[j];
+			for(i = 0; i < max_n_basis; i ++)
+				basis(element[e].n_faces,element[e].L[i],X,element[e].centre,element[e].size,i,no_differential);
 		}
 
 		// initialise matrices
@@ -203,6 +212,7 @@ void update_element_numerics(int n_variables_old, int n_variables, int *variable
 	destroy_matrix((void *)S);
 	destroy_matrix((void *)M);
 	destroy_matrix((void *)A);
+	destroy_matrix((void *)X);
 	free(pivot);
 
 	printf("updated element numerics\n");

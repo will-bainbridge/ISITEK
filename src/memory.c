@@ -243,7 +243,7 @@ struct ELEMENT * allocate_elements(int n_elements)
 	if(new == NULL) return NULL;
 
 	int i;
-	struct ELEMENT z = {0,NULL,{0.0,0.0},0.0,NULL,NULL,NULL,NULL,NULL,NULL};
+	struct ELEMENT z = {0,NULL,{0.0,0.0},0.0,NULL,NULL,NULL,NULL,NULL,NULL,NULL};
 	for(i = 0; i < n_elements; i ++) new[i] = z;
 
 	return new;
@@ -310,6 +310,11 @@ double *** allocate_element_i(struct ELEMENT *element, int n_variables, int *n_b
 	return new;
 }
 
+double ** allocate_element_l(struct ELEMENT *element, int n_basis)
+{
+	return allocate_double_matrix(element->L, n_basis, element->n_faces);
+}
+
 void destroy_elements(int n_elements, struct ELEMENT *element, int n_variables)
 {
         int i, j;
@@ -324,6 +329,7 @@ void destroy_elements(int n_elements, struct ELEMENT *element, int n_variables)
 		destroy_tensor((void *)element[i].Q);
 		if(element[i].I) for(j = 0; j < n_variables; j ++) destroy_matrix((void *)element[i].I[j]);
 		free(element[i].I);
+		destroy_matrix((void *)element[i].L);
         }
         free(element);
 }

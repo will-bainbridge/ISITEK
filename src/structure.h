@@ -23,7 +23,7 @@ struct FACE
 	double centre[2];
 	double size;
 
-	double   **X; // n_points * 2
+	double   **X; // 2 * n_points
 	double    *W; // n_points
 	double ****Q; // n_variables * n_differentials * ( n_borders * n_basis + n_boundaries ) * n_points
 };
@@ -38,11 +38,12 @@ struct ELEMENT
 
 	int **unknown;
 
-	double  **X; // n_points * 2
+	double  **X; // 2 * n_points
 	double   *W; // n_points
 	double ***P; // n_differentials * n_basis * n_points
 	double ***Q; // n_faces * n_basis * n_points
 	double ***I; // n_variables * n_points * n_basis
+	double  **L; // n_basis * n_faces
 };
 
 struct BOUNDARY
