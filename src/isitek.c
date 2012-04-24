@@ -26,6 +26,7 @@ void initialise_values(int n_variables, int *variable_order, int n_elements, str
 void initialise_system(int n_variables, int *variable_order, int n_elements, struct ELEMENT *element, int n_u, SPARSE *system);
 
 void calculate_system(int n_variables, int *variable_order, int n_faces, struct FACE *face, int n_elements, struct ELEMENT *element, int n_terms, struct TERM *term, int n_u, double *u_old, double *u, SPARSE system, double *residual);
+void slope_limit(int n_variables, int *variable_order, int n_nodes, struct NODE *node, int n_elements, struct ELEMENT *element, double *u);
 void calculate_maximum_changes_and_residuals(int n_variables, int *variable_order, int n_elements, struct ELEMENT *element, double *du, double *max_u, double *residual, double *max_residual);
 
 void write_case(FILE *file, int n_variables, int *variable_order, int n_nodes, struct NODE *node, int n_faces, struct FACE *face, int n_elements, struct ELEMENT *element, int n_boundaries, struct BOUNDARY *boundary);
@@ -179,6 +180,17 @@ int main(int argc, char *argv[])
 	exit_if_false(du = (double *)malloc(n_u * sizeof(double)),"allocating du");
 	exit_if_false(max_du = (double *)malloc(n_variables * sizeof(double)),"allocating the maximum changes");
 	exit_if_false(u_old = (double *)realloc(u_old, n_u * sizeof(double)),"re-allocating u_old");
+
+	////
+	/*
+	slope_limit(n_variables, variable_order, n_nodes, node, n_elements, element, u);
+	generate_numbered_file_path(display_numbered_file_path, display_file_path, 999999999);
+	exit_if_false(display_file = fopen(display_numbered_file_path,"w"),"opening display file");
+	write_display(display_file, n_variables, variable_name, variable_order, n_elements, element, n_u, u);
+	fclose(display_file);
+	exit(1);
+	*/
+	////
 
 	// iterate
 	n_outer_iterations += outer_iteration;

@@ -644,6 +644,173 @@ void calculate_system(int n_variables, int *variable_order, int n_faces, struct 
 
 //////////////////////////////////////////////////////////////////
 
+void slope_limit(int n_variables, int *variable_order, int n_nodes, struct NODE *node, int n_elements, struct ELEMENT *element, double *u)
+{
+	int e, i, n, v;
+
+	int max_variable_order = 0;
+	for(v = 0; v < n_variables; v ++) max_variable_order = MAX(max_variable_order,variable_order[v]);
+
+	int *n_basis, max_n_basis = ORDER_TO_N_BASIS(max_variable_order);
+	exit_if_false(n_basis = (int *)malloc(n_variables * sizeof(int)),"allocating numbers of basis functions");
+	for(v = 0; v < n_variables; v ++) n_basis[v] = ORDER_TO_N_BASIS(variable_order[v]);
+
+	int n_hammer = ORDER_TO_N_HAMMER(max_variable_order), n_points;
+
+	double *basis_value, *point_value, *basis_diffusion;
+	exit_if_false(basis_value = (double *)malloc(n_nodes * sizeof(double)), "allocating basis values");
+	exit_if_false(point_value = (double *)malloc(n_hammer * (MAX_ELEMENT_N_FACES - 2) * sizeof(double)),"allocating point values");
+	exit_if_false(basis_diffusion = (double *)malloc(n_nodes * sizeof(double)), "allocating basis diffusion");
+
+	int *set;
+	double **min, **max;
+	exit_if_false(set = (int *)malloc(n_nodes * sizeof(int)), "allocating node sets");
+	exit_if_false(min = allocate_double_matrix(NULL,n_variables,n_nodes), "allocating node minimums");
+	exit_if_false(max = allocate_double_matrix(NULL,n_variables,n_nodes), "allocating node maximums");
+
+	int info, *pivot = (int *)malloc((max_n_basis + 2) * sizeof(int));
+	exit_if_false(pivot != NULL,"allocating pivot");
+	char trans[2] = "NT";
+	int int_0 = 0, int_1 = 1;
+	double dbl_0 = 0.0, dbl_1 = 1.0;
+
+	// generate minimum and maximum cell averages adjacent to each of the nodes
+	for(v = 0; v < n_variables; v ++)
+	{
+		for(i = 0; i < n_nodes; i ++) set[i] = 0;
+
+		for(e = 0; e < n_elements; e ++)
+		{
+			n_points = n_hammer * (element[e].n_faces - 2);
+
+			for(i = 0; i < n_basis[v]; i ++) basis_value[i] = u[element[e].unknown[v][i]];
+
+			dgemv_(&trans[0],&n_points,&n_basis[v],
+					&dbl_1,
+					element[e].P[powers_taylor[0][0]][0],&n_points,
+					basis_value,&int_1,
+					&dbl_0,
+					point_value,&int_1);
+
+			point_value[0] = ddot_(&n_points,point_value,&int_1,element[e].W,&int_1) / ddot_(&n_points,&dbl_1,&int_0,element[e].W,&int_1);
+
+			for(i = 0; i < element[e].n_faces; i ++)
+			{
+				n = (int)(element[e].face[i]->node[element[e].face[i]->border[0] != &element[e]] - &node[0]);
+				min[v][n] = set[n] ? MIN(min[v][n],point_value[0]) : point_value[0];
+				max[v][n] = set[n] ? MAX(max[v][n],point_value[0]) : point_value[0];
+				set[n] = 1;
+			}
+		}
+	}
+
+	int ldm = max_n_basis, ldd = max_n_basis, lds = max_n_basis, lda = max_n_basis;
+	int sizem = max_n_basis*max_n_basis, sized = max_n_basis*max_n_basis;
+	double **M = allocate_double_matrix(NULL,max_n_basis,ldm);
+	double **D = allocate_double_matrix(NULL,max_n_basis,ldd);
+	double **S = allocate_double_matrix(NULL,(MAX_ELEMENT_N_FACES-2)*n_hammer,lds);
+	double **A = allocate_double_matrix(NULL,max_n_basis,lda);
+	
+	double ***L = (double ***)malloc(n_variables * sizeof(double **));
+	for(v = 0; v < n_variables; v ++) L[v] = allocate_double_matrix(NULL,n_basis[v],n_basis[v]);
+
+	int index;
+	double difference, coefficient;
+
+	// apply limiter
+	for(e = 0; e < n_elements; e ++)
+	{
+		// generate the limiting matrix
+		{
+			n_points = n_hammer*(element[e].n_faces - 2);
+
+			// mass matrix
+			for(i = 0; i < max_n_basis; i ++) dcopy_(&n_points,element[e].P[powers_taylor[0][0]][i],&int_1,&S[0][i],&lds);
+			for(i = 0; i < n_points; i ++) dscal_(&max_n_basis,&element[e].W[i],S[i],&int_1);
+			dgemm_(&trans[0],&trans[0],&max_n_basis,&max_n_basis,&n_points,&dbl_1,S[0],&lds,element[e].P[powers_taylor[0][0]][0],&n_points,&dbl_0,M[0],&ldm);
+
+			// diffusion matrix
+			for(i = 0; i < max_n_basis; i ++) dcopy_(&n_points,element[e].P[powers_taylor[1][0]][i],&int_1,&S[0][i],&lds);
+			for(i = 0; i < n_points; i ++) dscal_(&max_n_basis,&element[e].W[i],S[i],&int_1);
+			dgemm_(&trans[0],&trans[0],&max_n_basis,&max_n_basis,&n_points,&dbl_1,S[0],&lds,element[e].P[powers_taylor[1][0]][0],&n_points,&dbl_0,D[0],&ldd);
+			for(i = 0; i < max_n_basis; i ++) dcopy_(&n_points,element[e].P[powers_taylor[0][1]][i],&int_1,&S[0][i],&lds);
+			for(i = 0; i < n_points; i ++) dscal_(&max_n_basis,&element[e].W[i],S[i],&int_1);
+			dgemm_(&trans[0],&trans[0],&max_n_basis,&max_n_basis,&n_points,&dbl_1,S[0],&lds,element[e].P[powers_taylor[0][1]][0],&n_points,&dbl_1,D[0],&ldd);
+
+			// limiting matrix
+			for(v = 0; v < n_variables; v ++)
+			{
+				dcopy_(&sizem,M[0],&int_1,A[0],&int_1);
+				dcopy_(&sized,D[0],&int_1,L[v][0],&int_1);
+				dgesv_(&n_basis[v],&n_basis[v],A[0],&lda,pivot,L[v][0],&n_basis[v],&info);
+			}
+		}
+
+		// apply the limiting
+		for(v = 0; v < n_variables; v ++)
+		{
+			// basis values
+			for(i = 0; i < n_basis[v]; i ++) basis_value[i] = u[element[e].unknown[v][i]];
+
+			// get the values at the vertices
+			dgemv_(&trans[0],&element[e].n_faces,&n_basis[v],
+					&dbl_1,
+					element[e].L[0],&element[e].n_faces,
+					basis_value,&int_1,
+					&dbl_0,
+					point_value,&int_1);
+
+			// find the index (if any) which needs limiting
+			difference = 0;
+			index = -1;
+			for(i = 0; i < element[e].n_faces; i ++)
+			{
+				n = (int)(element[e].face[i]->node[element[e].face[i]->border[0] != &element[e]] - &node[0]);
+				if     (min[v][n] - point_value[i] > fabs(difference)) difference = point_value[index = i] - min[v][n];
+				else if(point_value[i] - max[v][n] > fabs(difference)) difference = point_value[index = i] - max[v][n];
+			}
+			if(index < 0) continue;
+
+			// get the basis diffusion
+			dgemv_(&trans[1],&n_basis[v],&n_basis[v],
+					&dbl_1,
+					L[v][0],&n_basis[v],
+					basis_value,&int_1,
+					&dbl_0,
+					basis_diffusion,&int_1);
+
+			// get the coefficient
+			coefficient = - difference / ddot_(&n_basis[v],&element[e].L[0][index],&element[e].n_faces,basis_diffusion,&int_1);
+
+			// limit
+			daxpy_(&n_basis[v], &coefficient, basis_diffusion, &int_1, basis_value, &int_1);
+
+			// copy back
+			for(i = 0; i < n_basis[v]; i ++) u[element[e].unknown[v][i]] = basis_value[i];
+		}
+	}
+
+	free(n_basis);
+	free(basis_value);
+	free(point_value);
+	free(basis_diffusion);
+
+	destroy_matrix((void *)min);
+	destroy_matrix((void *)max);
+
+	free(pivot);
+
+	destroy_matrix((void *)M);
+	destroy_matrix((void *)D);
+	destroy_matrix((void *)S);
+	destroy_matrix((void *)A);
+
+	for(v = 0; v < n_variables; v ++) destroy_matrix((void *)L[v]);
+	free(L);
+}
+
+//////////////////////////////////////////////////////////////////
+
 void calculate_maximum_changes_and_residuals(int n_variables, int *variable_order, int n_elements, struct ELEMENT *element, double *du, double *max_du, double *residual, double *max_residual)
 {
 	int e, i, v;
