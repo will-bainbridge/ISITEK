@@ -155,7 +155,7 @@ void update_element_numerics(int n_variables_old, int n_variables, int *variable
 
 	// working matrices
 	int lds = max_n_basis, ldm = max_n_basis, ldd = max_n_basis, lda = max_n_basis;
-        int sizem = max_n_basis*max_n_basis, sized = max_n_basis*max_n_basis;
+        int sizem = max_n_basis*max_n_basis;
 	double **S = allocate_double_matrix(NULL,(MAX_ELEMENT_N_FACES-2)*n_hammer,lds);
 	double **M = allocate_double_matrix(NULL,max_n_basis,ldm);
         double **D = allocate_double_matrix(NULL,max_n_basis,ldd);
@@ -226,7 +226,7 @@ void update_element_numerics(int n_variables_old, int n_variables, int *variable
 		{
 			if(n_variables_old > v) if(variable_order_old[v] == variable_order[v]) continue;
 			dcopy_(&sizem,M[0],&int_1,A[0],&int_1);
-			dcopy_(&sized,D[0],&int_1,element[e].L[v][0],&int_1);
+			for(i = 0; i < n_basis[v]; i ++) dcopy_(&n_basis[v],D[i],&int_1,element[e].L[v][i],&int_1);
 			dgesv_(&n_basis[v],&n_basis[v],A[0],&lda,pivot,element[e].L[v][0],&n_basis[v],&info);
 		}
 	}
