@@ -33,7 +33,8 @@ double * allocate_element_w(struct ELEMENT *element, int n_points);
 double *** allocate_element_p(struct ELEMENT *element, int n_basis, int n_points);
 double *** allocate_element_q(struct ELEMENT *element, int n_basis, int n_points);
 double *** allocate_element_i(struct ELEMENT *element, int n_variables, int *n_basis, int n_points);
-double ** allocate_element_l(struct ELEMENT *element, int n_basis);
+double ** allocate_element_v(struct ELEMENT *element, int n_basis);
+double *** allocate_element_l(struct ELEMENT *element, int n_variables, int *n_basis);
 void destroy_elements(int n_elements, struct ELEMENT *element, int n_variables);
 
 struct BOUNDARY * allocate_boundaries(int n_boundaries);

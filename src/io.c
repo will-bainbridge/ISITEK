@@ -396,7 +396,13 @@ void element_write_case(FILE *file, int n_variables, int *n_basis, int n_gauss, 
 	}
 
 	n = max_n_basis*element->n_faces;
-	exit_if_false(fwrite(element->L[0], sizeof(double), n, file) == n,"writing element limit interpolaton");
+	exit_if_false(fwrite(element->V[0], sizeof(double), n, file) == n,"writing element limit vertex interpolation");
+
+	for(i = 0; i < n_variables; i ++) 
+	{
+		n = n_basis[i]*n_basis[i];
+		exit_if_false(fwrite(element->L[i][0], sizeof(double), n, file) == n,"writing element limitng");
+	}
 
 	free(index);
 }
@@ -445,9 +451,16 @@ void element_read_case(FILE *file, int n_variables, int *n_basis, int n_gauss, i
 		exit_if_false(fread(element->I[i][0], sizeof(double), n, file) == n,"reading element initialisation");
 	}
 
-	exit_if_false(element->L = allocate_element_l(element,max_n_basis),"allocating element limit interpolaton");
+	exit_if_false(element->V = allocate_element_v(element,max_n_basis),"allocating element vertex interpolaton");
 	n = max_n_basis*element->n_faces;
-	exit_if_false(fread(element->L[0], sizeof(double), n, file) == n,"writing element limit interpolaton");
+	exit_if_false(fread(element->V[0], sizeof(double), n, file) == n,"writing element vertex interpolaton");
+
+	exit_if_false(element->L = allocate_element_l(element, n_variables, n_basis),"allocating element limiting");
+	for(i = 0; i < n_variables; i ++) 
+	{
+		n = n_basis[i]*n_basis[i];
+		exit_if_false(fread(element->L[i][0], sizeof(double), n, file) == n,"reading element limiting");
+	}
 
 	free(index);
 }
@@ -916,7 +929,7 @@ void write_display(FILE *file, int n_variables, char **variable_name, int *varia
 
 			dgemv_(&trans[0],&element[e].n_faces,&n_basis[v],
 					&dbl_1,
-					element[e].L[0],&element[e].n_faces,
+					element[e].V[0],&element[e].n_faces,
 					basis_value,&int_1,
 					&dbl_0,
 					point_value,&int_1);

@@ -154,9 +154,11 @@ void update_element_numerics(int n_variables_old, int n_variables, int *variable
 	int no_differential[2] = {0,0};
 
 	// working matrices
-	int lds = max_n_basis, ldm = max_n_basis, lda = max_n_basis, sizea = max_n_basis*max_n_basis;
+	int lds = max_n_basis, ldm = max_n_basis, ldd = max_n_basis, lda = max_n_basis;
+        int sizem = max_n_basis*max_n_basis, sized = max_n_basis*max_n_basis;
 	double **S = allocate_double_matrix(NULL,(MAX_ELEMENT_N_FACES-2)*n_hammer,lds);
 	double **M = allocate_double_matrix(NULL,max_n_basis,ldm);
+        double **D = allocate_double_matrix(NULL,max_n_basis,ldd);
 	double **A = allocate_double_matrix(NULL,max_n_basis,lda);
 	double **X = allocate_double_matrix(NULL,2,MAX_ELEMENT_N_FACES);
 	exit_if_false(S != NULL && M != NULL && A != NULL && X != NULL,"allocating working matrices");
@@ -187,31 +189,52 @@ void update_element_numerics(int n_variables_old, int n_variables, int *variable
 					basis(n_gauss,element[e].Q[i][j],element[e].face[i]->X,element[e].centre,element[e].size,j,no_differential);
 
 			// corner matrix
-			exit_if_false(element[e].L = allocate_element_l(&element[e],max_n_basis),"allocating element L");
+			exit_if_false(element[e].V = allocate_element_v(&element[e],max_n_basis),"allocating element V");
 			for(i = 0; i < element[e].n_faces; i ++)
 				for(j = 0; j < 2; j ++)
 					X[j][i] = element[e].face[i]->node[element[e].face[i]->border[0] != &element[e]]->x[j];
 			for(i = 0; i < max_n_basis; i ++)
-				basis(element[e].n_faces,element[e].L[i],X,element[e].centre,element[e].size,i,no_differential);
+				basis(element[e].n_faces,element[e].V[i],X,element[e].centre,element[e].size,i,no_differential);
 		}
 
-		// initialise matrices
-		exit_if_false(element[e].I = allocate_element_i(&element[e],n_variables,n_basis,n_points),"allocating element I");
+		// mass matrix
                 for(i = 0; i < max_n_basis; i ++) dcopy_(&n_points,element[e].P[powers_taylor[0][0]][i],&int_1,&S[0][i],&lds);
                 for(i = 0; i < n_points; i ++) dscal_(&max_n_basis,&element[e].W[i],S[i],&int_1);
                 dgemm_(&trans[0],&trans[0],&max_n_basis,&max_n_basis,&n_points,&dbl_1,S[0],&lds,element[e].P[powers_taylor[0][0]][0],&n_points,&dbl_0,M[0],&ldm);
+
+		// initialise matrices
+		exit_if_false(element[e].I = allocate_element_i(&element[e],n_variables,n_basis,n_points),"allocating element I");
                 for(v = 0; v < n_variables; v ++)
                 {
 			if(n_variables_old > v) if(variable_order_old[v] == variable_order[v]) continue;
 			for(i = 0; i < n_basis[v]; i ++) dcopy_(&n_points,&S[0][i],&lds,&element[e].I[v][0][i],&n_basis[v]);
-			dcopy_(&sizea,M[0],&int_1,A[0],&int_1);
+			dcopy_(&sizem,M[0],&int_1,A[0],&int_1);
 			dgesv_(&n_basis[v],&n_points,A[0],&lda,pivot,element[e].I[v][0],&n_basis[v],&info);
+		}
+
+		// diffusion matrix
+		for(i = 0; i < max_n_basis; i ++) dcopy_(&n_points,element[e].P[powers_taylor[1][0]][i],&int_1,&S[0][i],&lds);
+		for(i = 0; i < n_points; i ++) dscal_(&max_n_basis,&element[e].W[i],S[i],&int_1);
+		dgemm_(&trans[0],&trans[0],&max_n_basis,&max_n_basis,&n_points,&dbl_1,S[0],&lds,element[e].P[powers_taylor[1][0]][0],&n_points,&dbl_0,D[0],&ldd);
+		for(i = 0; i < max_n_basis; i ++) dcopy_(&n_points,element[e].P[powers_taylor[0][1]][i],&int_1,&S[0][i],&lds);
+		for(i = 0; i < n_points; i ++) dscal_(&max_n_basis,&element[e].W[i],S[i],&int_1);
+		dgemm_(&trans[0],&trans[0],&max_n_basis,&max_n_basis,&n_points,&dbl_1,S[0],&lds,element[e].P[powers_taylor[0][1]][0],&n_points,&dbl_1,D[0],&ldd);
+
+		// limiting matrices
+		exit_if_false(element[e].L = allocate_element_l(&element[e],n_variables,n_basis),"allocating element L");
+		for(v = 0; v < n_variables; v ++)
+		{
+			if(n_variables_old > v) if(variable_order_old[v] == variable_order[v]) continue;
+			dcopy_(&sizem,M[0],&int_1,A[0],&int_1);
+			dcopy_(&sized,D[0],&int_1,element[e].L[v][0],&int_1);
+			dgesv_(&n_basis[v],&n_basis[v],A[0],&lda,pivot,element[e].L[v][0],&n_basis[v],&info);
 		}
 	}
 
 	free(n_basis);
 	destroy_matrix((void *)S);
 	destroy_matrix((void *)M);
+	destroy_matrix((void *)D);
 	destroy_matrix((void *)A);
 	destroy_matrix((void *)X);
 	free(pivot);

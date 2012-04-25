@@ -651,7 +651,7 @@ void slope_limit(int n_variables, int *variable_order, int n_nodes, struct NODE 
 	int max_variable_order = 0;
 	for(v = 0; v < n_variables; v ++) max_variable_order = MAX(max_variable_order,variable_order[v]);
 
-	int *n_basis, max_n_basis = ORDER_TO_N_BASIS(max_variable_order);
+	int *n_basis;
 	exit_if_false(n_basis = (int *)malloc(n_variables * sizeof(int)),"allocating numbers of basis functions");
 	for(v = 0; v < n_variables; v ++) n_basis[v] = ORDER_TO_N_BASIS(variable_order[v]);
 
@@ -668,8 +668,6 @@ void slope_limit(int n_variables, int *variable_order, int n_nodes, struct NODE 
 	exit_if_false(min = allocate_double_matrix(NULL,n_variables,n_nodes), "allocating node minimums");
 	exit_if_false(max = allocate_double_matrix(NULL,n_variables,n_nodes), "allocating node maximums");
 
-	int info, *pivot = (int *)malloc((max_n_basis + 2) * sizeof(int));
-	exit_if_false(pivot != NULL,"allocating pivot");
 	char trans[2] = "NT";
 	int int_0 = 0, int_1 = 1;
 	double dbl_0 = 0.0, dbl_1 = 1.0;
@@ -704,49 +702,11 @@ void slope_limit(int n_variables, int *variable_order, int n_nodes, struct NODE 
 		}
 	}
 
-	int ldm = max_n_basis, ldd = max_n_basis, lds = max_n_basis, lda = max_n_basis;
-	int sizem = max_n_basis*max_n_basis, sized = max_n_basis*max_n_basis;
-	double **M = allocate_double_matrix(NULL,max_n_basis,ldm);
-	double **D = allocate_double_matrix(NULL,max_n_basis,ldd);
-	double **S = allocate_double_matrix(NULL,(MAX_ELEMENT_N_FACES-2)*n_hammer,lds);
-	double **A = allocate_double_matrix(NULL,max_n_basis,lda);
-	
-	double ***L = (double ***)malloc(n_variables * sizeof(double **));
-	for(v = 0; v < n_variables; v ++) L[v] = allocate_double_matrix(NULL,n_basis[v],n_basis[v]);
-
+	// apply limiter
 	int index;
 	double difference, coefficient;
-
-	// apply limiter
 	for(e = 0; e < n_elements; e ++)
 	{
-		// generate the limiting matrix
-		{
-			n_points = n_hammer*(element[e].n_faces - 2);
-
-			// mass matrix
-			for(i = 0; i < max_n_basis; i ++) dcopy_(&n_points,element[e].P[powers_taylor[0][0]][i],&int_1,&S[0][i],&lds);
-			for(i = 0; i < n_points; i ++) dscal_(&max_n_basis,&element[e].W[i],S[i],&int_1);
-			dgemm_(&trans[0],&trans[0],&max_n_basis,&max_n_basis,&n_points,&dbl_1,S[0],&lds,element[e].P[powers_taylor[0][0]][0],&n_points,&dbl_0,M[0],&ldm);
-
-			// diffusion matrix
-			for(i = 0; i < max_n_basis; i ++) dcopy_(&n_points,element[e].P[powers_taylor[1][0]][i],&int_1,&S[0][i],&lds);
-			for(i = 0; i < n_points; i ++) dscal_(&max_n_basis,&element[e].W[i],S[i],&int_1);
-			dgemm_(&trans[0],&trans[0],&max_n_basis,&max_n_basis,&n_points,&dbl_1,S[0],&lds,element[e].P[powers_taylor[1][0]][0],&n_points,&dbl_0,D[0],&ldd);
-			for(i = 0; i < max_n_basis; i ++) dcopy_(&n_points,element[e].P[powers_taylor[0][1]][i],&int_1,&S[0][i],&lds);
-			for(i = 0; i < n_points; i ++) dscal_(&max_n_basis,&element[e].W[i],S[i],&int_1);
-			dgemm_(&trans[0],&trans[0],&max_n_basis,&max_n_basis,&n_points,&dbl_1,S[0],&lds,element[e].P[powers_taylor[0][1]][0],&n_points,&dbl_1,D[0],&ldd);
-
-			// limiting matrix
-			for(v = 0; v < n_variables; v ++)
-			{
-				dcopy_(&sizem,M[0],&int_1,A[0],&int_1);
-				dcopy_(&sized,D[0],&int_1,L[v][0],&int_1);
-				dgesv_(&n_basis[v],&n_basis[v],A[0],&lda,pivot,L[v][0],&n_basis[v],&info);
-			}
-		}
-
-		// apply the limiting
 		for(v = 0; v < n_variables; v ++)
 		{
 			// basis values
@@ -755,7 +715,7 @@ void slope_limit(int n_variables, int *variable_order, int n_nodes, struct NODE 
 			// get the values at the vertices
 			dgemv_(&trans[0],&element[e].n_faces,&n_basis[v],
 					&dbl_1,
-					element[e].L[0],&element[e].n_faces,
+					element[e].V[0],&element[e].n_faces,
 					basis_value,&int_1,
 					&dbl_0,
 					point_value,&int_1);
@@ -774,13 +734,13 @@ void slope_limit(int n_variables, int *variable_order, int n_nodes, struct NODE 
 			// get the basis diffusion
 			dgemv_(&trans[1],&n_basis[v],&n_basis[v],
 					&dbl_1,
-					L[v][0],&n_basis[v],
+					element[e].L[v][0],&n_basis[v],
 					basis_value,&int_1,
 					&dbl_0,
 					basis_diffusion,&int_1);
 
 			// get the coefficient
-			coefficient = - difference / ddot_(&n_basis[v],&element[e].L[0][index],&element[e].n_faces,basis_diffusion,&int_1);
+			coefficient = - difference / ddot_(&n_basis[v],&element[e].V[0][index],&element[e].n_faces,basis_diffusion,&int_1);
 
 			// limit
 			daxpy_(&n_basis[v], &coefficient, basis_diffusion, &int_1, basis_value, &int_1);
@@ -795,18 +755,9 @@ void slope_limit(int n_variables, int *variable_order, int n_nodes, struct NODE 
 	free(point_value);
 	free(basis_diffusion);
 
+	destroy_matrix((void *)set);
 	destroy_matrix((void *)min);
 	destroy_matrix((void *)max);
-
-	free(pivot);
-
-	destroy_matrix((void *)M);
-	destroy_matrix((void *)D);
-	destroy_matrix((void *)S);
-	destroy_matrix((void *)A);
-
-	for(v = 0; v < n_variables; v ++) destroy_matrix((void *)L[v]);
-	free(L);
 }
 
 //////////////////////////////////////////////////////////////////

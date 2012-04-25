@@ -40,10 +40,14 @@ struct ELEMENT
 
 	double  **X; // 2 * n_points
 	double   *W; // n_points
+
 	double ***P; // n_differentials * n_basis * n_points
 	double ***Q; // n_faces * n_basis * n_points
+
 	double ***I; // n_variables * n_points * n_basis
-	double  **L; // n_basis * n_faces
+
+	double  **V; // n_basis * n_faces
+	double ***L; // n_variables * n_basis * n_basis
 };
 
 struct BOUNDARY
