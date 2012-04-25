@@ -181,17 +181,6 @@ int main(int argc, char *argv[])
 	exit_if_false(max_du = (double *)malloc(n_variables * sizeof(double)),"allocating the maximum changes");
 	exit_if_false(u_old = (double *)realloc(u_old, n_u * sizeof(double)),"re-allocating u_old");
 
-	////
-	/*
-	slope_limit(n_variables, variable_order, n_nodes, node, n_elements, element, u);
-	generate_numbered_file_path(display_numbered_file_path, display_file_path, 999999999);
-	exit_if_false(display_file = fopen(display_numbered_file_path,"w"),"opening display file");
-	write_display(display_file, n_variables, variable_name, variable_order, n_elements, element, n_u, u);
-	fclose(display_file);
-	exit(1);
-	*/
-	////
-
 	// iterate
 	n_outer_iterations += outer_iteration;
 	for(; outer_iteration < n_outer_iterations; outer_iteration ++)
@@ -211,6 +200,8 @@ int main(int argc, char *argv[])
 			for(i = 0; i < n_variables; i ++) printf("%.6e|%.6e ",max_du[i],max_residual[i]);
 			printf("\n");
 		}
+
+		slope_limit(n_variables, variable_order, n_nodes, node, n_elements, element, u);
 
 		if(data_n_outer_iterations && outer_iteration % data_n_outer_iterations == 0)
 		{

@@ -3,12 +3,12 @@
 case_file_path line.E.case
 geometry_file_path line.geometry
 
-number_of_outer_iterations 1001
+number_of_outer_iterations 1501
 number_of_inner_iterations 5
 
 data_file_path line.E.?.data
-#initial_data_file_path line.E.000000000.data
-data_number_of_outer_iterations 1000
+#initial_data_file_path line.E.000001000.data
+data_number_of_outer_iterations 500
 
 display_file_path line.E.?.vtu
 display_number_of_outer_iterations 100
@@ -23,9 +23,10 @@ variable_initial_value ($x<0.5)*(p_l/R/T_l)+(1-($x<0.5))*(p_r/R/T_r) 0 0 ($x<0.5
 # boundary > indices variable condition value
 
 boundary 0:199 0 n 0.0
-boundary 0:199 1 d 0.0
-boundary 0:199 2 d 0.0
+boundary 0:199 1 n 0.0
+boundary 0:199 2 n 0.0
 boundary 0:199 3 n 0.0
+boundary 200:200,300:300 0 n 0.0
 boundary 200:200,300:300 1 d 0.0
 boundary 200:200,300:300 2 d 0.0
 boundary 200:200,300:300 3 n 0.0

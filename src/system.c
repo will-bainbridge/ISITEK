@@ -755,7 +755,7 @@ void slope_limit(int n_variables, int *variable_order, int n_nodes, struct NODE 
 	free(point_value);
 	free(basis_diffusion);
 
-	destroy_matrix((void *)set);
+	free(set);
 	destroy_matrix((void *)min);
 	destroy_matrix((void *)max);
 }
