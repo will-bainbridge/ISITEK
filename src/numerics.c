@@ -212,19 +212,24 @@ void update_element_numerics(int n_variables_old, int n_variables, int *variable
 			dgesv_(&n_basis[v],&n_points,A[0],&lda,pivot,element[e].I[v][0],&n_basis[v],&info);
 		}
 
-		// diffusion matrix
-		for(i = 0; i < max_n_basis; i ++) dcopy_(&n_points,element[e].P[powers_taylor[1][0]][i],&int_1,&S[0][i],&lds);
-		for(i = 0; i < n_points; i ++) dscal_(&max_n_basis,&element[e].W[i],S[i],&int_1);
-		dgemm_(&trans[0],&trans[0],&max_n_basis,&max_n_basis,&n_points,&dbl_1,S[0],&lds,element[e].P[powers_taylor[1][0]][0],&n_points,&dbl_0,D[0],&ldd);
-		for(i = 0; i < max_n_basis; i ++) dcopy_(&n_points,element[e].P[powers_taylor[0][1]][i],&int_1,&S[0][i],&lds);
-		for(i = 0; i < n_points; i ++) dscal_(&max_n_basis,&element[e].W[i],S[i],&int_1);
-		dgemm_(&trans[0],&trans[0],&max_n_basis,&max_n_basis,&n_points,&dbl_1,S[0],&lds,element[e].P[powers_taylor[0][1]][0],&n_points,&dbl_1,D[0],&ldd);
+		// limiting matrices
+		if(max_n_basis > 1)
+		{
+			// diffusion matrix
+			for(i = 0; i < max_n_basis; i ++) dcopy_(&n_points,element[e].P[powers_taylor[1][0]][i],&int_1,&S[0][i],&lds);
+			for(i = 0; i < n_points; i ++) dscal_(&max_n_basis,&element[e].W[i],S[i],&int_1);
+			dgemm_(&trans[0],&trans[0],&max_n_basis,&max_n_basis,&n_points,&dbl_1,S[0],&lds,element[e].P[powers_taylor[1][0]][0],&n_points,&dbl_0,D[0],&ldd);
+			for(i = 0; i < max_n_basis; i ++) dcopy_(&n_points,element[e].P[powers_taylor[0][1]][i],&int_1,&S[0][i],&lds);
+			for(i = 0; i < n_points; i ++) dscal_(&max_n_basis,&element[e].W[i],S[i],&int_1);
+			dgemm_(&trans[0],&trans[0],&max_n_basis,&max_n_basis,&n_points,&dbl_1,S[0],&lds,element[e].P[powers_taylor[0][1]][0],&n_points,&dbl_1,D[0],&ldd);
+		}
 
 		// limiting matrices
 		exit_if_false(element[e].L = allocate_element_l(&element[e],n_variables,n_basis),"allocating element L");
 		for(v = 0; v < n_variables; v ++)
 		{
 			if(n_variables_old > v) if(variable_order_old[v] == variable_order[v]) continue;
+			if(variable_order[v] == 1) continue;
 			dcopy_(&sizem,M[0],&int_1,A[0],&int_1);
 			for(i = 0; i < n_basis[v]; i ++) dcopy_(&n_basis[v],D[i],&int_1,element[e].L[v][i],&int_1);
 			dgesv_(&n_basis[v],&n_basis[v],A[0],&lda,pivot,element[e].L[v][0],&n_basis[v],&info);

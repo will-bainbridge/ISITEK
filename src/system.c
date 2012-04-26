@@ -650,6 +650,7 @@ void slope_limit(int n_variables, int *variable_order, int n_nodes, struct NODE 
 
 	int max_variable_order = 0;
 	for(v = 0; v < n_variables; v ++) max_variable_order = MAX(max_variable_order,variable_order[v]);
+	if(max_variable_order == 1) return;
 
 	int *n_basis;
 	exit_if_false(n_basis = (int *)malloc(n_variables * sizeof(int)),"allocating numbers of basis functions");
@@ -709,6 +710,8 @@ void slope_limit(int n_variables, int *variable_order, int n_nodes, struct NODE 
 	{
 		for(v = 0; v < n_variables; v ++)
 		{
+			if(variable_order[v] == 1) continue;
+
 			// basis values
 			for(i = 0; i < n_basis[v]; i ++) basis_value[i] = u[element[e].unknown[v][i]];
 
