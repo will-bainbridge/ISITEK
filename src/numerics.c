@@ -206,7 +206,7 @@ void update_element_numerics(int n_variables_old, int n_variables, int *variable
 		exit_if_false(element[e].I = allocate_element_i(&element[e],n_variables,n_basis,n_points),"allocating element I");
                 for(v = 0; v < n_variables; v ++)
                 {
-			if(n_variables_old > v) if(variable_order_old[v] == variable_order[v]) continue;
+			if(!max_update && n_variables_old > v) if(variable_order_old[v] == variable_order[v]) continue;
 			for(i = 0; i < n_basis[v]; i ++) dcopy_(&n_points,&S[0][i],&lds,&element[e].I[v][0][i],&n_basis[v]);
 			dcopy_(&sizem,M[0],&int_1,A[0],&int_1);
 			dgesv_(&n_basis[v],&n_points,A[0],&lda,pivot,element[e].I[v][0],&n_basis[v],&info);
@@ -276,13 +276,6 @@ void transformation_matrix(int order, double **T, double **R)
 			}
 		}
 	}
-
-	/*for(i = 0; i < ORDER_TO_N_BASIS(order); i ++) {
-		for(j = 0; j < ORDER_TO_N_BASIS(order); j ++) {
-			printf("%+lf ",T[i][j]);
-		} printf("\n");
-	} printf("\n"); 
-	getchar();*/
 }
 
 //////////////////////////////////////////////////////////////////
@@ -310,8 +303,9 @@ void update_face_numerics(int n_variables_old, int n_variables, int *variable_or
 	}
 
 	// order and numbers of integration points and bases
-	int max_variable_order = 0;
+	int max_variable_order = 0, max_variable_order_old = 0;
 	for(v = 0; v < n_variables; v ++) max_variable_order = MAX(max_variable_order,variable_order[v]);
+	for(v = 0; v < n_variables_old; v ++) max_variable_order_old = MAX(max_variable_order_old,variable_order_old[v]);
 
 	int n_gauss = ORDER_TO_N_GAUSS(max_variable_order), n_hammer = ORDER_TO_N_HAMMER(max_variable_order);
 	int n_points[MAX_FACE_N_BORDERS], sum_n_points[MAX_FACE_N_BORDERS+1];
@@ -321,7 +315,7 @@ void update_face_numerics(int n_variables_old, int n_variables, int *variable_or
 	for(v = 0; v < n_variables; v ++) n_basis[v] = ORDER_TO_N_BASIS(variable_order[v]);
 
 	// truth values for updating the interpolation on a face
-	int *update = (int *)malloc(n_variables * sizeof(int)), any_update;
+	int *update = (int *)malloc(n_variables * sizeof(int)), max_update = max_variable_order != max_variable_order_old, any_update;
 	exit_if_false(update != NULL,"allocating update");
 
 	// transformation
@@ -453,7 +447,7 @@ void update_face_numerics(int n_variables_old, int n_variables, int *variable_or
 		// for all variables
 		for(v = 0; v < n_variables; v ++)
 		{
-			if(!update[v]) continue;
+			if(!max_update && !update[v]) continue;
 
 			n_adj = face[f].n_borders;
 			adj = face[f].border;
@@ -528,19 +522,6 @@ void update_face_numerics(int n_variables_old, int n_variables, int *variable_or
 			for(i = 0; i < n_int_terms; i ++)
 				for(j = 0; j < n_gauss; j ++)
 					dgemv_(&trans[1],&n_basis[v],&n_basis[v],&d_one,T[0],&max_n_basis,&D[0][i][j],&incd,&d_zero,&face[f].Q[v][0][i][j],&incq);
-
-			/*// print
-			int k;
-			printf("face %i variable %i\n",f,v);
-			for(i = 0; i < n_basis[v]; i ++) {
-				for(k = 0; k < n_gauss; k ++) {
-					for(j = 0; j < n_int_terms; j ++) {
-					printf("%+.2e  ",face[f].Q[v][i][j][k]);
-					//printf("%+.2e  ",D[i][j][k]);
-					} printf("\n");
-				} printf("\n");
-			} printf("\n");
-			getchar();*/
 
 			updated ++;
 		}
