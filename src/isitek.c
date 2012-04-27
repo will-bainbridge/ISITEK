@@ -26,7 +26,7 @@ void initialise_values(int n_variables, int *variable_order, int n_elements, str
 void initialise_system(int n_variables, int *variable_order, int n_elements, struct ELEMENT *element, int n_u, SPARSE *system);
 
 void calculate_system(int n_variables, int *variable_order, int n_faces, struct FACE *face, int n_elements, struct ELEMENT *element, int n_terms, struct TERM *term, int n_u, double *u_old, double *u, SPARSE system, double *residual);
-void slope_limit(int n_variables, int *variable_order, int n_nodes, struct NODE *node, int n_elements, struct ELEMENT *element, double *u);
+void slope_limit(int n_variables, int *variable_order, int n_nodes, struct NODE *node, int n_elements, struct ELEMENT *element, int n_boundaries, struct BOUNDARY *boundary, double *u);
 void calculate_maximum_changes_and_residuals(int n_variables, int *variable_order, int n_elements, struct ELEMENT *element, double *du, double *max_u, double *residual, double *max_residual);
 
 void write_case(FILE *file, int n_variables, int *variable_order, int n_nodes, struct NODE *node, int n_faces, struct FACE *face, int n_elements, struct ELEMENT *element, int n_boundaries, struct BOUNDARY *boundary);
@@ -201,7 +201,7 @@ int main(int argc, char *argv[])
 			printf("\n");
 		}
 
-		slope_limit(n_variables, variable_order, n_nodes, node, n_elements, element, u);
+		slope_limit(n_variables, variable_order, n_nodes, node, n_elements, element, n_boundaries, boundary, u);
 
 		if(data_n_outer_iterations && outer_iteration % data_n_outer_iterations == 0)
 		{

@@ -938,7 +938,7 @@ void write_display(FILE *file, int n_variables, char **variable_name, int *varia
 		}
 		fprintf(file,"\n</DataArray>\n");
 	}
-	fprintf(file,"\n</PointData>\n");
+	fprintf(file,"</PointData>\n");
 
 	// cell averaged data
 	fprintf(file,"<CellData>\n");

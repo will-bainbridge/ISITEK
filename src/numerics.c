@@ -466,7 +466,7 @@ void update_face_numerics(int n_variables_old, int n_variables, int *variable_or
 			n_int_bases = 0;
 			for(i = 0; i < n_adj*variable_order[v] + n_bnd; i ++)
 				for(j = 0; j < n_adj*variable_order[v] + n_bnd; j ++)
-					if( i + n_adj*j < n_adj*variable_order[v] + n_bnd && j < variable_order[v])
+					if(i + n_adj*j < n_adj*variable_order[v] + n_bnd && j < variable_order[v])
 						face_taylor[n_int_bases ++] = powers_taylor[i][j];
 			exit_if_false(n_int_bases == n_adj_bases + n_bnd*variable_order[v],"mismatched number of interpolation unknowns");
 

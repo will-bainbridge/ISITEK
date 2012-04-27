@@ -644,9 +644,9 @@ void calculate_system(int n_variables, int *variable_order, int n_faces, struct 
 
 //////////////////////////////////////////////////////////////////
 
-void slope_limit(int n_variables, int *variable_order, int n_nodes, struct NODE *node, int n_elements, struct ELEMENT *element, double *u)
+void slope_limit(int n_variables, int *variable_order, int n_nodes, struct NODE *node, int n_elements, struct ELEMENT *element, int n_boundaries, struct BOUNDARY *boundary, double *u)
 {
-	int e, i, n, v;
+	int b, e, i, j, n, v;
 
 	int max_variable_order = 0;
 	for(v = 0; v < n_variables; v ++) max_variable_order = MAX(max_variable_order,variable_order[v]);
@@ -673,7 +673,7 @@ void slope_limit(int n_variables, int *variable_order, int n_nodes, struct NODE 
 	int int_0 = 0, int_1 = 1;
 	double dbl_0 = 0.0, dbl_1 = 1.0;
 
-	// generate minimum and maximum cell averages adjacent to each of the nodes
+	// generate minimum and maximum cell averages and dirichlet boundaries adjacent to each of the nodes
 	for(v = 0; v < n_variables; v ++)
 	{
 		for(i = 0; i < n_nodes; i ++) set[i] = 0;
@@ -699,6 +699,23 @@ void slope_limit(int n_variables, int *variable_order, int n_nodes, struct NODE 
 				min[v][n] = set[n] ? MIN(min[v][n],point_value[0]) : point_value[0];
 				max[v][n] = set[n] ? MAX(max[v][n],point_value[0]) : point_value[0];
 				set[n] = 1;
+			}
+		}
+
+		for(b = 0; b < n_boundaries; b ++)
+		{
+			if(boundary[b].condition[0] == 0 && boundary[b].condition[1] == 0)
+			{
+				for(i = 0; i < boundary[b].n_faces; i ++)
+				{
+					for(j = 0; j < boundary[b].face[i]->n_nodes; j ++)
+					{
+						n = (int)(boundary[b].face[i]->node[j] - &node[0]);
+						min[v][n] = set[n] ? MIN(min[v][n],boundary[b].value) : boundary[b].value;
+						max[v][n] = set[n] ? MAX(max[v][n],boundary[b].value) : boundary[b].value;
+						set[n] = 1;
+					}
+				}
 			}
 		}
 	}
