@@ -22,7 +22,7 @@ variable_initial_value ($x<0.5)*(p_l/R/T_l)+(1-($x<0.5))*(p_r/R/T_r) 0 0 ($x<0.5
 
 # boundary > indices variable condition value
 
-boundary 0:199 2 d 0.0
+boundary 0:199 2 n 0.0
 boundary 200:200,300:300 1 d 0.0
 
 #------------------------------------------------------------------------------#

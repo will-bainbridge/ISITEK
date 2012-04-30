@@ -511,34 +511,31 @@ void calculate_system(int n_variables, int *variable_order, int n_faces, struct 
 				{
 					expression_evaluate(n_gauss, point_weight[i], term[t].weight[i], point_value, expression_work);
 
+					dcopy_(&n_gauss,&dbl_0,&int_0,point_value[i+EXPRESSION_VARIABLE_INDEX],&int_1);
+					dcopy_(&n_gauss,&dbl_0,&int_0,point_value_old[i+EXPRESSION_VARIABLE_INDEX],&int_1);
+
 					for(s = 0; s < face[f].n_borders; s ++)
 					{
-						/*dgemv_(...
-								temp[]);
-						for(p = 0; p < n_gauss; p ++) point_value[i+EXPRESSION_VARIABLE_INDEX] += (!s+(2*s-1)*point_weight[i][p])*temp[p];*/
-
 						dgemv_(&trans[0],&n_gauss,&n_basis[v],
 								&dbl_1,
 								face[f].border[s]->Q[opposite[s]][0],&n_gauss,
 								&basis_value[s*n_basis[v]],&int_1,
 								&dbl_0,
-								point_value[i+s+EXPRESSION_VARIABLE_INDEX],&int_1);
+								point_value[i+1+EXPRESSION_VARIABLE_INDEX],&int_1);
 						dgemv_(&trans[0],&n_gauss,&n_basis[v],
 								&dbl_1,
 								face[f].border[s]->Q[opposite[s]][0],&n_gauss,
 								&basis_value_old[s*n_basis[v]],&int_1,
 								&dbl_0,
-								point_value_old[i+s+EXPRESSION_VARIABLE_INDEX],&int_1);
-					}
+								point_value_old[i+1+EXPRESSION_VARIABLE_INDEX],&int_1);
 
-					for(p = 0; p < n_gauss; p ++)
-					{
-						point_value[i+EXPRESSION_VARIABLE_INDEX][p] = 
-							(1-point_weight[i][p]) * point_value[i+EXPRESSION_VARIABLE_INDEX][p] + 
-							point_weight[i][p] * point_value[i+1+EXPRESSION_VARIABLE_INDEX][p];
-						point_value_old[i+EXPRESSION_VARIABLE_INDEX][p] = 
-							(1-point_weight[i][p]) * point_value_old[i+EXPRESSION_VARIABLE_INDEX][p] + 
-							point_weight[i][p] * point_value_old[i+1+EXPRESSION_VARIABLE_INDEX][p];
+						for(p = 0; p < n_gauss; p ++)
+						{
+							point_value[i+EXPRESSION_VARIABLE_INDEX][p] +=
+								(!s+(2*s-1)*point_weight[i][p])*point_value[i+1+EXPRESSION_VARIABLE_INDEX][p];
+							point_value_old[i+EXPRESSION_VARIABLE_INDEX][p] +=
+								(!s+(2*s-1)*point_weight[i][p])*point_value_old[i+1+EXPRESSION_VARIABLE_INDEX][p];
+						}
 					}
 				}
 			}
