@@ -177,7 +177,7 @@ int sparse_solve(SPARSE sparse, double *x, double *b)
 	mnum = 1; // sngle matrix to factorise
 	mtype = 11; // real unsymmetric matrix
 	nrhs = 1; // single right hand side
-	for (i = 0; i < 64; i++) iparm[i] = 0; // initialise integer parameters
+	for(i = 0; i < 64; i++) iparm[i] = 0; // initialise integer parameters
 	iparm[0] = 1; // no defaults
 	iparm[1] = 2; // metis reordering
 	iparm[2] = 1; // 1 processor
@@ -194,22 +194,22 @@ int sparse_solve(SPARSE sparse, double *x, double *b)
 
 	// internal solver memory pointer
 	void *pt[64];
-	for (i = 0; i < 64; i++) pt[i] = 0;
+	for(i = 0; i < 64; i++) pt[i] = 0;
 
 	// reordering and symbolic factorisation
 	phase = 11;
 	PARDISO(pt, &maxfct, &mnum, &mtype, &phase, &(sparse->n), sparse->value, sparse->row, sparse->index, &idum, &nrhs, iparm, &msglvl, &ddum, &ddum, &error);
-	if (error != 0) return SPARSE_SOLVE_ERROR;
+	if(error != 0) return SPARSE_SOLVE_ERROR;
 
 	// numerical factorisation
 	phase = 22;
 	PARDISO(pt, &maxfct, &mnum, &mtype, &phase, &(sparse->n), sparse->value, sparse->row, sparse->index, &idum, &nrhs, iparm, &msglvl, &ddum, &ddum, &error);
-	if (error != 0) return SPARSE_SOLVE_ERROR;
+	if(error != 0) return SPARSE_SOLVE_ERROR;
 
 	// back substitution and iterative refinement
 	phase = 33;
 	PARDISO(pt, &maxfct, &mnum, &mtype, &phase, &(sparse->n), sparse->value, sparse->row, sparse->index, &idum, &nrhs, iparm, &msglvl, b, x, &error);
-	if (error != 0) return SPARSE_SOLVE_ERROR;
+	if(error != 0) return SPARSE_SOLVE_ERROR;
 
 	// termination and release of memory
 	phase = -1;
