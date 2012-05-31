@@ -10,7 +10,7 @@ void transformation_matrix(int order, double **T, double **R);
 
 //////////////////////////////////////////////////////////////////
 
-void update_face_integration(int n_variables_old, int n_variables, int *variable_order_old, int *variable_order, int n_faces, struct FACE *face)
+int update_face_integration(int n_variables_old, int n_variables, int *variable_order_old, int *variable_order, int n_faces, struct FACE *face)
 {
 	int f, g, i, v;
 
@@ -18,7 +18,7 @@ void update_face_integration(int n_variables_old, int n_variables, int *variable
 	for(v = 0; v < n_variables; v ++) max_variable_order = MAX(max_variable_order,variable_order[v]);
 	for(v = 0; v < n_variables_old; v ++) max_variable_order_old = MAX(max_variable_order_old,variable_order_old[v]);
 
-	if(max_variable_order == max_variable_order_old) return;
+	if(max_variable_order == max_variable_order_old) return 0;
 
 	int n_gauss = ORDER_TO_N_GAUSS(max_variable_order);
 
@@ -46,12 +46,12 @@ void update_face_integration(int n_variables_old, int n_variables, int *variable
 		}
 	}
 
-	printf("updated face integration\n");
+	return n_faces;
 }
 
 //////////////////////////////////////////////////////////////////
 
-void update_element_integration(int n_variables_old, int n_variables, int *variable_order_old, int *variable_order, int n_elements, struct ELEMENT *element)
+int update_element_integration(int n_variables_old, int n_variables, int *variable_order_old, int *variable_order, int n_elements, struct ELEMENT *element)
 {
 	int e, f, h, i, j, k, o, v;
 
@@ -59,7 +59,7 @@ void update_element_integration(int n_variables_old, int n_variables, int *varia
 	for(v = 0; v < n_variables; v ++) max_variable_order = MAX(max_variable_order,variable_order[v]);
 	for(v = 0; v < n_variables_old; v ++) max_variable_order_old = MAX(max_variable_order_old,variable_order_old[v]);
 
-	if(max_variable_order == max_variable_order_old) return;
+	if(max_variable_order == max_variable_order_old) return 0;
 
 	int n_hammer = ORDER_TO_N_HAMMER(max_variable_order);
 	double dx[2][2], size;
@@ -96,7 +96,7 @@ void update_element_integration(int n_variables_old, int n_variables, int *varia
 		}
 	}
 
-	printf("updated element integration\n");
+	return n_elements;
 }
 
 //////////////////////////////////////////////////////////////////
@@ -128,7 +128,7 @@ void basis(int n, double *phi, double **x, double *origin, double size, int inde
 
 //////////////////////////////////////////////////////////////////
 
-void update_element_numerics(int n_variables_old, int n_variables, int *variable_order_old, int *variable_order, int n_elements, struct ELEMENT *element)
+int update_element_numerics(int n_variables_old, int n_variables, int *variable_order_old, int *variable_order, int n_elements, struct ELEMENT *element)
 {
 	int e, i, j, v;
 
@@ -140,7 +140,7 @@ void update_element_numerics(int n_variables_old, int n_variables, int *variable
 	// what needs updating
 	int max_update = max_variable_order != max_variable_order_old, any_update = n_variables_old < n_variables;
 	for(v = 0; v < MIN(n_variables_old,n_variables); v ++) any_update = any_update || (variable_order_old[v] != variable_order[v]);
-	if(!any_update) return;
+	if(!any_update) return 0;
 
 	// numbers of basis functions
 	int *n_basis, max_n_basis = ORDER_TO_N_BASIS(max_variable_order);
@@ -244,7 +244,7 @@ void update_element_numerics(int n_variables_old, int n_variables, int *variable
 	destroy_matrix((void *)X);
 	free(pivot);
 
-	printf("updated element numerics\n");
+	return n_elements;
 }
 
 //////////////////////////////////////////////////////////////////
@@ -285,7 +285,7 @@ void transformation_matrix(int order, double **T, double **R)
 
 //////////////////////////////////////////////////////////////////
 
-void update_face_numerics(int n_variables_old, int n_variables, int *variable_order_old, int *variable_order, int n_faces, struct FACE *face, int n_boundaries_old, struct BOUNDARY *boundary_old)
+int update_face_numerics(int n_variables_old, int n_variables, int *variable_order_old, int *variable_order, int n_faces, struct FACE *face, int n_boundaries_old, struct BOUNDARY *boundary_old)
 {
 	int a, b, f, g, h, i, j, v;
 
@@ -532,8 +532,6 @@ void update_face_numerics(int n_variables_old, int n_variables, int *variable_or
 		}
 	}
 
-	if(updated) printf("updated %i face interpolations\n",updated);
-
 	// clean up
 	destroy_matrix((void *)face_n_boundaries_old);
 	destroy_tensor((void *)face_boundary_old);
@@ -560,6 +558,8 @@ void update_face_numerics(int n_variables_old, int n_variables, int *variable_or
 	destroy_tensor((void *)D);
 
 	free(pivot);
+
+	return updated;
 }
 
 //////////////////////////////////////////////////////////////////

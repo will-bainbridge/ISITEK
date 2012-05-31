@@ -10,27 +10,51 @@
 #include "sparse.h"
 #include "structure.h"
 
+// printing
+#define print_info(...) \
+	do { \
+		printf("\033[1;32m   INFO \033[0m"); \
+		printf(__VA_ARGS__); \
+		printf("\n"); \
+	} while(0)
+#define print_output(...) \
+	do { \
+		printf("\033[1;36m OUTPUT \033[0m"); \
+		printf(__VA_ARGS__); \
+		printf("\n"); \
+	} while(0)
+#define print_continue(...) \
+	do { \
+		printf("        "); \
+		printf(__VA_ARGS__); \
+		printf("\n"); \
+	} while(0)
+
 // error handling
-#define exit_if_false(value,message) \
+#define exit_if_false(value,...) \
 	do { \
 		if(!(value)) \
 		{ \
-			fprintf(stderr,"\n[ERROR %s:%i] %s\n\n",__FILE__,__LINE__,message); \
+			printf("\033[1;31m  ERROR \033[0m\033[1m%s:%i \033[0m",__FILE__,__LINE__); \
+			printf(__VA_ARGS__); \
+			printf("\n"); \
 			exit(EXIT_FAILURE); \
 		} \
 	} while(0)
 
 // warning handling
-#define warn_if_false(value,message) \
+#define warn_if_false(value,...) \
 	do { \
 		if(!(value)) \
 		{ \
-			fprintf(stderr,"\n[WARNING %s:%i] %s\n",__FILE__,__LINE__,message); \
+			printf("\033[1;33mWARNING \033[0m\033[1m%s:%i \033[0m",__FILE__,__LINE__); \
+			printf(__VA_ARGS__); \
+			printf("\n"); \
 		} \
 	} while(0)
 
 // timing utility
-#define print_time(format,function) \
+#define print_time(function) \
 	do { \
 		struct timespec handle_time[2]; \
 		clock_gettime(CLOCK_MONOTONIC, &handle_time[0]); \
@@ -38,8 +62,7 @@
 		clock_gettime(CLOCK_MONOTONIC, &handle_time[1]); \
 		double handle_seconds = difftime(handle_time[1].tv_sec, handle_time[0].tv_sec); \
 		long handle_nano_seconds = handle_time[1].tv_nsec - handle_time[0].tv_nsec; \
-		fprintf(stdout,format, handle_seconds + handle_nano_seconds / 1.0e9); \
-		fflush(stdout); \
+		printf("\033[1;35m   TIME \033[0m\033[1m%s:%i \033[0mcompleted in %.6e s\n",__FILE__,__LINE__,handle_seconds + handle_nano_seconds / 1.0e9); \
 	} while(0)
 
 // maximum numbers for allocation purposes

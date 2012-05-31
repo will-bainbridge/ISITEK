@@ -70,9 +70,9 @@ void read_geometry(FILE *file, int *n_nodes, struct NODE **node, int *n_faces, s
 		}
 	}
 
-	exit_if_false(*n_nodes > 0,"finding nodes in the geometry file");
-	exit_if_false(*n_faces > 0,"finding faces in the geometry file");
-	exit_if_false(*n_elements > 0,"finding elements in the geometry file");
+	exit_if_false(*n_nodes > 0,"finding nodes");
+	exit_if_false(*n_faces > 0,"finding faces");
+	exit_if_false(*n_elements > 0,"finding elements");
 
 	free(line);
 }
@@ -147,7 +147,7 @@ void element_read_geometry(FILE *file, struct ELEMENT *element, struct FACE *fac
         exit_if_false(index != NULL && line != NULL && temp != NULL ,"allocating temporary storage");
 
         //read the line
-        exit_if_false(fgets(line, MAX_STRING_LENGTH, file) != NULL, "reading a element line");
+        exit_if_false(fgets(line, MAX_STRING_LENGTH, file) != NULL, "reading an element line");
 
         //eat up whitespace and newlines
         for(i = strlen(line)-1; i >= 0; i --) if(line[i] != ' ' && line[i] != '\n') break;
@@ -511,7 +511,7 @@ void boundary_read_case(FILE *file, struct FACE *face, struct BOUNDARY *boundary
 void generate_numbered_file_path(char *file_path, char *base_path, int number)
 {
 	char *sub = strchr(base_path, '?');
-	exit_if_false(sub != NULL,"finding substitute character \"?\" in base_path");
+	exit_if_false(sub != NULL,"finding substitute character \"?\" in %s",base_path);
 
 	*sub = '\0';
 	sprintf(file_path, "%s%09i%s", base_path, number, sub + 1);
@@ -548,7 +548,7 @@ void boundaries_input(FILE *file, int n_faces, struct FACE *face, int *n_boundar
 	FETCH fetch = fetch_new(BOUNDARY_FORMAT, MAX_N_BOUNDARIES);
 	exit_if_false(fetch != NULL,"allocating boundary input");
 	int n_fetch = fetch_read(file, BOUNDARY_LABEL, fetch);
-	exit_if_false(n_fetch > 0,"no boundaries found in input file");
+	exit_if_false(n_fetch > 0,"finding boundaries");
 	warn_if_false(n_fetch < MAX_N_BOUNDARIES,"maximum number of boundaries reached");
 
 	//allocate boundaries
@@ -646,7 +646,7 @@ void terms_input(FILE *file, int *n_terms, struct TERM **term)
 	FETCH fetch = fetch_new(TERM_FORMAT,MAX_N_TERMS);
 	exit_if_false(fetch != NULL,"allocating fetch");
 	int n_fetch = fetch_read(file,TERM_LABEL,fetch);
-	exit_if_false(n_fetch > 0,"no terms found in input file");
+	exit_if_false(n_fetch > 0,"finding terms");
 	warn_if_false(n_fetch < MAX_N_TERMS,"maximum number of terms reached");
 
 	// allocate pointers
@@ -689,7 +689,9 @@ void terms_input(FILE *file, int *n_terms, struct TERM **term)
 
 		// type
 		fetch_get(fetch, i, 1, &t[n].type);
-		warn_if_false(t[n].type == 's' || t[n].type == 'x' || t[n].type == 'y',"skipping term with unrecognised type");
+		info = t[n].type == 's' || t[n].type == 'x' || t[n].type == 'y';
+		warn_if_false(info,"skipping term with unrecognised type");
+		if(!info) continue;
 
 		// implicit fraction
 		fetch_get(fetch, i, 2, &t[n].implicit);
@@ -697,8 +699,10 @@ void terms_input(FILE *file, int *n_terms, struct TERM **term)
 		// value expression string
 		fetch_get(fetch, i, 6, val_string);
 		sprintf(temp,"%s;%s",cst_string,val_string);
-		exit_if_false(add_geometry_to_expression_string(temp),"adding geometry to the residual expression string");
-		exit_if_false(t[n].residual = expression_generate(temp),"generating term residual expression");
+		info = add_geometry_to_expression_string(temp);
+		info *= (t[n].residual = expression_generate(temp)) != NULL;
+		warn_if_false(info,"skipping term with unrecognised residual expression");
+		if(!info) continue;
 
 		// get the variable, differential, method and jacobian expression strings
 		fetch_get(fetch, i, 3, var_string); n_var_string = strlen(var_string);
@@ -719,21 +723,22 @@ void terms_input(FILE *file, int *n_terms, struct TERM **term)
 			// read the variable indices
 			info *= sscanf(&var_string[var_offset],"%i",&t[n].variable[t[n].n_variables]) == 1;
 			var_offset += strlen(&var_string[var_offset]) + 1;
+			warn_if_false(info,"skipping term with unrecognised variable index");
+			if(!info) break;
 
 			// read the x and y differentials and convert to a differential index
 			info *= sscanf(&dif_string[dif_offset],"%s",temp) == 1;
 			j = dif[0] = dif[1] = 0;
-			if(info)
+			while(info && temp[j] != '\0')
 			{
-				while(temp[j] != '\0')
-				{
-					dif[0] += (temp[j] == 'x');
-					dif[1] += (temp[j] == 'y');
-					j ++;
-				}
-				t[n].differential[t[n].n_variables] = powers_taylor[dif[0]][dif[1]];
+				dif[0] += (temp[j] == 'x');
+				dif[1] += (temp[j] == 'y');
+				j ++;
 			}
+			t[n].differential[t[n].n_variables] = powers_taylor[dif[0]][dif[1]];
 			dif_offset += strlen(&dif_string[dif_offset]) + 1;
+			warn_if_false(info,"skipping term with unrecognised differential");
+			if(!info) break;
 
 			// read the methods
 			info *= sscanf(&mth_string[mth_offset],"%c",&t[n].method[t[n].n_variables]) == 1;
@@ -744,19 +749,21 @@ void terms_input(FILE *file, int *n_terms, struct TERM **term)
 				info *= (t[n].weight[t[n].n_variables] = expression_generate(temp)) != NULL;
 			}
 			mth_offset += strlen(&mth_string[mth_offset]) + 1;
+			warn_if_false(info,"skipping term with unrecognised method");
+			if(!info) break;
 
 			// read the jacobian expressions
 			info *= sprintf(temp,"%s;%s",cst_string,&jac_string[jac_offset]) > 0;
 			info *= add_geometry_to_expression_string(temp);
 			info *= (t[n].jacobian[t[n].n_variables] = expression_generate(temp)) != NULL;
 			jac_offset += strlen(&jac_string[jac_offset]) + 1;
-
-			// warn
-			warn_if_false(info,"skipping term with unrecognised format");
+			warn_if_false(info,"skipping term with unrecognised jacobian");
+			if(!info) break;
 
 			// next variable
 			if(info) t[n].n_variables ++;
 		}
+		if(!info) continue;
 
 		// re-allocate
 		exit_if_false(t[n].variable = allocate_term_variable(&t[n]),"re-allocating term variables");
@@ -1004,7 +1011,7 @@ void write_display(FILE *file, int n_variables, char **variable_name, int *varia
 				}
 			}
 
-			exit_if_false(j < element[e].n_faces,"error finding the next vertex");
+			exit_if_false(j < element[e].n_faces,"finding the next vertex");
 		}
 
 		n += element[e].n_faces;
