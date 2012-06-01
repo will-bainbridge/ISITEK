@@ -53,16 +53,24 @@
 		} \
 	} while(0)
 
-// timing utility
-#define print_time(function) \
+// timing utilities
+struct timespec timer_time[2];
+#define timer_elapsed() (difftime(timer_time[1].tv_sec, timer_time[0].tv_sec) + (timer_time[1].tv_nsec - timer_time[0].tv_nsec) / 1.0e9)
+#define timer_start() \
 	do { \
-		struct timespec handle_time[2]; \
-		clock_gettime(CLOCK_MONOTONIC, &handle_time[0]); \
-		function; \
-		clock_gettime(CLOCK_MONOTONIC, &handle_time[1]); \
-		double handle_seconds = difftime(handle_time[1].tv_sec, handle_time[0].tv_sec); \
-		long handle_nano_seconds = handle_time[1].tv_nsec - handle_time[0].tv_nsec; \
-		printf("\033[1;35m   TIME \033[0m\033[1m%s:%i \033[0mcompleted in %.6e s\n",__FILE__,__LINE__,handle_seconds + handle_nano_seconds / 1.0e9); \
+		clock_gettime(CLOCK_MONOTONIC, &timer_time[0]); \
+		printf("\033[1;35m   TIME \033[0m\033[1mSTART \033[0m\n"); \
+	} while(0)
+#define timer_reset() \
+	do { \
+		clock_gettime(CLOCK_MONOTONIC, &timer_time[1]); \
+		printf("\033[1;35m   TIME \033[0m%.6e s \033[1mRESET \033[0m\n",timer_elapsed()); \
+		timer_time[0] = timer_time[1]; \
+	} while(0)
+#define timer_print() \
+	do { \
+		clock_gettime(CLOCK_MONOTONIC, &timer_time[1]); \
+		printf("\033[1;35m   TIME \033[0m%.6e s\n",timer_elapsed()); \
 	} while(0)
 
 // maximum numbers for allocation purposes

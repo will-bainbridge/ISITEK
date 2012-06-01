@@ -44,6 +44,8 @@ int main(int argc, char *argv[])
 {
 	exit_if_false(argc == 2,"exactly one input argument required");
 
+	timer_start();
+
 	//-------------------------------------------------------------------//
 	
 	// counters
@@ -226,6 +228,8 @@ int main(int argc, char *argv[])
 	exit_if_false(max_du = (double *)malloc(n_variables * sizeof(double)),"allocating the maximum changes");
 	exit_if_false(u_old = (double *)realloc(u_old, n_u * sizeof(double)),"re-allocating u_old");
 
+	timer_reset();
+
 	// iterate
 	print_info("iterating");
 	n_outer_iterations += outer_iteration;
@@ -266,6 +270,8 @@ int main(int argc, char *argv[])
 			write_display(display_file, n_variables, variable_name, variable_order, n_elements, element, n_u, u);
 			fclose(display_file);
 		}
+
+		timer_print();
 	}
 
 	//-------------------------------------------------------------------//
