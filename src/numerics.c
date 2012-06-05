@@ -460,7 +460,7 @@ int update_face_numerics(int n_variables_old, int n_variables, int *variable_ord
 			bnd = face[f].boundary[v];
 
 			n_adj_bases = n_adj*n_basis[v];
-			n_int_terms = n_adj_bases + n_bnd;
+			n_int_terms = n_adj_bases + n_bnd; // n_adj_bases + n_bnd*n_gauss;
 
 			// face basis indices
 			n_int_bases = 0;
@@ -510,6 +510,15 @@ int update_face_numerics(int n_variables_old, int n_variables, int *variable_ord
 				for(i = 0; i < variable_order[v]; i ++) for(j = 0; j < n_int_terms; j ++) B[j][i+n_adj_bases] = 0.0;
 				for(i = 0; i < n_adj_bases; i ++) B[n_adj_bases+b][i] = 0.0;
 				B[b+n_adj_bases][b*variable_order[v]+n_adj_bases] = 1.0;
+			}
+
+			if(n_bnd || (f == 0 && v == 1))
+			{
+				for(i = 0; i < n_int_bases; i ++) { printf("(%i,%i) ",taylor_powers[face_taylor[i]][0],taylor_powers[face_taylor[i]][1]); } printf("\n\n");
+
+				for(i = 0; i < n_int_bases; i ++) { for(j = 0; j < n_int_bases; j ++) { printf("%+.1e ",A[j][i]); } printf("\n"); } printf("\n");
+				for(i = 0; i < n_int_bases; i ++) { for(j = 0; j < n_int_terms; j ++) { printf("%+.1e ",B[j][i]); } printf("\n"); } printf("\n");
+				getchar();
 			}
 
 			// solve interpolation problem

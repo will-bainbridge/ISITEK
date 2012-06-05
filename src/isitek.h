@@ -90,7 +90,7 @@ struct timespec timer_time[2];
 
 // calculate number of basis functions from order
 #define ORDER_TO_N_BASIS(x) ((x)*(x+1)/2)
-#define ORDER_TO_N_GAUSS(x) (2*(x)-1)
+#define ORDER_TO_N_GAUSS(x) (x)
 #define ORDER_TO_N_HAMMER(x) 12 // (7+2*(x>2)+3*(x>3))
 
 // utilities
