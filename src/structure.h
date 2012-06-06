@@ -57,7 +57,7 @@ struct BOUNDARY
 
 	int variable;
 	int condition[2];
-	double value;
+	EXPRESSION value;
 };
 
 struct TERM

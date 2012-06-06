@@ -362,7 +362,7 @@ struct BOUNDARY * allocate_boundaries(int n_boundaries)
 	if(new == NULL) return NULL;
 
 	int i;
-	struct BOUNDARY z = {0,NULL,0,{0,0},0.0};
+	struct BOUNDARY z = {0,NULL,0,{0,0},NULL};
 	for(i = 0; i < n_boundaries; i ++) new[i] = z;
 
 	return new;
@@ -379,6 +379,7 @@ void destroy_boundaries(int n_boundaries, struct BOUNDARY *boundary)
 	for(i = 0; i < n_boundaries; i ++)
 	{
 		free(boundary[i].face);
+		if(boundary[i].value) expression_destroy(boundary[i].value);
 	}
         free(boundary);
 }

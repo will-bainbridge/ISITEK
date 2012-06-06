@@ -487,11 +487,10 @@ void calculate_system(int n_variables, int *variable_order, int n_faces, struct 
 				}
 				for(j = 0; j < face[f].n_boundaries[v]; j ++)
 				{
-					for(p = 0; p < n_gauss; p ++)
-					{
-						basis_value[face[f].n_borders*n_basis[v]+j*n_gauss+p] = face[f].boundary[v][j]->value;
-						basis_value_old[face[f].n_borders*n_basis[v]+j*n_gauss+p] = face[f].boundary[v][j]->value;
-					}
+					expression_evaluate(n_gauss, &basis_value[face[f].n_borders*n_basis[v]+j*n_gauss],
+							face[f].boundary[v][j]->value, point_value, expression_work);
+					expression_evaluate(n_gauss, &basis_value_old[face[f].n_borders*n_basis[v]+j*n_gauss],
+							face[f].boundary[v][j]->value, point_value_old, expression_work);
 				}
 
 				if(term[t].method[i] == 'i' || d != powers_taylor[0][0] || face[f].n_borders < 2 || face[f].n_boundaries[v])
@@ -702,7 +701,7 @@ void slope_limit(int n_variables, int *variable_order, int n_nodes, struct NODE 
 			}
 		}
 
-		for(b = 0; b < n_boundaries; b ++)
+		/*for(b = 0; b < n_boundaries; b ++)
 		{
 			if(boundary[b].condition[0] == 0 && boundary[b].condition[1] == 0)
 			{
@@ -717,7 +716,7 @@ void slope_limit(int n_variables, int *variable_order, int n_nodes, struct NODE 
 					}
 				}
 			}
-		}
+		}*/
 	}
 
 	// apply limiter

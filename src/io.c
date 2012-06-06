@@ -25,7 +25,7 @@ int add_geometry_to_expression_string(char *string);
 #define MAX_N_BOUNDARIES 20
 #define MAX_BOUNDARY_N_FACES 1000
 #define BOUNDARY_LABEL "boundary"
-#define BOUNDARY_FORMAT "sisd"
+#define BOUNDARY_FORMAT "siss"
 
 #define MAX_N_TERMS 25
 #define MAX_TERM_N_VARIABLES 10
@@ -480,7 +480,6 @@ void boundary_write_case(FILE *file, struct FACE *face, struct BOUNDARY *boundar
 
 	exit_if_false(fwrite(&(boundary->variable), sizeof(int), 1, file) == 1,"writing the boundary variable");
 	exit_if_false(fwrite(boundary->condition, sizeof(int), 2, file) == 2,"writing the boundary condition");
-	exit_if_false(fwrite(&(boundary->value), sizeof(double), 1, file) == 1,"writing the boundary value");
 
 	free(index);
 }
@@ -501,7 +500,6 @@ void boundary_read_case(FILE *file, struct FACE *face, struct BOUNDARY *boundary
 
 	exit_if_false(fread(&(boundary->variable), sizeof(int), 1, file) == 1,"reading the boundary variable");
 	exit_if_false(fread(boundary->condition, sizeof(int), 2, file) == 2,"reading the boundary condition");
-	exit_if_false(fread(&(boundary->value), sizeof(double), 1, file) == 1,"reading the boundary value");
 
 	free(index);
 }
@@ -541,27 +539,32 @@ void read_data(FILE *file, int *n_u, double **u, int *number)
 
 void boundaries_input(FILE *file, int n_faces, struct FACE *face, int *n_boundaries, struct BOUNDARY **boundary)
 {
-        //counters
+        // counters
 	int i, j, n = 0, info;
 
-	//fetch the data from the file
+	// fetch the data from the file
 	FETCH fetch = fetch_new(BOUNDARY_FORMAT, MAX_N_BOUNDARIES);
 	exit_if_false(fetch != NULL,"allocating boundary input");
 	int n_fetch = fetch_read(file, BOUNDARY_LABEL, fetch);
 	exit_if_false(n_fetch > 0,"finding boundaries");
 	warn_if_false(n_fetch < MAX_N_BOUNDARIES,"maximum number of boundaries reached");
 
-	//allocate boundaries
+	// allocate boundaries
 	struct BOUNDARY *b = allocate_boundaries(n_fetch);
 	exit_if_false(b != NULL,"allocating boundaries");
 
-	//temporary storage
+	// temporary storage
 	int offset, index[2];
-	char *range = (char *)malloc(MAX_STRING_LENGTH * sizeof(char));
+	char *ind_string = (char *)malloc(MAX_STRING_LENGTH * sizeof(char));
+	char *val_string = (char *)malloc(MAX_STRING_LENGTH * sizeof(char));
+	char *cst_string = (char *)malloc(MAX_STRING_LENGTH * sizeof(char));
 	char *temp = (char *)malloc(MAX_STRING_LENGTH * sizeof(char));
-	exit_if_false(range != NULL && temp != NULL,"allocating temporary storage");
+	exit_if_false(ind_string != NULL && val_string != NULL && cst_string != NULL && temp != NULL,"allocating temporary storage");
 
-	//consider each feteched line
+	// get the constants
+	constants_input(file,cst_string);
+
+	// consider each feteched line
 	for(i = 0; i < n_fetch; i ++)
 	{
 		// initialise
@@ -570,26 +573,26 @@ void boundaries_input(FILE *file, int n_faces, struct FACE *face, int *n_boundar
 		exit_if_false(b->face != NULL,"allocating boundary faces");
 		b[n].n_faces = 0;
 
-		//get the range
-		fetch_get(fetch, i, 0, range);
+		// get the indices
+		fetch_get(fetch, i, 0, ind_string);
 
-		//convert comma delimiters to whitespace
-		for(j = 0; j < strlen(range); j ++) if(range[j] == ',') range[j] = ' ';
+		// convert comma delimiters to whitespace
+		for(j = 0; j < strlen(ind_string); j ++) if(ind_string[j] == ',') ind_string[j] = ' ';
 
-		//read the range
+		// read the ranges
 		offset = info = 0;
-		while(offset < strlen(range))
+		while(offset < strlen(ind_string))
 		{
 			//read the range from the string
-			info = sscanf(&range[offset],"%s",temp) == 1;
+			info = sscanf(&ind_string[offset],"%s",temp) == 1;
 			info *= sscanf(temp,"%i:%i",&index[0],&index[1]) == 2;
 			warn_if_false(info,"skipping boundary with unrecognised range");
 			if(!info) break;
 
-			//store boundary in the elements in the range
+			// store boundary in the elements in the range
 			for(j = index[0]; j <= index[1]; j ++) b[n].face[b[n].n_faces ++] = &face[j];
 
-			//move to the next range in the string
+			// move to the next range in the string
 			offset += strlen(temp) + 1;
 		}
 		if(!info) continue;
@@ -598,10 +601,10 @@ void boundaries_input(FILE *file, int n_faces, struct FACE *face, int *n_boundar
 		b[n].face = allocate_boundary_face(&b[n]);
 		exit_if_false(b[n].face != NULL,"re-allocating boundary faces");
 
-		//get the variable
+		// get the variable
 		fetch_get(fetch, i, 1, &b[n].variable);
 
-		//get the condition
+		// get the condition
 		fetch_get(fetch, i, 2, temp);
 		for(j = 0; j < 2; j ++) b[n].condition[j] = 0;
 		if(strcmp(temp,"d") != 0)
@@ -616,23 +619,30 @@ void boundaries_input(FILE *file, int n_faces, struct FACE *face, int *n_boundar
 		}
 		if(!info) continue;
 
-		//get the value
-		fetch_get(fetch, i, 3, &b[n].value);
+		// get the value expression
+		fetch_get(fetch, i, 3, val_string);
+		sprintf(temp,"%s;%s",cst_string,val_string);
+		info = add_geometry_to_expression_string(temp);
+		info *= (b[n].value = expression_generate(temp)) != NULL;
+		warn_if_false(info,"skipping iboundary with unrecognised value expression");
+		if(!info) continue;
 
-		//increment boundary
+		// increment boundary
 		n ++;
 	}
 
-	//check numbers
+	// check numbers
 	warn_if_false(n == n_fetch,"skipping boundaries with unrecognised formats");
 
-	//copy pointers
+	// copy pointers
 	*boundary = b;
 	*n_boundaries = n;
 
-	//clean up
+	// clean up
 	fetch_destroy(fetch);
-	free(range);
+	free(ind_string);
+	free(val_string);
+	free(cst_string);
 	free(temp);
 }
 

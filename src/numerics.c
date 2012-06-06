@@ -334,8 +334,8 @@ int update_face_numerics(int n_variables_old, int n_variables, int *variable_ord
 	double **centre = allocate_double_matrix(NULL,2,1);
 	exit_if_false(centre != NULL,"allocating centre");
 
-	// differentials
-	int condition[2], none[2] = {0,0};
+	// zero-differential
+	int none[2] = {0,0};
 
 	// integration locations in cartesian (x) and tranformed (y) coordinates
 	double **x, **y;
@@ -388,6 +388,7 @@ int update_face_numerics(int n_variables_old, int n_variables, int *variable_ord
 	int info, *pivot = (int *)malloc(n_int_bases * sizeof(int));
 	exit_if_false(pivot != NULL,"allocating pivot");
 
+	// number of updated interpolations
 	int updated = 0;
 
 	for(f = 0; f < n_faces; f ++)
