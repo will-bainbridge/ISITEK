@@ -13,7 +13,14 @@ ISITEK is provided under the terms of the MIT License. See LICENSE or <http://ww
 DESCRIPTION
 -----------
 
-* ISITEK is a 2D unstructured discontinuous galerkin PDE solver.
+* ISITEK is a 2D unstructured discontinuous galerkin PDE solver
+* Non-linear PDEs and boundary conditions are specified at runtime in the input file
+* PDEs are solved for a number of outer iterations in a coupled manner using newton (or newton-like) inner iterations
+* The spatial order of accuracy is arbitrary and specified at runtime
+* Fluxes can be calculated via an interpolation method or a weighted method
+	* The interpolated method is stable for higher order fluxes occuring in diffusive or elliptic problems
+	* The weighted method facilitates averaged or upwind fluxes
+* A slope limiter is employed for non-smooth problems
 
 INSTALLATION
 ------------
