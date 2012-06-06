@@ -210,7 +210,7 @@ double **** allocate_face_q(struct FACE *face, int n_variables, int *n_basis, in
 
 	for(i = 0; i < n_variables; i ++)
 	{
-		new[i] = allocate_double_tensor(new[i], n_basis[i], face->n_borders*n_basis[i] + face->n_boundaries[i], n_points);
+		new[i] = allocate_double_tensor(new[i], n_basis[i], face->n_borders*n_basis[i] + face->n_boundaries[i]*n_points, n_points);
 		if(new[i] == NULL) return NULL;
 	}
 

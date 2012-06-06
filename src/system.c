@@ -274,8 +274,8 @@ void calculate_system(int n_variables, int *variable_order, int n_faces, struct 
 
 	// working arrays
 	double *basis_value, *basis_value_old, **point_value, **point_value_old, *point_term, *point_term_old, **point_weight;
-	exit_if_false(basis_value = (double *)malloc((2*max_n_basis + MAX_FACE_N_BOUNDARIES) * sizeof(double)),"allocating basis values");
-	exit_if_false(basis_value_old = (double *)malloc((2*max_n_basis + MAX_FACE_N_BOUNDARIES) * sizeof(double)),"allocating old basis values");
+	exit_if_false(basis_value = (double *)malloc((2*max_n_basis + MAX_FACE_N_BOUNDARIES*n_gauss) * sizeof(double)),"allocating basis values");
+	exit_if_false(basis_value_old = (double *)malloc((2*max_n_basis + MAX_FACE_N_BOUNDARIES*n_gauss) * sizeof(double)),"allocating old basis values");
 	exit_if_false(point_value = allocate_double_matrix(NULL,max_point_n_variables+1,MAX(n_gauss,(MAX_ELEMENT_N_FACES-1)*n_hammer)),"allocating point values");
 	exit_if_false(point_value_old = allocate_double_matrix(NULL,max_point_n_variables+1,MAX(n_gauss,(MAX_ELEMENT_N_FACES-1)*n_hammer)),"allocating old point values");
 	exit_if_false(point_term = (double *)malloc(MAX(n_gauss,(MAX_ELEMENT_N_FACES-1)*n_hammer) * sizeof(double)),"allocating point term values");
@@ -487,13 +487,16 @@ void calculate_system(int n_variables, int *variable_order, int n_faces, struct 
 				}
 				for(j = 0; j < face[f].n_boundaries[v]; j ++)
 				{
-					basis_value[j+face[f].n_borders*n_basis[v]] = face[f].boundary[v][j]->value;
-					basis_value_old[j+face[f].n_borders*n_basis[v]] = face[f].boundary[v][j]->value;
+					for(p = 0; p < n_gauss; p ++)
+					{
+						basis_value[face[f].n_borders*n_basis[v]+j*n_gauss+p] = face[f].boundary[v][j]->value;
+						basis_value_old[face[f].n_borders*n_basis[v]+j*n_gauss+p] = face[f].boundary[v][j]->value;
+					}
 				}
 
 				if(term[t].method[i] == 'i' || d != powers_taylor[0][0] || face[f].n_borders < 2 || face[f].n_boundaries[v])
 				{
-					n = face[f].n_borders*n_basis[v] + face[f].n_boundaries[v];
+					n = face[f].n_borders*n_basis[v] + face[f].n_boundaries[v]*n_gauss;
 					dgemv_(&trans[0],&n_gauss,&n,
 							&dbl_1,
 							face[f].Q[v][d][0],&n_gauss,

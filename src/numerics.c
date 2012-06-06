@@ -460,15 +460,15 @@ int update_face_numerics(int n_variables_old, int n_variables, int *variable_ord
 			bnd = face[f].boundary[v];
 
 			n_adj_bases = n_adj*n_basis[v];
-			n_int_terms = n_adj_bases + n_bnd; // n_adj_bases + n_bnd*n_gauss;
+			n_int_terms = n_adj_bases + n_bnd*n_gauss;
 
 			// face basis indices
 			n_int_bases = 0;
 			for(i = 0; i < n_adj*variable_order[v] + n_bnd; i ++)
 				for(j = 0; j < n_adj*variable_order[v] + n_bnd; j ++)
-					if(i + n_adj*j < n_adj*variable_order[v] + n_bnd && j < variable_order[v])
+					if(i + n_adj*j < n_adj*variable_order[v] + n_bnd && j < n_gauss)
 						face_taylor[n_int_bases ++] = powers_taylor[i][j];
-			exit_if_false(n_int_bases == n_adj_bases + n_bnd*variable_order[v],"mismatched number of interpolation unknowns");
+			exit_if_false(n_int_bases == n_adj_bases + n_bnd*n_gauss,"mismatched number of interpolation unknowns");
 
 			// element bases at the integration locations
 			for(i = 0; i < n_adj*n_basis[v]; i ++) for(j = 0; j < sum_n_points[n_adj]; j ++) P[i][j] = 0.0;
@@ -499,27 +499,28 @@ int update_face_numerics(int n_variables_old, int n_variables, int *variable_ord
 			// boundary conditions
 			for(b = 0; b < n_bnd; b ++)
 			{
-				condition[0] = bnd[b]->condition[0];
-				for(i = 0; i < variable_order[v]; i ++)
-				{
-					condition[1] = bnd[b]->condition[1] + i;
-					for(j = 0; j < n_int_bases; j ++)
-						basis(1,&A[j][i+n_adj_bases],centre,face[f].centre,face[f].size,face_taylor[j],condition);
-				}
+				for(i = 0; i < n_int_bases; i ++)
+					basis(n_gauss,&A[i][n_adj_bases],y,face[f].centre,face[f].size,face_taylor[i],bnd[b]->condition);
 
-				for(i = 0; i < variable_order[v]; i ++) for(j = 0; j < n_int_terms; j ++) B[j][i+n_adj_bases] = 0.0;
-				for(i = 0; i < n_adj_bases; i ++) B[n_adj_bases+b][i] = 0.0;
-				B[b+n_adj_bases][b*variable_order[v]+n_adj_bases] = 1.0;
+				for(i = 0; i < n_gauss; i ++)
+					for(j = 0; j < n_int_terms; j ++)
+						B[j][i+b*n_gauss+n_adj_bases] = B[i+b*n_gauss+n_adj_bases][j] = (i+b*n_gauss+n_adj_bases) == j;
 			}
 
-			if(n_bnd || (f == 0 && v == 1))
+			/*if(n_bnd)
 			{
+				printf("\nface %i variable %i\n\n",f,v);
+
+				for(i = 0; i < n_gauss; i ++) { printf("(%lf %lf) ",face[f].X[0][i],face[f].X[1][i]); } printf("\n\n");
+
 				for(i = 0; i < n_int_bases; i ++) { printf("(%i,%i) ",taylor_powers[face_taylor[i]][0],taylor_powers[face_taylor[i]][1]); } printf("\n\n");
 
-				for(i = 0; i < n_int_bases; i ++) { for(j = 0; j < n_int_bases; j ++) { printf("%+.1e ",A[j][i]); } printf("\n"); } printf("\n");
+				for(i = 0; i < n_int_bases; i ++) { for(j = 0; j < n_int_bases; j ++) { printf("%+.1e ",A[j][i]); } printf("\n"); }
+				for(i = 0; i < n_int_bases*9-1; i ++) { printf("-"); } printf("\n");
 				for(i = 0; i < n_int_bases; i ++) { for(j = 0; j < n_int_terms; j ++) { printf("%+.1e ",B[j][i]); } printf("\n"); } printf("\n");
+				
 				getchar();
-			}
+			}*/
 
 			// solve interpolation problem
 			dgesv_(&n_int_bases,&n_int_terms,A[0],&lda,pivot,B[0],&ldb,&info);
@@ -536,6 +537,16 @@ int update_face_numerics(int n_variables_old, int n_variables, int *variable_ord
 			for(i = 0; i < n_int_terms; i ++)
 				for(j = 0; j < n_gauss; j ++)
 					dgemv_(&trans[1],&n_basis[v],&n_basis[v],&d_one,T[0],&max_n_basis,&D[0][i][j],&incd,&d_zero,&face[f].Q[v][0][i][j],&incq);
+
+			/*if(n_bnd)
+			{
+				for(j = 0; j < n_gauss; j ++) {
+					for(i = 0; i < n_int_terms; i ++) {
+						printf("%+.1e ",D[0][i][j]);
+					} printf("\n");
+				} printf("\n");
+				getchar();
+			}*/
 
 			updated ++;
 		}

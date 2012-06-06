@@ -1,8 +1,8 @@
 #------------------------------------------------------------------------------#
 
 case_file_path cavity.AD.case
-#geometry_file_path cavity.tri.geometry
-geometry_file_path cavity.quad_fine.geometry
+geometry_file_path cavity.tri.geometry
+#geometry_file_path cavity.quad_fine.geometry
 
 number_of_outer_iterations 1
 number_of_inner_iterations 1
@@ -24,10 +24,10 @@ variable_initial_value 0.0
 # north east south west > 604:617 618:631 632:645 646:659
 
 # boundary > indices variable condition value
-#boundary 604:617 0 d 1.0
-#boundary 618:631,632:645,646:659 0 d 0.0
-boundary 8844:8910 0 d 1.0
-boundary 8911:8977,8978:9044,9045:9111 0 d 0.0
+boundary 604:617 0 d 1.0
+boundary 618:631,632:645,646:659 0 d 0.0
+#boundary 8844:8910 0 d 1.0
+#boundary 8911:8977,8978:9044,9045:9111 0 d 0.0
 
 #------------------------------------------------------------------------------#
 
@@ -35,8 +35,8 @@ constant u=4*$x*(1-$x)*(2*$y-1);v=4*$y*(1-$y)*(1-2*$x);d=0.005;f=1.0
 
 # term > equation type implicit variables differentials methods residual jacobian
 
-term 0 x 1.0 0,0 0,x a,i u*$0-d*$1 u,0-d
-term 0 y 1.0 0,0 0,y a,i v*$0-d*$1 v,0-d
+term 0 x 1.0 0,0 0,x i,i u*$0-d*$1 u,0-d
+term 0 y 1.0 0,0 0,y i,i v*$0-d*$1 v,0-d
 #erm 0 s 1.0 0   0   -   0-f       0.0,0.0
 
 #------------------------------------------------------------------------------#

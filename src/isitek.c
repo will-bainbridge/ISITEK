@@ -251,7 +251,7 @@ int main(int argc, char *argv[])
 			print_continue("%s",print);
 		}
 
-		slope_limit(n_variables, variable_order, n_nodes, node, n_elements, element, n_boundaries, boundary, u);
+		//slope_limit(n_variables, variable_order, n_nodes, node, n_elements, element, n_boundaries, boundary, u);
 
 		if(data_n_outer_iterations && outer_iteration % data_n_outer_iterations == 0)
 		{
