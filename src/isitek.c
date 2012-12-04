@@ -265,7 +265,7 @@ int main(int argc, char *argv[])
 		if(display_n_outer_iterations && outer_iteration % display_n_outer_iterations == 0)
 		{
 			generate_numbered_file_path(display_numbered_file_path, display_file_path, outer_iteration);
-			print_info("writing display to %s",data_numbered_file_path);
+			print_info("writing display to %s",display_numbered_file_path);
 			exit_if_false(display_file = fopen(display_numbered_file_path,"w"),"opening %s",display_numbered_file_path);
 			write_display(display_file, n_variables, variable_name, variable_order, n_elements, element, n_u, u);
 			fclose(display_file);

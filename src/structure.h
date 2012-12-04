@@ -56,8 +56,13 @@ struct BOUNDARY
 	struct FACE **face;
 
 	int variable;
-	int condition[2];
+	int condition;
+
+	int n_substitutes;
+	int *substitute;
+	int *differential;
 	EXPRESSION value;
+	EXPRESSION *jacobian;
 };
 
 struct TERM
@@ -65,12 +70,13 @@ struct TERM
 	int equation;
 	char type;
 	double implicit;
-	int n_variables;
-	int *variable;
+
+	int n_substitutes;
+	int *substitute;
 	int *differential;
 	char *method;
 	EXPRESSION *weight;
-	EXPRESSION residual;
+	EXPRESSION value;
 	EXPRESSION *jacobian;
 };
 

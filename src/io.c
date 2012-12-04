@@ -25,7 +25,7 @@ int add_geometry_to_expression_string(char *string);
 #define MAX_N_BOUNDARIES 20
 #define MAX_BOUNDARY_N_FACES 1000
 #define BOUNDARY_LABEL "boundary"
-#define BOUNDARY_FORMAT "siss"
+#define BOUNDARY_FORMAT "sisssss"
 
 #define MAX_N_TERMS 25
 #define MAX_TERM_N_VARIABLES 10
@@ -479,7 +479,7 @@ void boundary_write_case(FILE *file, struct FACE *face, struct BOUNDARY *boundar
 	exit_if_false(fwrite(index, sizeof(int), boundary->n_faces, file) == boundary->n_faces,"writing the boundary faces");
 
 	exit_if_false(fwrite(&(boundary->variable), sizeof(int), 1, file) == 1,"writing the boundary variable");
-	exit_if_false(fwrite(boundary->condition, sizeof(int), 2, file) == 2,"writing the boundary condition");
+	exit_if_false(fwrite(&(boundary->condition), sizeof(int), 1, file) == 1,"writing the boundary condition");
 
 	free(index);
 }
@@ -499,7 +499,7 @@ void boundary_read_case(FILE *file, struct FACE *face, struct BOUNDARY *boundary
 	for(i = 0; i < boundary->n_faces; i ++) boundary->face[i] = &face[index[i]];
 
 	exit_if_false(fread(&(boundary->variable), sizeof(int), 1, file) == 1,"reading the boundary variable");
-	exit_if_false(fread(boundary->condition, sizeof(int), 2, file) == 2,"reading the boundary condition");
+	exit_if_false(fread(&(boundary->condition), sizeof(int), 1, file) == 1,"reading the boundary condition");
 
 	free(index);
 }
@@ -554,12 +554,19 @@ void boundaries_input(FILE *file, int n_faces, struct FACE *face, int *n_boundar
 	exit_if_false(b != NULL,"allocating boundaries");
 
 	// temporary storage
-	int offset, index[2];
 	char *ind_string = (char *)malloc(MAX_STRING_LENGTH * sizeof(char));
 	char *val_string = (char *)malloc(MAX_STRING_LENGTH * sizeof(char));
 	char *cst_string = (char *)malloc(MAX_STRING_LENGTH * sizeof(char));
+	char *sub_string = (char *)malloc(MAX_STRING_LENGTH * sizeof(char));
+	char *dif_string = (char *)malloc(MAX_STRING_LENGTH * sizeof(char));
+	char *jac_string = (char *)malloc(MAX_STRING_LENGTH * sizeof(char));
 	char *temp = (char *)malloc(MAX_STRING_LENGTH * sizeof(char));
-	exit_if_false(ind_string != NULL && val_string != NULL && cst_string != NULL && temp != NULL,"allocating temporary storage");
+	exit_if_false(ind_string != NULL && val_string != NULL && cst_string != NULL &&
+			sub_string != NULL && dif_string != NULL && jac_string != NULL &&
+			temp != NULL,"allocating temporary storage");
+	int n_sub_string, n_dif_string, n_jac_string;
+	int ind_offset, sub_offset, dif_offset, jac_offset;
+	int ind[2], dif[2];
 
 	// get the constants
 	constants_input(file,cst_string);
@@ -567,11 +574,15 @@ void boundaries_input(FILE *file, int n_faces, struct FACE *face, int *n_boundar
 	// consider each feteched line
 	for(i = 0; i < n_fetch; i ++)
 	{
-		// initialise
+
+		// initial allocation
 		b[n].n_faces = MAX_BOUNDARY_N_FACES;
-		b[n].face = allocate_boundary_face(&b[n]);
-		exit_if_false(b->face != NULL,"allocating boundary faces");
-		b[n].n_faces = 0;
+		b[n].n_substitutes = MAX_TERM_N_VARIABLES;
+		exit_if_false(b[n].face = allocate_boundary_face(&b[n]),"allocating boundary faces");
+		exit_if_false(b[n].substitute = allocate_boundary_substitute(&b[n]),"allocating boundary substitutes");
+		exit_if_false(b[n].differential = allocate_boundary_differential(&b[n]),"allocating boundary differentials");
+		exit_if_false(b[n].jacobian = allocate_boundary_jacobian(&b[n]),"allocating boundary jacobians");
+		b[n].n_faces = b[n].n_substitutes = 0;
 
 		// get the indices
 		fetch_get(fetch, i, 0, ind_string);
@@ -580,39 +591,36 @@ void boundaries_input(FILE *file, int n_faces, struct FACE *face, int *n_boundar
 		for(j = 0; j < strlen(ind_string); j ++) if(ind_string[j] == ',') ind_string[j] = ' ';
 
 		// read the ranges
-		offset = info = 0;
-		while(offset < strlen(ind_string))
+		info = 1;
+		ind_offset = 0;
+		while(ind_offset < strlen(ind_string))
 		{
-			//read the range from the string
-			info = sscanf(&ind_string[offset],"%s",temp) == 1;
-			info *= sscanf(temp,"%i:%i",&index[0],&index[1]) == 2;
+			// read the range from the string
+			info = sscanf(&ind_string[ind_offset],"%s",temp) == 1;
+			info *= sscanf(temp,"%i:%i",&ind[0],&ind[1]) == 2;
 			warn_if_false(info,"skipping boundary with unrecognised range");
 			if(!info) break;
 
 			// store boundary in the elements in the range
-			for(j = index[0]; j <= index[1]; j ++) b[n].face[b[n].n_faces ++] = &face[j];
+			for(j = ind[0]; j <= ind[1]; j ++) b[n].face[b[n].n_faces ++] = &face[j];
 
 			// move to the next range in the string
-			offset += strlen(temp) + 1;
+			ind_offset += strlen(temp) + 1;
 		}
 		if(!info) continue;
-
-		// re-allocate
-		b[n].face = allocate_boundary_face(&b[n]);
-		exit_if_false(b[n].face != NULL,"re-allocating boundary faces");
 
 		// get the variable
 		fetch_get(fetch, i, 1, &b[n].variable);
 
 		// get the condition
 		fetch_get(fetch, i, 2, temp);
-		for(j = 0; j < 2; j ++) b[n].condition[j] = 0;
+		b[n].condition = powers_taylor[0][0];
 		if(strcmp(temp,"d") != 0)
 		{
 			for(j = 0; j < strlen(temp); j ++)
 			{
-				if(temp[j] == 'n') b[n].condition[0] ++;
-				else if(temp[j] == 't') b[n].condition[1] ++;
+				if(temp[j] == 'n') b[n].condition = powers_taylor[taylor_powers[b[n].condition][0]+1][taylor_powers[b[n].condition][1]];
+				else if(temp[j] == 't') b[n].condition = powers_taylor[taylor_powers[b[n].condition][0]][taylor_powers[b[n].condition][1]+1];
 				else { info = 0; break; }
 			}
 			warn_if_false(info,"skipping boundary with unrecognised condition");
@@ -620,12 +628,63 @@ void boundaries_input(FILE *file, int n_faces, struct FACE *face, int *n_boundar
 		if(!info) continue;
 
 		// get the value expression
-		fetch_get(fetch, i, 3, val_string);
+		fetch_get(fetch, i, 5, val_string);
 		sprintf(temp,"%s;%s",cst_string,val_string);
 		info = add_geometry_to_expression_string(temp);
 		info *= (b[n].value = expression_generate(temp)) != NULL;
-		warn_if_false(info,"skipping iboundary with unrecognised value expression");
+		warn_if_false(info,"skipping boundary with unrecognised value expression");
 		if(!info) continue;
+
+		// get the substitute, differential, method and jacobian expression strings
+		fetch_get(fetch, i, 3, sub_string); n_sub_string = strlen(sub_string);
+		fetch_get(fetch, i, 4, dif_string); n_dif_string = strlen(dif_string);
+		fetch_get(fetch, i, 6, jac_string); n_jac_string = strlen(jac_string);
+		for(j = 0; j < n_sub_string; j ++) if(sub_string[j] == ',') sub_string[j] = '\0';
+		for(j = 0; j < n_dif_string; j ++) if(dif_string[j] == ',') dif_string[j] = '\0';
+		for(j = 0; j < n_jac_string; j ++) if(jac_string[j] == ',') jac_string[j] = '\0';
+
+		// read each substitute in turn
+		sub_offset = dif_offset = jac_offset = b[n].n_substitutes = 0;
+		while(sub_string[0] != '-' && sub_offset < n_sub_string)
+		{
+			// read the substitute indices
+			info = sscanf(&sub_string[sub_offset],"%i",&b[n].substitute[b[n].n_substitutes]) == 1;
+			sub_offset += strlen(&sub_string[sub_offset]) + 1;
+			warn_if_false(info,"skipping boundary with unrecognised substitute index");
+			if(!info) break;
+
+			// read the x and y differentials and convert to a differential index
+			info = sscanf(&dif_string[dif_offset],"%s",temp) == 1;
+			j = dif[0] = dif[1] = 0;
+			while(info && temp[j] != '\0')
+			{
+				dif[0] += (temp[j] == 'x');
+				dif[1] += (temp[j] == 'y');
+				j ++;
+			}
+			b[n].differential[b[n].n_substitutes] = powers_taylor[dif[0]][dif[1]];
+			dif_offset += strlen(&dif_string[dif_offset]) + 1;
+			warn_if_false(info,"skipping boundary with unrecognised differential");
+			if(!info) break;
+
+			// read the jacobian expressions
+			info = sprintf(temp,"%s;%s",cst_string,&jac_string[jac_offset]) > 0;
+			info *= add_geometry_to_expression_string(temp);
+			info *= (b[n].jacobian[b[n].n_substitutes] = expression_generate(temp)) != NULL;
+			jac_offset += strlen(&jac_string[jac_offset]) + 1;
+			warn_if_false(info,"skipping boundary with unrecognised jacobian");
+			if(!info) break;
+
+			// next substitute
+			b[n].n_substitutes ++;
+		}
+		if(!info) continue;
+
+		// re-allocate
+		exit_if_false(b[n].face = allocate_boundary_face(&b[n]),"re-allocating boundary faces");
+		exit_if_false((b[n].substitute = allocate_boundary_substitute(&b[n])) || !b[n].n_substitutes,"re-allocating boundary substitutes");
+		exit_if_false((b[n].differential = allocate_boundary_differential(&b[n])) || !b[n].n_substitutes,"re-allocating boundary differentials");
+		exit_if_false((b[n].jacobian = allocate_boundary_jacobian(&b[n])) || !b[n].n_substitutes,"re-allocating boundary jacobians");
 
 		// increment boundary
 		n ++;
@@ -643,6 +702,8 @@ void boundaries_input(FILE *file, int n_faces, struct FACE *face, int *n_boundar
 	free(ind_string);
 	free(val_string);
 	free(cst_string);
+	free(sub_string);
+	free(dif_string);
 	free(temp);
 }
 
@@ -665,18 +726,18 @@ void terms_input(FILE *file, int *n_terms, struct TERM **term)
 
 	// temporary storage
 	char *cst_string = (char *)malloc(MAX_STRING_LENGTH * sizeof(char));
-	char *var_string = (char *)malloc(MAX_STRING_LENGTH * sizeof(char));
+	char *sub_string = (char *)malloc(MAX_STRING_LENGTH * sizeof(char));
 	char *dif_string = (char *)malloc(MAX_STRING_LENGTH * sizeof(char));
 	char *mth_string = (char *)malloc(MAX_STRING_LENGTH * sizeof(char));
 	char *val_string = (char *)malloc(MAX_STRING_LENGTH * sizeof(char));
 	char *jac_string = (char *)malloc(MAX_STRING_LENGTH * sizeof(char));
 	char *temp = (char *)malloc(MAX_STRING_LENGTH * sizeof(char));
 	exit_if_false(temp != NULL && 
-			cst_string != NULL && var_string != NULL && dif_string != NULL &&
+			cst_string != NULL && sub_string != NULL && dif_string != NULL &&
 			mth_string != NULL && val_string != NULL && jac_string != NULL,
 			"allocating temporary strings");
-	int n_var_string, n_dif_string, n_mth_string, n_jac_string;
-	int var_offset, dif_offset, mth_offset, jac_offset;
+	int n_sub_string, n_dif_string, n_mth_string, n_jac_string;
+	int sub_offset, dif_offset, mth_offset, jac_offset;
 	int dif[2];
 
 	// get the constants
@@ -686,13 +747,13 @@ void terms_input(FILE *file, int *n_terms, struct TERM **term)
 	for(i = 0; i < n_fetch; i ++)
 	{
 		// initial allocation
-		t[n].n_variables = MAX_TERM_N_VARIABLES;
-		exit_if_false(t[n].variable = allocate_term_variable(&t[n]),"allocating term variables");
+		t[n].n_substitutes = MAX_TERM_N_VARIABLES;
+		exit_if_false(t[n].substitute = allocate_term_substitute(&t[n]),"allocating term substitutes");
 		exit_if_false(t[n].differential = allocate_term_differential(&t[n]),"allocating term differentials");
 		exit_if_false(t[n].method = allocate_term_method(&t[n]),"allocating term methods");
 		exit_if_false(t[n].weight = allocate_term_weight(&t[n]),"allocating term weights");
 		exit_if_false(t[n].jacobian = allocate_term_jacobian(&t[n]),"allocating term jacobians");
-		t[n].n_variables = 0;
+		t[n].n_substitutes = 0;
 
 		// equation
 		fetch_get(fetch, i, 0, &t[n].equation);
@@ -710,34 +771,32 @@ void terms_input(FILE *file, int *n_terms, struct TERM **term)
 		fetch_get(fetch, i, 6, val_string);
 		sprintf(temp,"%s;%s",cst_string,val_string);
 		info = add_geometry_to_expression_string(temp);
-		info *= (t[n].residual = expression_generate(temp)) != NULL;
-		warn_if_false(info,"skipping term with unrecognised residual expression");
+		info *= (t[n].value = expression_generate(temp)) != NULL;
+		warn_if_false(info,"skipping term with unrecognised value expression");
 		if(!info) continue;
 
-		// get the variable, differential, method and jacobian expression strings
-		fetch_get(fetch, i, 3, var_string); n_var_string = strlen(var_string);
+		// get the substitute, differential, method and jacobian expression strings
+		fetch_get(fetch, i, 3, sub_string); n_sub_string = strlen(sub_string);
 		fetch_get(fetch, i, 4, dif_string); n_dif_string = strlen(dif_string);
 		fetch_get(fetch, i, 5, mth_string); n_mth_string = strlen(mth_string);
 		fetch_get(fetch, i, 7, jac_string); n_jac_string = strlen(jac_string);
-		for(j = 0; j < n_var_string; j ++) if(var_string[j] == ',') var_string[j] = '\0';
+		for(j = 0; j < n_sub_string; j ++) if(sub_string[j] == ',') sub_string[j] = '\0';
 		for(j = 0; j < n_dif_string; j ++) if(dif_string[j] == ',') dif_string[j] = '\0';
 		for(j = 0; j < n_mth_string; j ++) if(mth_string[j] == ',') mth_string[j] = '\0';
 		for(j = 0; j < n_jac_string; j ++) if(jac_string[j] == ',') jac_string[j] = '\0';
 
-		// read each variable in turn
-		var_offset = dif_offset = mth_offset = jac_offset = t[n].n_variables = 0;
-		while(var_offset < n_var_string)
+		// read each substitute in turn
+		sub_offset = dif_offset = mth_offset = jac_offset = t[n].n_substitutes = 0;
+		while(sub_string[0] != '-' && sub_offset < n_sub_string)
 		{
-			info = 1;
-
-			// read the variable indices
-			info *= sscanf(&var_string[var_offset],"%i",&t[n].variable[t[n].n_variables]) == 1;
-			var_offset += strlen(&var_string[var_offset]) + 1;
-			warn_if_false(info,"skipping term with unrecognised variable index");
+			// read the substitute indices
+			info = sscanf(&sub_string[sub_offset],"%i",&t[n].substitute[t[n].n_substitutes]) == 1;
+			sub_offset += strlen(&sub_string[sub_offset]) + 1;
+			warn_if_false(info,"skipping term with unrecognised substitute index");
 			if(!info) break;
 
 			// read the x and y differentials and convert to a differential index
-			info *= sscanf(&dif_string[dif_offset],"%s",temp) == 1;
+			info = sscanf(&dif_string[dif_offset],"%s",temp) == 1;
 			j = dif[0] = dif[1] = 0;
 			while(info && temp[j] != '\0')
 			{
@@ -745,40 +804,41 @@ void terms_input(FILE *file, int *n_terms, struct TERM **term)
 				dif[1] += (temp[j] == 'y');
 				j ++;
 			}
-			t[n].differential[t[n].n_variables] = powers_taylor[dif[0]][dif[1]];
+			t[n].differential[t[n].n_substitutes] = powers_taylor[dif[0]][dif[1]];
 			dif_offset += strlen(&dif_string[dif_offset]) + 1;
 			warn_if_false(info,"skipping term with unrecognised differential");
 			if(!info) break;
 
 			// read the methods
-			info *= sscanf(&mth_string[mth_offset],"%c",&t[n].method[t[n].n_variables]) == 1;
-			if(t[n].method[t[n].n_variables] == 'w')
+			info = sscanf(&mth_string[mth_offset],"%c",&t[n].method[t[n].n_substitutes]) == 1;
+			if(t[n].method[t[n].n_substitutes] == 'w')
 			{
 				info *= sprintf(temp,"%s;%s",cst_string,&mth_string[mth_offset+1]) > 0;
 				info *= add_geometry_to_expression_string(temp);
-				info *= (t[n].weight[t[n].n_variables] = expression_generate(temp)) != NULL;
+				info *= (t[n].weight[t[n].n_substitutes] = expression_generate(temp)) != NULL;
 			}
 			mth_offset += strlen(&mth_string[mth_offset]) + 1;
 			warn_if_false(info,"skipping term with unrecognised method");
 			if(!info) break;
 
 			// read the jacobian expressions
-			info *= sprintf(temp,"%s;%s",cst_string,&jac_string[jac_offset]) > 0;
+			info = sprintf(temp,"%s;%s",cst_string,&jac_string[jac_offset]) > 0;
 			info *= add_geometry_to_expression_string(temp);
-			info *= (t[n].jacobian[t[n].n_variables] = expression_generate(temp)) != NULL;
+			info *= (t[n].jacobian[t[n].n_substitutes] = expression_generate(temp)) != NULL;
 			jac_offset += strlen(&jac_string[jac_offset]) + 1;
 			warn_if_false(info,"skipping term with unrecognised jacobian");
 			if(!info) break;
 
-			// next variable
-			if(info) t[n].n_variables ++;
+			// next substitute
+			t[n].n_substitutes ++;
 		}
 		if(!info) continue;
 
 		// re-allocate
-		exit_if_false(t[n].variable = allocate_term_variable(&t[n]),"re-allocating term variables");
+		exit_if_false(t[n].substitute = allocate_term_substitute(&t[n]),"re-allocating term substitutes");
 		exit_if_false(t[n].differential = allocate_term_differential(&t[n]),"re-allocating term differentials");
 		exit_if_false(t[n].method = allocate_term_method(&t[n]),"re-allocating term methods");
+		exit_if_false(t[n].weight = allocate_term_weight(&t[n]),"re-allocating term weights");
 		exit_if_false(t[n].jacobian = allocate_term_jacobian(&t[n]),"re-allocating term jacobians");
 
 		// increment the number of terms
@@ -795,7 +855,7 @@ void terms_input(FILE *file, int *n_terms, struct TERM **term)
 	// clean up
 	fetch_destroy(fetch);
 	free(cst_string);
-	free(var_string);
+	free(sub_string);
 	free(dif_string);
 	free(mth_string);
 	free(val_string);

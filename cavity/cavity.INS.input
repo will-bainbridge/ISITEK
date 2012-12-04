@@ -3,7 +3,7 @@
 case_file_path cavity.INS.case
 geometry_file_path cavity.tri.geometry
 
-number_of_outer_iterations 1
+number_of_outer_iterations 5
 number_of_inner_iterations 10
 
 data_file_path cavity.INS.?.data
@@ -11,7 +11,7 @@ data_file_path cavity.INS.?.data
 data_number_of_outer_iterations 10
 
 display_file_path cavity.INS.?.vtu
-display_number_of_outer_iterations 10
+display_number_of_outer_iterations 1
 
 number_of_variables 3
 variable_name pressure x-momentum y-momentum
@@ -28,21 +28,26 @@ variable_initial_value 1.0 1.0 0.0
 #boundary 618:631,632:645,646:659 1 d 0.0
 #boundary 604:617,618:631,632:645,646:659 2 d 0.0
 
-boundary 618:631 0 d 0.0
-boundary 646:659 1 d 4*$y^2*(1-$y)
-boundary 604:617,632:645 1 d 0.0
-boundary 604:617,632:645,646:659 2 d 0.0
-
 #boundary 618:631 0 d 0.0
 #boundary 646:659 0 d 5.0
 #boundary 604:617,632:645 1 d 0.0
 #boundary 604:617,618:631,632:645 2 d 0.0
 
+## boundary > indices variable condition substitutes differentials value jacobian
+boundary 618:631                 0 d - - 0.0 -
+#oundary 646:659                 1 d - - 4*$y^2*(1-$y) -
+boundary 646:659                 1 d 0 0 ((p_0>$0)*2*(p_0-$0)/rho)^0.5 0-(2*rho*(p_0-$0))^(0-0.5)
+#oundary 646:659                 0 d 1 0 p_0-0.5*rho*$0*$0 0-rho*$0
+boundary 604:617,632:645         1 d - - 0.0 -
+boundary 604:617,632:645,646:659 2 d - - 0.0 -
+
+constant p_0=1.0
+
 #------------------------------------------------------------------------------#
 
 constant rho=1.0;mu=0.02;dt=0.1
 
-# term > equation type implicit variables differentials methods residual jacobian
+# term > equation type implicit substitutes differentials methods residual jacobian
 term 0 x 1.0 1       0       i       $0                   1
 term 0 y 1.0 2       0       i       $0                   1
 #erm 1 s 1.0 1       0       -       rho/dt*$0            rho/dt

@@ -402,9 +402,8 @@ int update_face_numerics(int n_variables_old, int n_variables, int *variable_ord
 			else if(variable_order[v] != variable_order_old[v]) update[v] = 1;
 			else if(face[f].n_boundaries[v] != face_n_boundaries_old[f][v]) update[v] = 1;
 			else for(i = 0; i < face[f].n_boundaries[v]; i ++)
-				for(j = 0; j < 2; j ++)
-					if(face[f].boundary[v][i]->condition[j] != boundary_old[face_boundary_old[f][v][i]].condition[j])
-						update[v] = 1;
+				if(face[f].boundary[v][i]->condition != boundary_old[face_boundary_old[f][v][i]].condition)
+					update[v] = 1;
 			any_update += update[v];
 		}
 		if(!any_update) continue;
@@ -501,7 +500,7 @@ int update_face_numerics(int n_variables_old, int n_variables, int *variable_ord
 			for(b = 0; b < n_bnd; b ++)
 			{
 				for(i = 0; i < n_int_bases; i ++)
-					basis(n_gauss,&A[i][n_adj_bases],y,face[f].centre,face[f].size,face_taylor[i],bnd[b]->condition);
+					basis(n_gauss,&A[i][n_adj_bases],y,face[f].centre,face[f].size,face_taylor[i],taylor_powers[bnd[b]->condition]);
 
 				for(i = 0; i < n_gauss; i ++)
 					for(j = 0; j < n_int_terms; j ++)

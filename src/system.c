@@ -246,7 +246,7 @@ void initialise_system(int n_variables, int *variable_order, int n_elements, str
 
 void calculate_system(int n_variables, int *variable_order, int n_faces, struct FACE *face, int n_elements, struct ELEMENT *element, int n_terms, struct TERM *term, int n_u, double *u_old, double *u, SPARSE system, double *residual)
 {
-	int b, d, e, f, i, j, k, n, p, q, s, t, v, x;
+	int b, d, e, f, i, j, k, l, n, p, q, s, t, v, w, x;
 
 	// orders and numbers of bases
 	int max_variable_order = 0;
@@ -256,10 +256,10 @@ void calculate_system(int n_variables, int *variable_order, int n_faces, struct 
 	for(v = 0; v < n_variables; v ++) sum_n_basis += n_basis[v] = ORDER_TO_N_BASIS(variable_order[v]);
 	int n_gauss = ORDER_TO_N_GAUSS(max_variable_order), n_hammer = ORDER_TO_N_HAMMER(max_variable_order), n_points;
 
-	// max term variables
-	int max_term_n_variables = 0;
-	for(t = 0; t < n_terms; t ++) max_term_n_variables = MAX(max_term_n_variables,term[t].n_variables);
-	int max_point_n_variables = max_term_n_variables + EXPRESSION_VARIABLE_INDEX;
+	// max term substitutes
+	int max_term_n_substitutes = 0;
+	for(t = 0; t < n_terms; t ++) max_term_n_substitutes = MAX(max_term_n_substitutes,term[t].n_substitutes);
+	int max_point_n_substitutes = max_term_n_substitutes + EXPRESSION_VARIABLE_INDEX;
 
 	// local dense system
 	double ***local_value, **local_residual;
@@ -274,13 +274,16 @@ void calculate_system(int n_variables, int *variable_order, int n_faces, struct 
 
 	// working arrays
 	double *basis_value, *basis_value_old, **point_value, **point_value_old, *point_term, *point_term_old, **point_weight;
+	double ***point_boundary_value, ***point_boundary_value_old;
 	exit_if_false(basis_value = (double *)malloc((2*max_n_basis + MAX_FACE_N_BOUNDARIES*n_gauss) * sizeof(double)),"allocating basis values");
 	exit_if_false(basis_value_old = (double *)malloc((2*max_n_basis + MAX_FACE_N_BOUNDARIES*n_gauss) * sizeof(double)),"allocating old basis values");
-	exit_if_false(point_value = allocate_double_matrix(NULL,max_point_n_variables+1,MAX(n_gauss,(MAX_ELEMENT_N_FACES-1)*n_hammer)),"allocating point values");
-	exit_if_false(point_value_old = allocate_double_matrix(NULL,max_point_n_variables+1,MAX(n_gauss,(MAX_ELEMENT_N_FACES-1)*n_hammer)),"allocating old point values");
+	exit_if_false(point_value = allocate_double_matrix(NULL,max_point_n_substitutes+1,MAX(n_gauss,(MAX_ELEMENT_N_FACES-1)*n_hammer)),"allocating point values");
+	exit_if_false(point_value_old = allocate_double_matrix(NULL,max_point_n_substitutes+1,MAX(n_gauss,(MAX_ELEMENT_N_FACES-1)*n_hammer)),"allocating old point values");
 	exit_if_false(point_term = (double *)malloc(MAX(n_gauss,(MAX_ELEMENT_N_FACES-1)*n_hammer) * sizeof(double)),"allocating point term values");
 	exit_if_false(point_term_old = (double *)malloc(MAX(n_gauss,(MAX_ELEMENT_N_FACES-1)*n_hammer) * sizeof(double)),"allocating old point term values");
-	exit_if_false(point_weight = allocate_double_matrix(NULL,max_term_n_variables,n_gauss),"allocating point weights");
+	exit_if_false(point_weight = allocate_double_matrix(NULL,max_term_n_substitutes,n_gauss),"allocating point weights");
+	exit_if_false(point_boundary_value = allocate_double_tensor(NULL,n_variables,MAX_FACE_N_BOUNDARIES,n_gauss),"allocating point boundary values");
+	exit_if_false(point_boundary_value_old = allocate_double_tensor(NULL,n_variables,MAX_FACE_N_BOUNDARIES,n_gauss),"allocatin old point boundary values");
 	int lda = MAX(n_gauss,(MAX_ELEMENT_N_FACES-1)*n_hammer);
 	double **A = allocate_double_matrix(NULL,max_n_basis,lda);
 
@@ -340,9 +343,9 @@ void calculate_system(int n_variables, int *variable_order, int n_faces, struct 
 			if(x >= max_n_basis) continue;
 
 			// values at the intergration points
-			for(i = 0; i < term[t].n_variables; i ++)
+			for(i = 0; i < term[t].n_substitutes; i ++)
 			{
-				v = term[t].variable[i];
+				v = term[t].substitute[i];
 				d = term[t].differential[i];
 
 				for(j = 0; j < n_basis[v]; j ++)
@@ -366,9 +369,9 @@ void calculate_system(int n_variables, int *variable_order, int n_faces, struct 
 			}
 
 			// jacobian
-			for(i = 0; i < term[t].n_variables; i ++)
+			for(i = 0; i < term[t].n_substitutes; i ++)
 			{
-				v = term[t].variable[i];
+				v = term[t].substitute[i];
 				d = term[t].differential[i];
 
 				expression_evaluate(n_points, point_term, term[t].jacobian[i], point_value, expression_work);
@@ -387,8 +390,8 @@ void calculate_system(int n_variables, int *variable_order, int n_faces, struct 
 			}
 
 			// residual
-			expression_evaluate(n_points, point_term, term[t].residual, point_value, expression_work);
-			expression_evaluate(n_points, point_term_old, term[t].residual, point_value_old, expression_work);
+			expression_evaluate(n_points, point_term, term[t].value, point_value, expression_work);
+			expression_evaluate(n_points, point_term_old, term[t].value, point_value_old, expression_work);
 			for(p = 0; p < n_points; p ++) point_term[p] = element[e].W[p] *
 				(term[t].implicit * point_term[p] + (1.0 - term[t].implicit) * point_term_old[p]);
 			dgemv_(&trans[1],&n_points,&n_basis[q],
@@ -462,6 +465,69 @@ void calculate_system(int n_variables, int *variable_order, int n_faces, struct 
 			dcopy_(&n_gauss,&face[f].normal[i],&int_0,point_value_old[i+EXPRESSION_NORMAL_INDEX],&int_1);
 		}
 
+		// calculate boundary condition values
+		for(v = 0; v < n_variables; v ++)
+		{
+			for(i = 0; i < face[f].n_boundaries[v]; i ++)
+			{
+				for(j = 0; j < face[f].boundary[v][i]->n_substitutes; j ++)
+				{
+					w = face[f].boundary[v][i]->substitute[j];
+					d = face[f].boundary[v][i]->differential[j];
+
+					for(k = 0; k < face[f].n_borders; k ++)
+					{
+						for(l = 0; l < n_basis[w]; l ++)
+						{
+							basis_value[l+k*n_basis[w]] = u[face[f].border[k]->unknown[w][l]];
+							basis_value_old[l+k*n_basis[w]] = u_old[face[f].border[k]->unknown[w][l]];
+						}
+					}
+					for(k = 0; k < face[f].n_boundaries[w]; k ++)
+					{
+						for(p = 0; p < n_gauss; p ++)
+						{
+							basis_value[p+k*n_gauss+face[f].n_borders*n_basis[w]] = point_boundary_value[w][k][p];
+							basis_value_old[p+k*n_gauss+face[f].n_borders*n_basis[w]] = point_boundary_value_old[w][k][p];
+						}
+					}
+
+					n = face[f].n_borders*n_basis[v] + face[f].n_boundaries[w]*n_gauss;
+					dgemv_(&trans[0],&n_gauss,&n,
+							&dbl_1,
+							face[f].Q[w][d][0],&n_gauss,
+							basis_value,&int_1,
+							&dbl_0,
+							point_value[j+EXPRESSION_VARIABLE_INDEX],&int_1);
+					dgemv_(&trans[0],&n_gauss,&n,
+							&dbl_1,
+							face[f].Q[w][d][0],&n_gauss,
+							basis_value_old,&int_1,
+							&dbl_0,
+							point_value_old[j+EXPRESSION_VARIABLE_INDEX],&int_1);
+
+					/*if(f == 650) {
+						printf("\n[%3i %1i>%1i] ",f,v,w);
+						for(p = 0; p < n_gauss; p ++) printf("%+.2e ",point_value[j+EXPRESSION_VARIABLE_INDEX][p]);
+					}*/
+				}
+
+				expression_evaluate(n_gauss, point_boundary_value[v][i], face[f].boundary[v][i]->value, point_value, expression_work);
+				expression_evaluate(n_gauss, point_boundary_value_old[v][i], face[f].boundary[v][i]->value, point_value_old, expression_work);
+
+				/*for(j = 0; j < face[f].boundary[v][i]->n_substitutes; j ++)
+				{
+					expression_evaluate(n_gauss, point_boundary_jacobian[v][i][j], face[f].boundary[v][i]->jacobian[j], point_value, expression_work);
+					expression_evaluate(n_gauss, point_boundary_jacobian_old[v][i][j], face[f].boundary[v][i]->jacobian[j], point_value_old, expression_work);
+				}*/
+
+				/*if(f == 650 && face[f].boundary[v][i]->n_substitutes) {
+					printf("\n[%3i %1i  ] ",f,v);
+					for(p = 0; p < n_gauss; p ++) printf("%+.2e ",point_boundary_value[v][i][p]); 
+				}*/
+			}
+		}
+
 		// loop over the terms
 		for(t = 0; t < n_terms; t ++)
 		{
@@ -471,10 +537,10 @@ void calculate_system(int n_variables, int *variable_order, int n_faces, struct 
 			q = term[t].equation;
 			x = term[t].type == 'y';
 
-			// variable values at the intergration points
-			for(i = 0; i < term[t].n_variables; i ++)
+			// substitute values at the intergration points
+			for(i = 0; i < term[t].n_substitutes; i ++)
 			{
-				v = term[t].variable[i];
+				v = term[t].substitute[i];
 				d = term[t].differential[i];
 
 				for(j = 0; j < face[f].n_borders; j ++)
@@ -487,10 +553,11 @@ void calculate_system(int n_variables, int *variable_order, int n_faces, struct 
 				}
 				for(j = 0; j < face[f].n_boundaries[v]; j ++)
 				{
-					expression_evaluate(n_gauss, &basis_value[face[f].n_borders*n_basis[v]+j*n_gauss],
-							face[f].boundary[v][j]->value, point_value, expression_work);
-					expression_evaluate(n_gauss, &basis_value_old[face[f].n_borders*n_basis[v]+j*n_gauss],
-							face[f].boundary[v][j]->value, point_value_old, expression_work);
+					for(k = 0; k < n_gauss; k ++)
+					{
+						basis_value[k+j*n_gauss+face[f].n_borders*n_basis[v]] = point_boundary_value_old[v][j][k];
+						basis_value_old[k+j*n_gauss+face[f].n_borders*n_basis[v]] = point_boundary_value_old[v][j][k];
+					}
 				}
 
 				if(term[t].method[i] == 'i' || d != powers_taylor[0][0] || face[f].n_borders < 2 || face[f].n_boundaries[v])
@@ -540,12 +607,17 @@ void calculate_system(int n_variables, int *variable_order, int n_faces, struct 
 						}
 					}
 				}
+
+				/*if(f == 650) {
+					printf("\n[%3i %1i %1i] ",f,v,d);
+					for(p = 0; p < n_gauss; p ++) printf("%+.2e ",point_value[i+EXPRESSION_VARIABLE_INDEX][p]);
+				}*/
 			}
 
 			// jacobian
-			for(i = 0; i < term[t].n_variables; i ++)
+			for(i = 0; i < term[t].n_substitutes; i ++)
 			{
-				v = term[t].variable[i];
+				v = term[t].substitute[i];
 				d = term[t].differential[i];
 
 				expression_evaluate(n_gauss, point_term, term[t].jacobian[i], point_value, expression_work);
@@ -588,11 +660,21 @@ void calculate_system(int n_variables, int *variable_order, int n_faces, struct 
 						}
 					}
 				}
+
+				/*
+				for(j = 0; j < face[f].n_boundaries[v]; j ++) {
+					for(k = 0; k < face[f].boundary[b][j]->n_substitutes; k ++) {
+						w = face[f].boundary[b][j]->substitute[k];
+						d = face[f].boundary[b][j]->differential[k];
+					}
+				}
+				*/
+
 			}
 
 			// residual
-			expression_evaluate(n_gauss, point_term, term[t].residual, point_value, expression_work);
-			expression_evaluate(n_gauss, point_term_old, term[t].residual, point_value_old, expression_work);
+			expression_evaluate(n_gauss, point_term, term[t].value, point_value, expression_work);
+			expression_evaluate(n_gauss, point_term_old, term[t].value, point_value_old, expression_work);
 			for(p = 0; p < n_gauss; p ++) point_term[p] = face[f].normal[x] * face[f].W[p] *
 				(term[t].implicit * point_term[p] + (1.0 - term[t].implicit) * point_term_old[p]);
 			for(b = 0; b < face[f].n_borders; b ++)
@@ -606,6 +688,8 @@ void calculate_system(int n_variables, int *variable_order, int n_faces, struct 
 						&local_residual[b][local_element[q]],&int_1);
 			}
 		}
+
+		//if(f == 650) getchar();
 
 		// add to the global system
 		for(b = 0; b < face[f].n_borders; b ++)
@@ -635,6 +719,8 @@ void calculate_system(int n_variables, int *variable_order, int n_faces, struct 
 	free(point_term);
 	free(point_term_old);
 	destroy_matrix((void *)point_weight);
+	destroy_tensor((void *)point_boundary_value);
+	destroy_tensor((void *)point_boundary_value_old);
 
 	destroy_matrix((void *)A);
 
@@ -645,7 +731,7 @@ void calculate_system(int n_variables, int *variable_order, int n_faces, struct 
 
 void slope_limit(int n_variables, int *variable_order, int n_nodes, struct NODE *node, int n_elements, struct ELEMENT *element, int n_boundaries, struct BOUNDARY *boundary, double *u)
 {
-	int b, e, i, j, n, v;
+	int /*b,*/ e, i, /*j,*/ n, v;
 
 	int max_variable_order = 0;
 	for(v = 0; v < n_variables; v ++) max_variable_order = MAX(max_variable_order,variable_order[v]);

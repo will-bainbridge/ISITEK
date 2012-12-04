@@ -362,7 +362,7 @@ struct BOUNDARY * allocate_boundaries(int n_boundaries)
 	if(new == NULL) return NULL;
 
 	int i;
-	struct BOUNDARY z = {0,NULL,0,{0,0},NULL};
+	struct BOUNDARY z = {0,NULL,0,0,0,NULL,NULL,NULL,NULL};
 	for(i = 0; i < n_boundaries; i ++) new[i] = z;
 
 	return new;
@@ -373,13 +373,38 @@ struct FACE ** allocate_boundary_face(struct BOUNDARY *boundary)
 	return (struct FACE **)realloc(boundary->face, boundary->n_faces * sizeof(struct FACE *));
 }
 
+int * allocate_boundary_substitute(struct BOUNDARY *boundary)
+{
+	return (int *)realloc(boundary->substitute, boundary->n_substitutes * sizeof(int));
+}
+
+int * allocate_boundary_differential(struct BOUNDARY *boundary)
+{
+	return (int *)realloc(boundary->differential, boundary->n_substitutes * sizeof(int));
+}
+
+EXPRESSION * allocate_boundary_jacobian(struct BOUNDARY *boundary)
+{
+	EXPRESSION *new = (EXPRESSION *)realloc(boundary->jacobian, boundary->n_substitutes * sizeof(EXPRESSION));
+	if(new == NULL) return NULL;
+
+	int i;
+	if(boundary->jacobian == NULL) for(i = 0; i < boundary->n_substitutes; i ++) new[i] = NULL;
+
+	return new;
+}
+
 void destroy_boundaries(int n_boundaries, struct BOUNDARY *boundary)
 {
-	int i;
+	int i, j;
 	for(i = 0; i < n_boundaries; i ++)
 	{
 		free(boundary[i].face);
+		free(boundary[i].substitute);
+		free(boundary[i].differential);
 		if(boundary[i].value) expression_destroy(boundary[i].value);
+		for(j = 0; j < boundary[i].n_substitutes; j ++) if(boundary[i].jacobian[j]) expression_destroy(boundary[i].jacobian[j]);
+		free(boundary[i].jacobian);
 	}
         free(boundary);
 }
@@ -398,39 +423,39 @@ struct TERM * allocate_terms(int n_terms)
 	return new;
 }
 
-int * allocate_term_variable(struct TERM *term)
+int * allocate_term_substitute(struct TERM *term)
 {
-	return (int *)realloc(term->variable, term->n_variables * sizeof(int));
+	return (int *)realloc(term->substitute, term->n_substitutes * sizeof(int));
 }
 
 int * allocate_term_differential(struct TERM *term)
 {
-	return (int *)realloc(term->differential, term->n_variables * sizeof(int));
+	return (int *)realloc(term->differential, term->n_substitutes * sizeof(int));
 }
 
 char * allocate_term_method(struct TERM *term)
 {
-	return (char *)realloc(term->method, (term->n_variables + 1) * sizeof(char));
+	return (char *)realloc(term->method, (term->n_substitutes + 1) * sizeof(char));
 }
 
 EXPRESSION * allocate_term_weight(struct TERM *term)
 {
-	EXPRESSION *new = (EXPRESSION *)realloc(term->weight, term->n_variables * sizeof(EXPRESSION));
+	EXPRESSION *new = (EXPRESSION *)realloc(term->weight, term->n_substitutes * sizeof(EXPRESSION));
 	if(new == NULL) return NULL;
 
 	int i;
-	if(term->weight == NULL) for(i = 0; i < term->n_variables; i ++) new[i] = NULL;
+	if(term->weight == NULL) for(i = 0; i < term->n_substitutes; i ++) new[i] = NULL;
 
 	return new;
 }
 
 EXPRESSION * allocate_term_jacobian(struct TERM *term)
 {
-	EXPRESSION *new = (EXPRESSION *)realloc(term->jacobian, term->n_variables * sizeof(EXPRESSION));
+	EXPRESSION *new = (EXPRESSION *)realloc(term->jacobian, term->n_substitutes * sizeof(EXPRESSION));
 	if(new == NULL) return NULL;
 
 	int i;
-	if(term->jacobian == NULL) for(i = 0; i < term->n_variables; i ++) new[i] = NULL;
+	if(term->jacobian == NULL) for(i = 0; i < term->n_substitutes; i ++) new[i] = NULL;
 
 	return new;
 }
@@ -440,13 +465,13 @@ void destroy_terms(int n_terms, struct TERM *term)
 	int i, j;
 	for(i = 0; i < n_terms; i ++)
 	{
-		free(term[i].variable);
+		free(term[i].substitute);
 		free(term[i].differential);
 		free(term[i].method);
-		if(term[i].residual) expression_destroy(term[i].residual);
-		for(j = 0; j < term[i].n_variables; j ++) if(term[i].weight[j]) expression_destroy(term[i].weight[j]);
+		if(term[i].value) expression_destroy(term[i].value);
+		for(j = 0; j < term[i].n_substitutes; j ++) if(term[i].weight[j]) expression_destroy(term[i].weight[j]);
 		free(term[i].weight);
-		for(j = 0; j < term[i].n_variables; j ++) if(term[i].jacobian[j]) expression_destroy(term[i].jacobian[j]);
+		for(j = 0; j < term[i].n_substitutes; j ++) if(term[i].jacobian[j]) expression_destroy(term[i].jacobian[j]);
 		free(term[i].jacobian);
 	}
 	free(term);

@@ -39,10 +39,13 @@ void destroy_elements(int n_elements, struct ELEMENT *element, int n_variables);
 
 struct BOUNDARY * allocate_boundaries(int n_boundaries);
 struct FACE ** allocate_boundary_face(struct BOUNDARY *boundary);
+int * allocate_boundary_substitute(struct BOUNDARY *boundary);
+int * allocate_boundary_differential(struct BOUNDARY *boundary);
+EXPRESSION * allocate_boundary_jacobian(struct BOUNDARY *boundary);
 void destroy_boundaries(int n_boundaries, struct BOUNDARY *boundary);
 
 struct TERM * allocate_terms(int n_terms);
-int * allocate_term_variable(struct TERM *term);
+int * allocate_term_substitute(struct TERM *term);
 int * allocate_term_differential(struct TERM *term);
 char * allocate_term_method(struct TERM *term);
 EXPRESSION * allocate_term_weight(struct TERM *term);
