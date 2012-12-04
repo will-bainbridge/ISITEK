@@ -29,7 +29,7 @@ variable_initial_value 1.0 1.0 0.0
 #boundary 604:617,618:631,632:645,646:659 2 d 0.0
 
 boundary 618:631 0 d 0.0
-boundary 646:659 1 d 4*$y^2*(1-$y)
+boundary 646:659 1 d 1.0
 boundary 604:617,632:645 1 d 0.0
 boundary 604:617,632:645,646:659 2 d 0.0
 

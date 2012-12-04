@@ -1,0 +1,3 @@
+put new sparse routines in and separate face and element local system calculation
+simplify io
+try variable-dependent boundary conditions again

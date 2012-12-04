@@ -624,7 +624,7 @@ void boundaries_input(FILE *file, int n_faces, struct FACE *face, int *n_boundar
 		sprintf(temp,"%s;%s",cst_string,val_string);
 		info = add_geometry_to_expression_string(temp);
 		info *= (b[n].value = expression_generate(temp)) != NULL;
-		warn_if_false(info,"skipping iboundary with unrecognised value expression");
+		warn_if_false(info,"skipping boundary with unrecognised value expression");
 		if(!info) continue;
 
 		// increment boundary

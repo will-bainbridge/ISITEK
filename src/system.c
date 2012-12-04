@@ -9,7 +9,7 @@
 
 void update_element_unknowns(int n_variables_old, int n_variables, int *variable_order_old, int *variable_order, int n_elements, struct ELEMENT *element, int n_u_old, int *n_u, double *u_old, double **u)
 {
-	int e,v,i;
+	int e, v, i;
 
 	int *n_basis = (int *)malloc(n_variables * sizeof(int));
 	exit_if_false(n_basis != NULL,"allocating n_basis");
@@ -645,7 +645,7 @@ void calculate_system(int n_variables, int *variable_order, int n_faces, struct 
 
 void slope_limit(int n_variables, int *variable_order, int n_nodes, struct NODE *node, int n_elements, struct ELEMENT *element, int n_boundaries, struct BOUNDARY *boundary, double *u)
 {
-	int b, e, i, j, n, v;
+	int e, i, n, v;
 
 	int max_variable_order = 0;
 	for(v = 0; v < n_variables; v ++) max_variable_order = MAX(max_variable_order,variable_order[v]);
