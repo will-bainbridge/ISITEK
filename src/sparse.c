@@ -15,7 +15,7 @@ struct s_SPARSE
 	double *value; // values
 
 	int n_sub_matrices; // number of sub matrices
-	int *sub_matrix_n_indices; // number of indices in sub matrix
+	int **sub_matrix_shape; // sub matrix numbers of rows and columns
 	int **sub_matrix_index; // sub matrix indices
 };
 
@@ -71,7 +71,7 @@ SPARSE sparse_allocate(SPARSE sparse)
 		new->row = NULL;
 		new->column = NULL;
 		new->value = NULL;
-		new->sub_matrix_n_indices = NULL;
+		new->sub_matrix_shape = NULL;
 		new->sub_matrix_index = NULL;
 	}
 
@@ -86,12 +86,18 @@ int sparse_insert_sub_matrix(SPARSE sparse, int n_rows, int *row, int n_columns,
 
 	sparse->n_sub_matrices += 1;
 
-	sparse->sub_matrix_n_indices = (int *)realloc(sparse->sub_matrix_n_indices, sparse->n_sub_matrices * sizeof(int));
-	if(sparse->sub_matrix_n_indices == NULL) return SPARSE_MEMORY_ERROR;
+	int **new = (int **)realloc(sparse->sub_matrix_shape, sparse->n_sub_matrices * sizeof(int *));
+	if(new == NULL) return SPARSE_MEMORY_ERROR;
+	if(sparse->sub_matrix_shape == NULL) new[0] = NULL;
+	new[0] = (int *)realloc(new[0], 2 * sparse->n_sub_matrices * sizeof(int));
+	if(new[0] == NULL) return SPARSE_MEMORY_ERROR;
+	for(i = 1; i < sparse->n_sub_matrices; i++) new[i] = new[i-1] + 2;
+	sparse->sub_matrix_shape = new;
 
-	sparse->sub_matrix_n_indices[sparse->n_sub_matrices-1] = n_rows*n_columns;
+	sparse->sub_matrix_shape[sparse->n_sub_matrices-1][0] = n_rows;
+	sparse->sub_matrix_shape[sparse->n_sub_matrices-1][1] = n_columns;
 
-	for(i = 0; i < sparse->n_sub_matrices; i ++) n_indices += sparse->sub_matrix_n_indices[i];
+	for(i = 0; i < sparse->n_sub_matrices; i ++) n_indices += sparse->sub_matrix_shape[i][0]*sparse->sub_matrix_shape[i][1];
 
 	sparse->row = (int *)realloc(sparse->row, n_indices * sizeof(int));
 	if(sparse->row == NULL) return SPARSE_MEMORY_ERROR;
@@ -121,7 +127,7 @@ int sparse_order_sub_matrices(SPARSE sparse)
 	int i, j, n_indices = 0;
 
 	// total number of indices
-	for(i = 0; i < sparse->n_sub_matrices; i ++) n_indices += sparse->sub_matrix_n_indices[i];
+	for(i = 0; i < sparse->n_sub_matrices; i ++) n_indices += sparse->sub_matrix_shape[i][0]*sparse->sub_matrix_shape[i][1];
 
 	// sort the indices
 	int *number = (int *)malloc(n_indices * sizeof(int));
@@ -137,7 +143,7 @@ int sparse_order_sub_matrices(SPARSE sparse)
 	if(new == NULL) sparse->sub_matrix_index[0] = NULL;
 	sparse->sub_matrix_index[0] = (int *)realloc(sparse->sub_matrix_index[0], n_indices * sizeof(int));
 	if(sparse->sub_matrix_index[0] == NULL) return SPARSE_MEMORY_ERROR;
-	for(i = 0; i < sparse->n_sub_matrices - 1; i ++) sparse->sub_matrix_index[i+1] = sparse->sub_matrix_index[i] + sparse->sub_matrix_n_indices[i];
+	for(i = 0; i < sparse->n_sub_matrices - 1; i ++) sparse->sub_matrix_index[i+1] = sparse->sub_matrix_index[i] + sparse->sub_matrix_shape[i][0]*sparse->sub_matrix_shape[i][1];
 
 	// label and remove duplicate sorted indices
 	i = 0;
@@ -196,7 +202,7 @@ int sparse_order_sub_matrices(SPARSE sparse)
 	printf("\n\n");
 	for(i = 0; i < sparse->n_sub_matrices; i ++)
 	{
-		for(j = 0; j < sparse->sub_matrix_n_indices[i]; j ++)
+		for(j = 0; j < sparse->sub_matrix_shape[i][0]*sparse->sub_matrix_shape[i][1]; j ++)
 		{
 			printf("%i ",sparse->sub_matrix_index[i][j]);
 		}
@@ -209,23 +215,29 @@ int sparse_order_sub_matrices(SPARSE sparse)
 
 //////////////////////////////////////////////////////////////////
 
-void sparse_set_sub_matrix(SPARSE sparse, int index, double *value)
+void sparse_set_sub_matrix(SPARSE sparse, int index, double **value)
 {
-	int i;
-	for(i = 0; i < sparse->sub_matrix_n_indices[index]; i ++)
+	int i, j, k = 0;
+	for(i = 0; i < sparse->sub_matrix_shape[index][0]; i ++)
 	{
-		sparse->value[sparse->sub_matrix_index[index][i]] = value[i];
-	}       
+		for(j = 0; j < sparse->sub_matrix_shape[index][1]; j ++)
+		{
+			sparse->value[sparse->sub_matrix_index[index][k++]] = value[i][j];
+		}
+	}
 }
 
 //////////////////////////////////////////////////////////////////
 
-void sparse_add_sub_matrix(SPARSE sparse, int index, double *value)
+void sparse_add_sub_matrix(SPARSE sparse, int index, double **value)
 {
-	int i;
-	for(i = 0; i < sparse->sub_matrix_n_indices[index]; i ++)
+	int i, j, k = 0;
+	for(i = 0; i < sparse->sub_matrix_shape[index][0]; i ++)
 	{
-		sparse->value[sparse->sub_matrix_index[index][i]] += value[i];
+		for(j = 0; j < sparse->sub_matrix_shape[index][1]; j ++)
+		{
+			sparse->value[sparse->sub_matrix_index[index][k++]] += value[i][j];
+		}
 	}
 }
 
@@ -236,7 +248,8 @@ void sparse_destroy(SPARSE sparse)
 	free(sparse->row);
 	free(sparse->column);
 	free(sparse->value);
-	free(sparse->sub_matrix_n_indices);
+	if(sparse->sub_matrix_shape) free(sparse->sub_matrix_shape[0]);
+	free(sparse->sub_matrix_shape);
 	if(sparse->sub_matrix_index) free(sparse->sub_matrix_index[0]);
 	free(sparse->sub_matrix_index);
 	free(sparse);
