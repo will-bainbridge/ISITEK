@@ -187,14 +187,49 @@ void initialise_values(int n_variables, int *variable_order, int n_elements, str
 
 //////////////////////////////////////////////////////////////////
 
-void initialise_system(int n_variables, int *variable_order, int n_elements, struct ELEMENT *element, int n_u, SPARSE *system)
+void initialise_system(int n_variables, int *variable_order, int n_elements, struct ELEMENT *element, int n_faces, struct FACE *face, SPARSE *system)
 {
-	int e, i, j, k, v;
+	int b, e, f, i, j, v;
+
+	int sum_n_basis = 0;
+	for(v = 0; v < n_variables; v ++) sum_n_basis += ORDER_TO_N_BASIS(variable_order[v]);
+
+	int *index = (int *)malloc(MAX_FACE_N_BORDERS * sum_n_basis * sizeof(int));
+	exit_if_false(index != NULL,"allocating face sub-matrix indices");
 
 	// allocate the system
-	exit_if_false(*system = sparse_allocate(*system, n_u),"allocating the system");
+	exit_if_false(*system = sparse_allocate(*system),"allocating the system");
 
-	// allocate the rows
+	// internal sub-matrices
+	for(e = 0; e < n_elements; e ++)
+	{
+		j = 0;
+		for(v = 0; v < n_variables; v ++)
+			for(i = 0; i < ORDER_TO_N_BASIS(variable_order[v]); i ++)
+				index[j++] = element[e].unknown[v][i];
+
+		sparse_insert_sub_matrix(*system,sum_n_basis,index,sum_n_basis,index);
+	}
+
+	// flux sub-matrices
+	for(f = 0; f < n_faces; f ++)
+	{
+		j = 0;
+		for(b = 0; b < face[f].n_borders; b ++)
+			for(v = 0; v < n_variables; v ++)
+				for(i = 0; i < ORDER_TO_N_BASIS(variable_order[v]); i ++)
+					index[j++] = face[f].border[b]->unknown[v][i];
+
+		sparse_insert_sub_matrix(*system,face[f].n_borders*sum_n_basis,index,face[f].n_borders*sum_n_basis,index);
+	}
+
+	// ordering
+	sparse_order_sub_matrices(*system);
+
+	// clean up
+	free(index);
+
+	/*// allocate the rows
 	int *row_n_non_zeros = (int *)malloc(n_u * sizeof(int)), n_non_zeros;
 	exit_if_false(row_n_non_zeros != NULL,"allocating row numbers of non-zeros");
 
@@ -239,7 +274,7 @@ void initialise_system(int n_variables, int *variable_order, int n_elements, str
 				sparse_set_row_indices(*system, element[e].unknown[v][i], row_index);
 	}
 
-	free(row_index);
+	free(row_index);*/
 }
 
 //////////////////////////////////////////////////////////////////
@@ -262,13 +297,18 @@ void calculate_system(int n_variables, int *variable_order, int n_faces, struct 
 	int max_point_n_variables = max_term_n_variables + EXPRESSION_VARIABLE_INDEX;
 
 	// local dense system
-	double ***local_value, **local_residual;
+	/*double ***local_value, **local_residual;
 	int local_n, ldl = (1+MAX_ELEMENT_N_FACES)*sum_n_basis;
 	exit_if_false(local_value = allocate_double_tensor(NULL,MAX_FACE_N_BORDERS,sum_n_basis,(1+MAX_ELEMENT_N_FACES)*sum_n_basis),"allocating local values");
-	exit_if_false(local_residual = allocate_double_matrix(NULL,MAX_FACE_N_BORDERS,sum_n_basis),"allocating local residuals");
+	exit_if_false(local_residual = allocate_double_matrix(NULL,MAX_FACE_N_BORDERS,sum_n_basis),"allocating local residuals");*/
+
+	double **local_value, *local_residual;
+	int ldl = MAX_FACE_N_BORDERS*sum_n_basis;
+	exit_if_false(local_value = allocate_double_matrix(NULL,ldl,ldl),"allocating local values");
+	exit_if_false(local_residual = (double *)malloc(ldl * sizeof(double)),"allocating local residuals");
 
 	// indices into the local dense system
-	int *local_element, **local_adjacent;
+	int local_n, *local_element, **local_adjacent;
 	exit_if_false(local_element = (int *)malloc(n_variables * sizeof(int)),"allocating element local indices");
 	exit_if_false(local_adjacent = allocate_integer_matrix(NULL,MAX_FACE_N_BORDERS,n_variables),"allocating adjacent local indices");
 
@@ -313,9 +353,9 @@ void calculate_system(int n_variables, int *variable_order, int n_faces, struct 
 
 		// zero the local system
 		n = sum_n_basis;
-		dcopy_(&n,&dbl_0,&int_0,local_residual[0],&int_1);
-		n = sum_n_basis*ldl;
-		dcopy_(&n,&dbl_0,&int_0,local_value[0][0],&int_1);
+		dcopy_(&n,&dbl_0,&int_0,local_residual,&int_1);
+		n = sum_n_basis*sum_n_basis;
+		dcopy_(&n,&dbl_0,&int_0,local_value[0],&int_1);
 
 		// integration points
 		n_points = (element[e].n_faces - 2)*n_hammer;
@@ -383,7 +423,7 @@ void calculate_system(int n_variables, int *variable_order, int n_faces, struct 
 						element[e].P[d][0],&n_points,
 						A[0],&lda,
 						&dbl_1,
-						&local_value[0][local_element[q]][local_element[v]],&ldl);
+						&local_value[local_element[q]][local_element[v]],&ldl);
 			}
 
 			// residual
@@ -396,10 +436,13 @@ void calculate_system(int n_variables, int *variable_order, int n_faces, struct 
 					element[e].P[x][0],&n_points,
 					point_term,&int_1,
 					&dbl_1,
-					&local_residual[0][local_element[q]],&int_1);
+					&local_residual[local_element[q]],&int_1);
 		}
 
 		// add to the global system
+		sparse_add_sub_matrix(system,e,local_value[0]);
+
+		/*// add to the global system
 		for(v = 0; v < n_variables; v ++)
 		{
 			for(i = 0; i < n_basis[v]; i ++)
@@ -407,7 +450,38 @@ void calculate_system(int n_variables, int *variable_order, int n_faces, struct 
 				sparse_add_to_row_values(system, element[e].unknown[v][i], local_value[0][local_element[v]+i]);
 				residual[element[e].unknown[v][i]] += local_residual[0][local_element[v]+i];
 			}
+		}*/
+
+		// ?????????????????????????????????????????????????????
+		/*printf("         ");
+		for(v = 0; v < n_variables; v ++)
+		{
+			for(i = 0; i < n_basis[v]; i ++)
+			{
+				printf("%8i ",element[e].unknown[v][i]);
+			}
+			printf(" ");
 		}
+		printf("\n");
+		for(q = 0; q < n_variables; q ++)
+		{
+			for(i = 0; i < n_basis[q]; i ++)
+			{
+				printf("%8i ",element[e].unknown[q][i]);
+				for(v = 0; v < n_variables; v ++)
+				{
+					for(j = 0; j < n_basis[v]; j ++)
+					{
+						double value = local_value[local_element[q]+i][local_element[v]+j];
+						printf("%+8.1e ",fabs(value) > 1e-99 ? value : 0);
+					}
+					printf(" ");
+				}
+				printf("\n");
+			} 
+			printf("\n");
+		}
+		getchar();*/
 	}
 
 	// loop over the faces
@@ -449,9 +523,9 @@ void calculate_system(int n_variables, int *variable_order, int n_faces, struct 
 
 		// initialise the local system
 		n = face[f].n_borders*sum_n_basis;
-		dcopy_(&n,&dbl_0,&int_0,local_residual[0],&int_1);
+		dcopy_(&n,&dbl_0,&int_0,local_residual,&int_1);
 		n = face[f].n_borders*sum_n_basis*ldl;
-		dcopy_(&n,&dbl_0,&int_0,local_value[0][0],&int_1);
+		dcopy_(&n,&dbl_0,&int_0,local_value[0],&int_1);
 
 		// location and normal values at the intergration points
 		for(i = 0; i < 2; i ++)
@@ -568,7 +642,8 @@ void calculate_system(int n_variables, int *variable_order, int n_faces, struct 
 									face[f].Q[v][d][s*n_basis[v]],&n_gauss,
 									A[0],&lda,
 									&dbl_1,
-									&local_value[b][local_element[q]][s == b ? local_element[v] : local_adjacent[b][v]],&ldl);
+									//&local_value[b][local_element[q]][s == b ? local_element[v] : local_adjacent[b][v]],&ldl);
+									&local_value[b*sum_n_basis+local_element[q]][s*sum_n_basis+local_element[v]],&ldl);
 						}
 					}
 					else if(term[t].method[i] == 'w')
@@ -584,7 +659,8 @@ void calculate_system(int n_variables, int *variable_order, int n_faces, struct 
 									face[f].border[s]->Q[opposite[s]][0],&n_gauss,
 									A[0],&lda,
 									&dbl_1,
-									&local_value[b][local_element[q]][s == b ? local_element[v] : local_adjacent[b][v]],&ldl);
+									//&local_value[b][local_element[q]][s == b ? local_element[v] : local_adjacent[b][v]],&ldl);
+									&local_value[b*sum_n_basis+local_element[q]][s*sum_n_basis+local_element[v]],&ldl);
 						}
 					}
 				}
@@ -603,11 +679,15 @@ void calculate_system(int n_variables, int *variable_order, int n_faces, struct 
 						face[f].border[b]->Q[opposite[b]][0],&n_gauss,
 						point_term,&int_1,
 						&dbl_1,
-						&local_residual[b][local_element[q]],&int_1);
+						//&local_residual[b][local_element[q]],&int_1);
+						&local_residual[b*sum_n_basis+local_element[q]],&int_1);
 			}
 		}
 
 		// add to the global system
+		sparse_add_sub_matrix(system,f+n_elements,local_value[0]);
+
+		/*// add to the global system
 		for(b = 0; b < face[f].n_borders; b ++)
 		{
 			for(v = 0; v < n_variables; v ++)
@@ -618,13 +698,52 @@ void calculate_system(int n_variables, int *variable_order, int n_faces, struct 
 					residual[face[f].border[b]->unknown[v][i]] += local_residual[b][local_element[v]+i];
 				}
 			}
-		}
+		}*/
+
+		//// ?????????????????????????????????????????????????????
+		//printf("         ");
+		//for(s = 0; s < face[f].n_borders; s ++)
+		//{
+		//	for(v = 0; v < n_variables; v ++)
+		//	{
+		//		for(i = 0; i < n_basis[v]; i ++)
+		//		{
+		//			printf("%8i ",face[f].border[s]->unknown[v][i]);
+		//		}
+		//		printf(" ");
+		//	}
+		//}
+		//printf("\n");
+		//for(b = 0; b < face[f].n_borders; b ++)
+		//{
+		//	for(q = 0; q < n_variables; q ++)
+		//	{
+		//		for(i = 0; i < n_basis[q]; i ++)
+		//		{
+		//			printf("%8i ",face[f].border[b]->unknown[q][i]);
+		//			for(s = 0; s < face[f].n_borders; s ++)
+		//			{
+		//				for(v = 0; v < n_variables; v ++)
+		//				{
+		//					for(j = 0; j < n_basis[v]; j ++)
+		//					{
+		//						printf("%+8.1e ",local_value[b*sum_n_basis+local_element[q]+i][s*sum_n_basis+local_element[v]+j]);
+		//					}
+		//					printf(" ");
+		//				}
+		//			}
+		//			printf("\n");
+		//		} 
+		//		printf("\n");
+		//	}
+		//}
+		//getchar();
 	}
 
 	free(n_basis);
 
-	destroy_matrix((void *)local_residual);
-	destroy_tensor((void *)local_value);
+	free((void *)local_residual);
+	destroy_matrix((void *)local_value);
 	free(local_element);
 	destroy_matrix((void *)local_adjacent);
 

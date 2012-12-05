@@ -22,7 +22,7 @@ int update_face_numerics(int n_variables_old, int n_variables, int *variable_ord
 int update_element_numerics(int n_variables_old, int n_variables, int *variable_order_old, int *variable_order, int n_elements, struct ELEMENT *element);
 
 void initialise_values(int n_variables, int *variable_order, int n_elements, struct ELEMENT *element, EXPRESSION *initial, double *u);
-void initialise_system(int n_variables, int *variable_order, int n_elements, struct ELEMENT *element, int n_u, SPARSE *system);
+void initialise_system(int n_variables, int *variable_order, int n_elements, struct ELEMENT *element, int n_faces, struct FACE *face, SPARSE *system);
 
 void calculate_system(int n_variables, int *variable_order, int n_faces, struct FACE *face, int n_elements, struct ELEMENT *element, int n_terms, struct TERM *term, int n_u, double *u_old, double *u, SPARSE system, double *residual);
 void slope_limit(int n_variables, int *variable_order, int n_nodes, struct NODE *node, int n_elements, struct ELEMENT *element, int n_boundaries, struct BOUNDARY *boundary, double *u);
@@ -220,7 +220,7 @@ int main(int argc, char *argv[])
 	// allocate and initialise the system
 	print_info("allocating and initialising the system");
 	SPARSE system = NULL;
-	initialise_system(n_variables, variable_order, n_elements, element, n_u, &system);
+	initialise_system(n_variables, variable_order, n_elements, element, n_faces, face, &system);
 	double *residual, *max_residual, *du, *max_du;
 	exit_if_false(residual = (double *)malloc(n_u * sizeof(double)),"allocating the residuals");
 	exit_if_false(max_residual = (double *)malloc(n_variables * sizeof(double)),"allocating the maximum residuals");
