@@ -3,7 +3,7 @@ ISITEK
 
 * Author:	Will Bainbridge
 * Date:		January, 2012
-* GitHub:	<https://github.com/maninthemail/ISITEK>
+* GitHub:	<https://github.com/will-bainbridge/ISITEK>
 
 LICENSE
 -------
