@@ -30,7 +30,7 @@ mv -f temp SuiteSparse_config/SuiteSparse_config.mk
 cd GotoBLAS2
 make USE_THREAD=0 CC=gcc FC=gfortran
 
-cd ../UFconfig/
+cd ../UFconfig
 make
 
 cd ../AMD

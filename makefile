@@ -30,8 +30,8 @@ LIBRARY += -lm -lrt
 #LIBRARY += -lblas -llapack
 
 $(BUILDPATH)/sparse.o depend: FLAG += -DSOLVE_UMFPACK
-$(BUILDPATH)/sparse.o depend: INCLUDE += -I$(THIRDPATH)/UMFPACK/Include -I$(THIRDPATH)/AMD/Include -I$(THIRDPATH)/UFconfig
-LIBRARY += -L$(THIRDPATH)/UMFPACK/Lib -L$(THIRDPATH)/AMD/Lib -lumfpack -lamd
+$(BUILDPATH)/sparse.o depend: INCLUDE += -I$(THIRDPATH)/UMFPACK/Include -I$(THIRDPATH)/AMD/Include -I$(THIRDPATH)/SuiteSparse_config
+LIBRARY += -L$(THIRDPATH)/UMFPACK/Lib -L$(THIRDPATH)/AMD/Lib -L$(THIRDPATH)/SuiteSparse_config -lumfpack -lamd -lsuitesparseconfig
 LIBRARY += -L$(THIRDPATH)/GotoBLAS2 -Wl,-R$(THIRDFULLPATH)/GotoBLAS2 -lgoto2 -lgfortran
 
 #$(BUILDPATH)/sparse.o depend: FLAG += -DSOLVE_PARDISO
