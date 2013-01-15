@@ -1,10 +1,9 @@
 ///////////////////////////////////////////////////////////////////////////////
 
+#include <math.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include <math.h>
-
 #include "expression.h"
 
 #define LARGER '>'
@@ -122,7 +121,7 @@ void expression_simplify(EXPRESSION expression);
 	for(i = 1; i < n; i ++) printf("           > %lf\n",value[i]);
 
 	free(string);
-	expression_destroy(expression);
+	expression_free(expression);
 
 	free(value);
 	free(substitute[0]);
@@ -436,7 +435,7 @@ void expression_print(EXPRESSION expression)
 
 ///////////////////////////////////////////////////////////////////////////////
 
-void expression_destroy(EXPRESSION expression)
+void expression_free(EXPRESSION expression)
 {
 	free(expression);
 }

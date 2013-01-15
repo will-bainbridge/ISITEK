@@ -1,314 +1,212 @@
 //////////////////////////////////////////////////////////////////
 
-#include<stdio.h>
-#include<stdlib.h>
-
-#include "isitek.h"
-
-void read_geometry(FILE *file, int *n_nodes, struct NODE **node, int *n_faces, struct FACE **face, int *n_elements, struct ELEMENT **element);
-void process_geometry(int n_nodes, struct NODE *node, int n_faces, struct FACE *face, int n_elements, struct ELEMENT *element);
-
-void boundaries_input(FILE *file, int n_faces, struct FACE *face, int *n_boundaries, struct BOUNDARY **boundary);
-void terms_input(FILE *file, int *n_terms, struct TERM **term);
-int initial_input(FILE *file, int n_variables, EXPRESSION **initial);
-
-void update_element_unknowns(int n_variables_old, int n_variables, int *variable_order_old, int *variable_order, int n_elements, struct ELEMENT *element, int n_u_old, int *n_u, double *u_old, double **u);
-void update_face_boundaries(int n_variables, int n_faces, struct FACE *face, int n_boundaries, struct BOUNDARY *boundary);
-
-int update_face_integration(int n_variables_old, int n_variables, int *variable_order_old, int *variable_order, int n_faces, struct FACE *face);
-int update_element_integration(int n_variables_old, int n_variables, int *variable_order_old, int *variable_order, int n_elements, struct ELEMENT *element);
-
-int update_face_numerics(int n_variables_old, int n_variables, int *variable_order_old, int *variable_order, int n_faces, struct FACE *face, int n_boundaries_old, struct BOUNDARY *boundary_old);
-int update_element_numerics(int n_variables_old, int n_variables, int *variable_order_old, int *variable_order, int n_elements, struct ELEMENT *element);
-
-void initialise_values(int n_variables, int *variable_order, int n_elements, struct ELEMENT *element, EXPRESSION *initial, double *u);
-void initialise_system(int n_variables, int *variable_order, int n_elements, struct ELEMENT *element, int n_u, SPARSE *system);
-
-void calculate_system(int n_variables, int *variable_order, int n_faces, struct FACE *face, int n_elements, struct ELEMENT *element, int n_terms, struct TERM *term, int n_u, double *u_old, double *u, SPARSE system, double *residual);
-void slope_limit(int n_variables, int *variable_order, int n_nodes, struct NODE *node, int n_elements, struct ELEMENT *element, int n_boundaries, struct BOUNDARY *boundary, double *u);
-void calculate_maximum_changes_and_residuals(int n_variables, int *variable_order, int n_elements, struct ELEMENT *element, double *du, double *max_u, double *residual, double *max_residual);
-
-void write_case(FILE *file, int n_variables, int *variable_order, int n_nodes, struct NODE *node, int n_faces, struct FACE *face, int n_elements, struct ELEMENT *element, int n_boundaries, struct BOUNDARY *boundary);
-void read_case(FILE *file, int *n_variables, int **variable_order, int *n_nodes, struct NODE **node, int *n_faces, struct FACE **face, int *n_elements, struct ELEMENT **element, int *n_boundaries, struct BOUNDARY **boundary);
-
-void generate_numbered_file_path(char *file_path, char *base_path, int number);
-
-void read_data(FILE *file, int *n_u, double **u, int *number);
-void write_data(FILE *file, int n_u, double *u, int number);
-
-void write_display(FILE *file, int n_variables, char **variable_name, int *variable_order, int n_elements, struct ELEMENT *element, int n_u, double *u);
+#include <math.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include "boundary.h"
+#include "element.h"
+#include "expression.h"
+#include "face.h"
+#include "info.h"
+#include "memory.h"
+#include "node.h"
+#include "solver.h"
+#include "sparse.h"
+#include "timer.h"
+#include "utility.h"
 
 //////////////////////////////////////////////////////////////////
 
 int main(int argc, char *argv[])
 {
-	exit_if_false(argc == 2,"exactly one input argument required");
+	// counters
+	int i, j;
 
-	timer_start();
+	// structures
+	int n_nodes, n_faces, n_elements, n_boundaries;
+	NODE *node = NULL;
+	FACE *face = NULL;
+	ELEMENT *element = NULL;
+	BOUNDARY *boundary = NULL;
+
+	// initialisation
+	EXPRESSION *initial;
 
 	//-------------------------------------------------------------------//
 	
-	// counters
-	int i, n;
-
-	// file paths
-	char *input_file_path, *geometry_file_path, *case_file_path, *data_file_path, *data_numbered_file_path, *display_file_path, *display_numbered_file_path;
-	exit_if_false(geometry_file_path = (char *)malloc(MAX_STRING_LENGTH * sizeof(char)),"allocating geometry file path");
-	exit_if_false(case_file_path = (char *)malloc(MAX_STRING_LENGTH * sizeof(char)),"allocating case file path");
-	exit_if_false(data_file_path = (char *)malloc(MAX_STRING_LENGTH * sizeof(char)),"allocating data file path");
-	exit_if_false(data_numbered_file_path = (char *)malloc(MAX_STRING_LENGTH * sizeof(char)),"allocating data numbered file path");
-	exit_if_false(display_file_path = (char *)malloc(MAX_STRING_LENGTH * sizeof(char)),"allocating display file path");
-	exit_if_false(display_numbered_file_path = (char *)malloc(MAX_STRING_LENGTH * sizeof(char)),"allocating display numbered file path");
-
-	// print string
-	char *print;
-	exit_if_false(print = (char *)malloc(MAX_STRING_LENGTH * sizeof(char)),"allocating the print string");
-
-	// mesh structures
-	int n_nodes, n_faces, n_elements, n_boundaries_old = 0, n_boundaries, n_terms;
-	struct NODE *node;
-	struct FACE *face;
-	struct ELEMENT *element;
-	struct BOUNDARY *boundary_old = NULL, *boundary;
-	struct TERM *term;
-	EXPRESSION *initial = NULL;
+	// initialise the solver
+	solver_initialise();
 	
-	// solution vectors
-	int n_u_old = 0, n_u;
-	double *u_old = NULL, *u;
-
-	// files
-	FILE *input_file, *case_file, *data_file, *geometry_file, *display_file;
-
 	//-------------------------------------------------------------------//
 
 	// opening the input file
-	print_info("opening the input file %s",argv[1]);
-	input_file_path = argv[1];
-	input_file = fopen(input_file_path,"r");
+	char *input_file_path = argv[1];
+	FILE *input_file = fopen(input_file_path,"r");
 	exit_if_false(input_file != NULL,"opening %s",input_file_path);
 
-	// reading the case file path
-	print_info("reading the case file path");
-	exit_if_false(fetch_value(input_file,"case_file_path",'s',case_file_path) == FETCH_SUCCESS,"reading case_file_path from %s",input_file_path);
-	print_continue(case_file_path);
+	// input data
+	double value;
+	char *string = (char *)malloc(MAX_STRING_LENGTH * sizeof(char));
+	exit_if_false(string != NULL,"allocating input string");
 
-	// reading the number of variables, variable names and orders
-	print_info("reading the variables");
-	int n_variables_old = 0, n_variables;
-	exit_if_false(fetch_value(input_file,"number_of_variables",'i',&n_variables) == FETCH_SUCCESS,"reading number_of_variables from %s",input_file_path);
-	int *variable_order_old = NULL, *variable_order = (int *)malloc(n_variables * sizeof(int));
-	exit_if_false(variable_order != NULL,"allocating orders");
-	exit_if_false(fetch_vector(input_file, "variable_order", 'i', n_variables, variable_order) == FETCH_SUCCESS,"reading variable_order from %s",input_file_path);
-	char **variable_name = allocate_character_matrix(NULL,n_variables,MAX_STRING_LENGTH);
-	exit_if_false(variable_name != NULL,"allocating variable names");
-	warn_if_false(fetch_vector(input_file,"variable_name",'s',n_variables,variable_name) == FETCH_SUCCESS,"reading variable_name from %s",input_file_path);
-	for(i = 0; i < n_variables; i ++) print_continue("%s order %i",variable_name[i],variable_order[i]);
-
-	// reading the number of inner and outer iterations to perform
-	print_info("reading the numbers of iterations");
-	int outer_iteration = 0, inner_iteration;
-	int n_outer_iterations, n_inner_iterations, data_n_outer_iterations, display_n_outer_iterations;
-	exit_if_false(fetch_value(input_file,"number_of_inner_iterations",'i',&n_inner_iterations) == FETCH_SUCCESS,"reading number_of_inner_iterations from %s",input_file_path);
-	exit_if_false(fetch_value(input_file,"number_of_outer_iterations",'i',&n_outer_iterations) == FETCH_SUCCESS,"reading number_of_outer_iterations from %s",input_file_path);
-	print_continue("%i outer of %i inner iterations to be done",n_outer_iterations,n_inner_iterations);
-
-	// read existing case and data
-	case_file = fopen(case_file_path,"r");
-	if(case_file != NULL)
+	// data positions
+	fpos_t position[6] = {{-1},{-1},{-1},{-1},{-1},{-1}};
+	while(fscanf(input_file,"%s",string) == 1)
 	{
-		print_info("reading existing case file %s",case_file_path);
-		read_case(case_file, &n_variables_old, &variable_order_old, &n_nodes, &node, &n_faces, &face, &n_elements, &element, &n_boundaries_old, &boundary_old);
-		fclose(case_file);
-		n = 0; for(i = 0; i < n_variables; i ++) n += n_elements*ORDER_TO_N_BASIS(variable_order[i]);
+		i =
+			1*(strcmp(string,"NODES") == 0) + 
+			2*(strcmp(string,"EDGES") == 0 || strcmp(string,"FACES") == 0) + 
+			3*(strcmp(string,"CELLS") == 0 || strcmp(string,"ELEMENTS") == 0) +
+			4*(strcmp(string,"BOUNDARIES") == 0) + 
+			5*(strcmp(string,"CONSTANTS") == 0) +
+			6*(strcmp(string,"INITIAL") == 0);
 
-		if(fetch_value(input_file,"initial_data_file_path",'s',data_file_path) == FETCH_SUCCESS)
-		{
-			print_info("reading existing data file %s",data_file_path);
-			exit_if_false(data_file = fopen(data_file_path,"r"),"opening %s",data_file_path);
-			read_data(data_file, &n_u_old, &u_old, &outer_iteration);
-			fclose(data_file);
-			exit_if_false(n_u_old == n,"case and initial data does not match");
-		}
+		if(i) exit_if_false(fgetpos(input_file, &position[i-1]) == 0,"setting data position");
 	}
 
-	// construct new case
-	else
+	// read the nodes
+	exit_if_false(fsetpos(input_file,&position[0]) == 0,"finding node data");
+	exit_if_false(fscanf(input_file,"%i",&n_nodes) == 1,"reading the number of nodes");
+	exit_if_false(node = (NODE *)malloc(n_nodes * sizeof(NODE)),"allocating nodes");
+	for(i = 0; i < n_nodes; i ++)
 	{
-		print_info("reading the geometry file path");
-		exit_if_false(fetch_value(input_file,"geometry_file_path",'s',geometry_file_path) == FETCH_SUCCESS,"reading geometry_file_path from %s",input_file_path);
-		print_continue(geometry_file_path);
-
-		print_info("reading the geometry file %s",geometry_file_path);
-		exit_if_false(geometry_file = fopen(geometry_file_path,"r"),"opening %s",geometry_file_path);
-		read_geometry(geometry_file, &n_nodes, &node, &n_faces, &face, &n_elements, &element);
-		fclose(geometry_file);
-		print_continue("%i nodes, %i faces and %i elements",n_nodes,n_faces,n_elements);
-
-		print_info("generating additional connectivity and geometry");
-		process_geometry(n_nodes, node, n_faces, face, n_elements, element);
+		exit_if_false(node[i] = node_new(i),"allocating a node");
+		exit_if_false(node_read_x(input_file,node[i]) == NODE_SUCCESS,"reading a node position");
 	}
 
-	// read the data file path and output frequency
-	print_info("reading the data file path and output frequency");
-	exit_if_false(fetch_value(input_file,"data_file_path",'s',data_file_path) == FETCH_SUCCESS,"reading data_file_path from %s",input_file_path);
-	if(fetch_value(input_file,"data_number_of_outer_iterations",'i',&data_n_outer_iterations) != FETCH_SUCCESS)
-		data_n_outer_iterations = n_outer_iterations + outer_iteration;
-	print_continue("data to be written to %s every %i outer iterations",data_file_path,data_n_outer_iterations);
-
-	// read boundaries
-	print_info("reading boundaries");
-	boundaries_input(input_file, n_faces, face, &n_boundaries, &boundary);
-	print_continue("%i boundaries",n_boundaries);
-
-	// read terms
-	print_info("reading PDE terms");
-	terms_input(input_file, &n_terms, &term);
-	print_continue("%i terms",n_terms);
-
-	// update unknown indices and values
-	print_info("updating the numbering of the degrees of freedom");
-	update_element_unknowns(n_variables_old, n_variables, variable_order_old, variable_order, n_elements, element, n_u_old, &n_u, u_old, &u);
-	print_continue("%i degrees of freedom",n_u);
-
-	// update face boundaries
-	print_info("updating the face boundary associations");
-	update_face_boundaries(n_variables, n_faces, face, n_boundaries, boundary);
-
-	// update integration
-	print_info("updating integration");
-	i = update_face_integration(n_variables_old, n_variables, variable_order_old, variable_order, n_faces, face);
-	if(i) print_continue("updated %i face quadratures",i);
-	i = update_element_integration(n_variables_old, n_variables, variable_order_old, variable_order, n_elements, element);
-	if(i) print_continue("updated %i element quadratures",i);
-
-	// update numerics
-	print_info("updating numerics");
-	i = update_face_numerics(n_variables_old, n_variables, variable_order_old, variable_order, n_faces, face, n_boundaries_old, boundary_old);
-	if(i) print_continue("updated %i face interpolations",i);
-	i = update_element_numerics(n_variables_old, n_variables, variable_order_old, variable_order, n_elements, element);
-	if(i) print_continue("updated %i element interpolations",i);
-
-	// write case file
-	print_info("writing case file %s",case_file_path);
-	exit_if_false(case_file = fopen(case_file_path,"w"),"opening %s",case_file_path);
-	write_case(case_file, n_variables, variable_order, n_nodes, node, n_faces, face, n_elements, element, n_boundaries, boundary);
-	fclose(case_file);
-
-	// read the display file path and output frequency
-	print_info("reading the display file path and output frequency");
-	if(
-			fetch_value(input_file,"display_file_path",'s',display_file_path) == FETCH_SUCCESS &&
-			fetch_value(input_file,"display_number_of_outer_iterations",'i',&display_n_outer_iterations) == FETCH_SUCCESS
-	  )
-		print_continue("display to be written to %s every %i outer iterations",display_file_path,display_n_outer_iterations);
-	else
+	// read the faces
+	exit_if_false(fsetpos(input_file,&position[1]) == 0,"finding face data");
+	exit_if_false(fscanf(input_file,"%i",&n_faces) == 1,"reading the number of faces");
+	exit_if_false(face = (FACE *)malloc(n_faces * sizeof(FACE)),"allocating faces");
+	for(i = 0; i < n_faces; i ++)
 	{
-		display_n_outer_iterations = 0;
-		warn_if_false(0,"display files will not be written");
+		exit_if_false(face[i] = face_new(i),"allocating a face");
+		exit_if_false(face_read_nodes(input_file,node,face[i]) == FACE_SUCCESS,"reading a face nodes");
 	}
 
-	// initialise
-	if(initial_input(input_file, n_variables, &initial))
+	// read the elements
+	exit_if_false(fsetpos(input_file,&position[2]) == 0,"finding element data");
+	exit_if_false(fscanf(input_file,"%i",&n_elements) == 1,"reading the number of elements");
+	exit_if_false(element = (ELEMENT *)malloc(n_elements * sizeof(ELEMENT)),"allocating elements");
+	for(i = 0; i < n_elements; i ++)
 	{
-		print_info("initialising the degrees of freedom");
-		initialise_values(n_variables, variable_order, n_elements, element, initial, u);
+		exit_if_false(element[i] = element_new(i),"allocating an element");
+		exit_if_false(element_read_faces(input_file,face,element[i]) == ELEMENT_SUCCESS,"reading an element faces");
 	}
 
-	//-------------------------------------------------------------------//
-	
-	// allocate and initialise the system
-	print_info("allocating and initialising the system");
-	SPARSE system = NULL;
-	initialise_system(n_variables, variable_order, n_elements, element, n_u, &system);
-	double *residual, *max_residual, *du, *max_du;
-	exit_if_false(residual = (double *)malloc(n_u * sizeof(double)),"allocating the residuals");
-	exit_if_false(max_residual = (double *)malloc(n_variables * sizeof(double)),"allocating the maximum residuals");
-	exit_if_false(du = (double *)malloc(n_u * sizeof(double)),"allocating du");
-	exit_if_false(max_du = (double *)malloc(n_variables * sizeof(double)),"allocating the maximum changes");
-	exit_if_false(u_old = (double *)realloc(u_old, n_u * sizeof(double)),"re-allocating u_old");
-
-	timer_reset();
-
-	// iterate
-	print_info("iterating");
-	n_outer_iterations += outer_iteration;
-	for(; outer_iteration < n_outer_iterations; outer_iteration ++)
+	// read the boundaries
+	exit_if_false(fsetpos(input_file,&position[3]) == 0,"finding boundary data");
+	exit_if_false(fscanf(input_file,"%i",&n_boundaries) == 1,"reading the number of boundaries");
+	exit_if_false(boundary = (BOUNDARY *)malloc(n_boundaries * sizeof(BOUNDARY)),"allocating boundaries");
+	for(i = 0; i < n_boundaries; i ++)
 	{
-		print_output("iteration %i", outer_iteration);
-
-		for(i = 0; i < n_u; i ++) u_old[i] = u[i];
-
-		for(inner_iteration = 0; inner_iteration < n_inner_iterations; inner_iteration ++)
-		{
-			calculate_system(n_variables, variable_order, n_faces, face, n_elements, element, n_terms, term, n_u, u_old, u, system, residual);
-
-			exit_if_false(sparse_solve(system, du, residual) == SPARSE_SUCCESS,"solving system");
-			for(i = 0; i < n_u; i ++) u[i] -= du[i];
-
-			calculate_maximum_changes_and_residuals(n_variables, variable_order, n_elements, element, du, max_du, residual, max_residual);
-			for(i = 0; i < n_variables; i ++) sprintf(&print[26*i],"%.6e|%.6e ",max_du[i],max_residual[i]);
-			print_continue("%s",print);
-		}
-
-		slope_limit(n_variables, variable_order, n_nodes, node, n_elements, element, n_boundaries, boundary, u);
-
-		if(data_n_outer_iterations && outer_iteration % data_n_outer_iterations == 0)
-		{
-			generate_numbered_file_path(data_numbered_file_path, data_file_path, outer_iteration);
-			print_info("writing data to %s",data_numbered_file_path);
-			exit_if_false(data_file = fopen(data_numbered_file_path,"w"),"opening %s",data_numbered_file_path);
-			write_data(data_file, n_u, u, outer_iteration);
-			fclose(data_file);
-		}
-
-		if(display_n_outer_iterations && outer_iteration % display_n_outer_iterations == 0)
-		{
-			generate_numbered_file_path(display_numbered_file_path, display_file_path, outer_iteration);
-			print_info("writing display to %s",data_numbered_file_path);
-			exit_if_false(display_file = fopen(display_numbered_file_path,"w"),"opening %s",display_numbered_file_path);
-			write_display(display_file, n_variables, variable_name, variable_order, n_elements, element, n_u, u);
-			fclose(display_file);
-		}
-
-		timer_print();
+		exit_if_false(boundary[i] = boundary_new(i),"allocating a boundary");
+		exit_if_false(boundary_read_name(input_file,boundary[i]) == BOUNDARY_SUCCESS,"reading a boundary name");
+		exit_if_false(boundary_read_faces(input_file,face,boundary[i]) == BOUNDARY_SUCCESS,"reading a boundary faces");
+		exit_if_false(boundary_read_condition(input_file,boundary[i]) == BOUNDARY_SUCCESS,"reading a boundary condition");
 	}
 
-	//-------------------------------------------------------------------//
-	
-	print_info("freeing all memory");
+	// read the constants
+	exit_if_false(fsetpos(input_file,&position[4]) == 0,"finding constant data");
+	for(i = 0; i < solver_n_constants(); i ++)
+	{
+		exit_if_false(fscanf(input_file,"%s",string) == 1,"reading a constant name");
+		exit_if_false(fscanf(input_file,"%lf",&value) == 1,"reading constant %s value",string);
+		exit_if_false(solver_constant_set_value(string,value),"constant %s not recognised",string);
+	}
+	exit_if_false(solver_constants_set(),"constants not found");
 
+	// read the initialisation
+	// if( NO DATA FILE )
+	exit_if_false(initial = (EXPRESSION *)malloc(solver_n_variables() * sizeof(EXPRESSION)),"allocating initial expressions");
+	exit_if_false(fsetpos(input_file,&position[5]) == 0,"finding initial data");
+	string[0] = '\0';
+	exit_if_false(solver_constants_print(string),"forming constant experssion string");
+	j = strlen(string);
+	for(i = 0; i < solver_n_variables(); i ++)
+	{
+		exit_if_false(fscanf(input_file,"%s",&string[j]) == 1,"reading an input expression");
+		exit_if_false(initial[i] = expression_generate(string),"generating an input expression");
+	}
+
+	// clean up
+	free(string);
 	fclose(input_file);
 
-	free(geometry_file_path);
-	free(case_file_path);
-	free(data_file_path);
-	free(data_numbered_file_path);
-	free(display_file_path);
-	free(display_numbered_file_path);
+	//-------------------------------------------------------------------//
+	
+	// connectivity
+	for(i = 0; i < n_elements; i ++) element_add_border(element[i]);
 
-	free(print);
+	// face geometry
+	for(i = 0; i < n_faces; i ++) exit_if_false(face_calculate_normal(face[i]) == FACE_SUCCESS,"calculating a face normal");
+	for(i = 0; i < n_faces; i ++) exit_if_false(face_calculate_centre(face[i]) == FACE_SUCCESS,"calculating a face centre");
+	for(i = 0; i < n_faces; i ++) face_calculate_size(face[i]);
 
-	destroy_nodes(n_nodes,node);
-	destroy_faces(n_faces,face,n_variables);
-	destroy_elements(n_elements,element,n_variables);
-	destroy_boundaries(n_boundaries_old,boundary_old);
-	destroy_boundaries(n_boundaries,boundary);
-	destroy_terms(n_terms,term);
-	destroy_initial(n_variables,initial);
+	// quadrature
+	for(i = 0; i < n_faces; i ++) exit_if_false(face_calculate_quadrature(face[i]) == ELEMENT_SUCCESS,"calculating a face quadrature");
+	for(i = 0; i < n_elements; i ++) exit_if_false(element_calculate_quadrature(element[i]) == ELEMENT_SUCCESS,"calculating an element quadrature");
 
-	free(variable_order_old);
-	free(variable_order);
-	destroy_matrix((void *)variable_name);
+	// element geometry
+	for(i = 0; i < n_elements; i ++) element_calculate_size(element[i]);
+	for(i = 0; i < n_elements; i ++) exit_if_false(element_calculate_centre(element[i]) == ELEMENT_SUCCESS,"calculating an element centre");
 
-	free(u_old);
-	free(u);
+	// unknowns
+	for(i = 0; i < n_elements; i ++) exit_if_false(element_calculate_unknowns(element[i],n_elements) == ELEMENT_SUCCESS,"calculating an element unknowns");
 
-	sparse_destroy(system);
-	free(residual);
-	free(max_residual);
-	free(du);
-	free(max_du);
+	// element numerics
+	exit_if_false(element_interpolation_start() == ELEMENT_SUCCESS,"initialising element interpolation");
+	for(i = 0; i < n_elements; i ++) exit_if_false(element_interpolation_calculate(element[i]) == ELEMENT_SUCCESS,"calculating an element interpolation");
+	element_interpolation_end();
+
+	// face numerics
+	exit_if_false(face_interpolation_start() == ELEMENT_SUCCESS,"initialising face interpolation");
+	for(i = 0; i < n_faces; i ++) exit_if_false(face_interpolation_calculate(face[i]) == ELEMENT_SUCCESS,"calculating a face interpolation");
+	face_interpolation_end();
+
+	/*// initialise system
+	SPARSE system = sparse_new(NULL);
+	exit_if_false(system != NULL,"allocating the system");
+	for(i = 0; i < n_elements; i ++) exit_if_false(element_add_to_system(element[i],system),"adding an element to the system");
+	for(i = 0; i < n_faces; i ++) exit_if_false(face_add_to_system(face[i],system),"adding a face to the system");
+	exit_if_false(sparse_order_sub_matrices(system) == SPARSE_SUCCESS,"ordering the system");*/
+
+	// loop
+	// // zero the system
+	// // calculate local matrices
+	// // add local matrices into the system
+	// // solve the system
+
+	//-------------------------------------------------------------------//
+	
+	//for(i = 0; i < n_nodes; i ++) node_print(node[i]);
+	//for(i = 0; i < n_faces; i ++) face_print(face[i]);
+	//for(i = 0; i < n_elements; i ++) element_print(element[i]);
+	//for(i = 0; i < n_boundaries; i ++) boundary_print(boundary[i]);
+	
+	//printf("set term wxt 0\n");
+	//face_plot(face[10]);
+	//printf("set term wxt 1\n");
+	//element_plot(element[10]);
+	
+	//sparse_print(system);
+	//sparse_spy(system,20,20);
+	
+	//-------------------------------------------------------------------//
+
+	// clean up
+	for(i = 0; i < n_nodes; i ++) node_free(node[i]);
+	free(node);
+	for(i = 0; i < n_faces; i ++) face_free(face[i]);
+	free(face);
+	for(i = 0; i < n_elements; i ++) element_free(element[i]);
+	free(element);
+	for(i = 0; i < n_boundaries; i ++) boundary_free(boundary[i]);
+	free(boundary);
+	for(i = 0; i < solver_n_variables(); i ++) expression_free(initial[i]);
+	free(initial);
+	//sparse_free(system);
 
 	return 0;
 }

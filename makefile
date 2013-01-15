@@ -1,5 +1,7 @@
+################################################################################
+
 COMPILER	= gcc
-FLAG		= -O2 -Wall
+FLAG		= -g -Wall
 
 HOMEPATH	= .
 BUILDPATH	= $(HOMEPATH)/src
@@ -9,7 +11,7 @@ THIRDFULLPATH	= $(shell cd $(THIRDPATH);pwd)
 #------------------------------------------------------------------------------#
 
 MAINFILES	= isitek.c
-COMMONFILES	= constants.c expression.c fetch.c geometry.c io.c memory.c numerics.c sparse.c system.c
+COMMONFILES	= boundary.c condition.c element.c element_interpolation.c expression.c face.c face_interpolation.c memory.c node.c numerics.c quadrature.c solver.c sparse.c
 
 MAINSOURCE	= $(addprefix $(BUILDPATH)/,$(MAINFILES))
 COMMONSOURCE 	= $(addprefix $(BUILDPATH)/,$(COMMONFILES))
@@ -24,6 +26,8 @@ EXECUTABLES	= $(MAINFILES:.c=)
 #------------------------------------------------------------------------------#
 
 LIBRARY += -lm -lrt
+
+#LIBRARY += -lblas -llapack
 
 $(BUILDPATH)/sparse.o depend: FLAG += -DSOLVE_UMFPACK
 $(BUILDPATH)/sparse.o depend: INCLUDE += -I$(THIRDPATH)/UMFPACK/Include -I$(THIRDPATH)/AMD/Include -I$(THIRDPATH)/UFconfig
@@ -54,3 +58,5 @@ depend: $(ALLSOURCE)
 
 clean:
 	rm -f $(BUILDPATH)/*o
+
+################################################################################

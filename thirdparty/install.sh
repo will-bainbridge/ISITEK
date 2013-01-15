@@ -8,9 +8,9 @@ then
 	exit
 fi
 
-wget http://www.cise.ufl.edu/research/sparse/UFconfig/current/UFconfig.tar.gz
-tar -xf UFconfig.tar.gz
-rm -f UFconfig.tar.gz
+wget http://www.cise.ufl.edu/research/sparse/UFconfig/SuiteSparse_config-4.0.2.tar.gz
+tar -xf SuiteSparse_config-4.0.2.tar.gz
+rm -f SuiteSparse_config-4.0.2.tar.gz
 
 wget http://www.cise.ufl.edu/research/sparse/amd/current/AMD.tar.gz
 tar -xf AMD.tar.gz
@@ -22,8 +22,8 @@ rm -f UMFPACK.tar.gz
 
 # configure
 
-sed "s|^BLAS.*|BLAS = `pwd`/GotoBLAS2/libgoto2.a|g;s|^LAPACK.*||g;s|^UMFPACK_CONFIG.*|UMFPACK_CONFIG = -DNCHOLMOD|g" UFconfig/UFconfig.mk  > temp
-mv -f temp UFconfig/UFconfig.mk
+sed "s|^BLAS.*|BLAS = `pwd`/GotoBLAS2/libgoto2.a|g;s|^LAPACK.*||g;s|^UMFPACK_CONFIG.*|UMFPACK_CONFIG = -DNCHOLMOD|g" SuiteSparse_config/SuiteSparse_config.mk > temp
+mv -f temp SuiteSparse_config/SuiteSparse_config.mk
 
 # build
 
