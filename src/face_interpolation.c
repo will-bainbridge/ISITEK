@@ -21,9 +21,9 @@ static int n_variables, *order, max_order, *n_bases, max_n_bases, sum_n_bases;
 
 static int n_gauss, n_hammer;
 
-static int n_constraints, *index_constraint;
-
 static int n_interpolations, *interpolation_variable, *interpolation_differential;
+
+static int *n_constraints, **constraint_temporary, **constraint_differential;
 
 static double **x, **y, ***x_adj, ***y_adj, **w_adj, **c_adj;
 
@@ -63,10 +63,6 @@ int face_interpolation_start()
 	n_gauss = solver_n_gauss();
 	n_hammer = solver_n_hammer();
 
-	// constraints
-	index_constraint = (int *)malloc(max_order * sizeof(int));
-	if(index_constraint == NULL) return FACE_MEMORY_ERROR;
-
 	// interplations
 	n_interpolations = solver_n_interpolations();
 	interpolation_variable = (int *)malloc(n_interpolations * sizeof(int));
@@ -75,6 +71,12 @@ int face_interpolation_start()
 	interpolation_differential = (int *)malloc(n_interpolations * sizeof(int));
 	if(interpolation_differential == NULL) return FACE_MEMORY_ERROR;
 	solver_interpolation_differential(interpolation_differential);
+
+	// constraints
+	n_constraints = (int *)malloc(n_variables * sizeof(int));
+	constraint_temporary = matrix_integer_new(NULL,2,condition_max_n_variables());
+	constraint_differential = matrix_integer_new(NULL,n_variables,condition_max_n_variables());
+	if(n_constraints == NULL || constraint_temporary == NULL || constraint_differential == NULL) return FACE_MEMORY_ERROR;
 
 	// locations
 	y = matrix_double_new(NULL,2,n_gauss);
@@ -131,9 +133,11 @@ void face_interpolation_end()
 {
 	free(order);
 	free(n_bases);
-	free(index_constraint);
 	free(interpolation_variable);
 	free(interpolation_differential);
+	free(n_constraints);
+	matrix_free((void *)constraint_temporary);
+	matrix_free((void *)constraint_differential);
 	matrix_free((void *)y);
 	tensor_free((void *)x_adj);
 	tensor_free((void *)y_adj);
@@ -161,12 +165,24 @@ int face_interpolation_calculate(FACE face)
 {
 	int a, c, i, j, n, q, v;
 
+	// boundary condition constraints
 	CONDITION condition = face->boundary ? boundary_condition(face->boundary) : NULL;
+	for(v = 0; v < n_variables; v ++) n_constraints[v] = 0;
+	if(condition)
+	{
+		condition_variable(condition,constraint_temporary[0]);
+		condition_differential(condition,constraint_temporary[1]);
+		for(c = 0; c < condition_n_variables(condition); c ++)
+			constraint_differential[constraint_temporary[0][c]][n_constraints[constraint_temporary[0][c]]++] = constraint_temporary[1][c];
+	}
 
-	for(v = 0; v < n_variables; v ++) n_adj_bases[v] = n_int_bases[v] = face->n_borders*n_bases[v];
-	for(c = 0; c < condition_n_variables(condition); c ++) n_int_bases[condition_variable(condition,c)] += face->n_quadrature;
-
+	// numbers of bases
 	int sum_n_adj_bases = 0, sum_n_int_bases = 0;
+	for(v = 0; v < n_variables; v ++)
+	{
+		n_adj_bases[v] = face->n_borders*n_bases[v];
+		n_int_bases[v] = n_adj_bases[v] + n_constraints[v]*face->n_quadrature;
+	}
 	for(i = 0; i < n_interpolations; i ++)
 	{
 		sum_n_adj_bases += n_adj_bases[interpolation_variable[i]];
@@ -228,20 +244,11 @@ int face_interpolation_calculate(FACE face)
 	// for all variables
 	for(v = 0; v < n_variables; v ++)
 	{
-		ELEMENT *adj = face->border;
-		int n_adj = face->n_borders;
-
-		// number and indices of constraints
-		n_constraints = 0;
-		for(c = 0; c < condition_n_variables(condition); c ++)
-			if(condition_variable(condition,c) == v)
-				index_constraint[n_constraints ++] = c;
-
 		// face basis indices
 		n = 0;
-		for(i = 0; i < n_adj*order[v] + n_constraints; i ++)
-			for(j = 0; j < n_adj*order[v] + n_constraints; j ++)
-				if(i + n_adj*j < n_adj*order[v] + n_constraints && j < n_gauss)
+		for(i = 0; i < face->n_borders*order[v] + n_constraints[v]; i ++)
+			for(j = 0; j < face->n_borders*order[v] + n_constraints[v]; j ++)
+				if(i + face->n_borders*j < face->n_borders*order[v] + n_constraints[v] && j < n_gauss)
 					face_taylor[n ++] = numerics_power_taylor(i,j);
 		exit_if_false(n == n_int_bases[v],"mismatched number of interpolation bases");
 
@@ -249,42 +256,43 @@ int face_interpolation_calculate(FACE face)
 		for(i = 0; i < 2; i ++) taylor_power[i] = 0;
 
 		// element bases at the integration locations
-		for(i = 0; i < n_adj*n_bases[v]; i ++) for(j = 0; j < sum_n_points[n_adj]; j ++) P[i][j] = 0.0;
-		for(a = 0; a < n_adj; a ++)
+		for(i = 0; i < face->n_borders*n_bases[v]; i ++) for(j = 0; j < sum_n_points[face->n_borders]; j ++) P[i][j] = 0.0;
+		for(a = 0; a < face->n_borders; a ++)
 			for(i = 0; i < n_bases[v]; i ++)
-				numerics_basis(n_points[a],&P[i+a*n_bases[v]][sum_n_points[a]],x_adj[a],c_adj[a],element_size(adj[a]),i,taylor_power);
+				numerics_basis(n_points[a],&P[i+a*n_bases[v]][sum_n_points[a]],x_adj[a],c_adj[a],element_size(face->border[a]),i,taylor_power);
 
 		// face bases at the integration locations
-		for(a = 0; a < n_adj; a ++)
+		for(a = 0; a < face->n_borders; a ++)
 			for(i = 0; i < n_int_bases[v]; i ++)
-				numerics_basis(n_points[a],&Q[i][sum_n_points[a]],y_adj[a],face->centre,face->size,face_taylor[i],taylor_power);
+				numerics_basis(n_points[a],&Q[i][sum_n_points[a]],y_adj[a],face->centre,0.5*face->size,face_taylor[i],taylor_power);
 
 		// integration matrix
 		dcopy_(&sizep,P[0],&int_1,S[0],&int_1);
-		for(a = 0; a < n_adj; a ++)
+		for(a = 0; a < face->n_borders; a ++)
 			for(i = 0; i < n_points[a]; i ++)
 				dscal_(&n_bases[v],&w_adj[a][i],&S[a*n_bases[v]][i+sum_n_points[a]],&lds);
 
 		// weak interpolation system
-		dgemm_(&trans[1],&trans[0],&n_adj_bases[v],&n_int_bases[v],&sum_n_points[n_adj],&double_1,S[0],&lds,Q[0],&ldq,&double_0,A[0],&lda);
+		dgemm_(&trans[1],&trans[0],&n_adj_bases[v],&n_int_bases[v],&sum_n_points[face->n_borders],&double_1,S[0],&lds,Q[0],&ldq,&double_0,A[0],&lda);
 
 		// weak interpolation rhs
-		dgemm_(&trans[1],&trans[0],&n_adj_bases[v],&n_adj_bases[v],&sum_n_points[n_adj],&double_1,S[0],&lds,P[0],&ldp,&double_0,B[0],&ldb);
+		dgemm_(&trans[1],&trans[0],&n_adj_bases[v],&n_adj_bases[v],&sum_n_points[face->n_borders],&double_1,S[0],&lds,P[0],&ldp,&double_0,B[0],&ldb);
 
 		// boundary conditions
-		for(c = 0; c < n_constraints; c ++)
+		for(c = 0; c < n_constraints[v]; c ++)
 		{
-			for(i = 0; i < 2; i ++) taylor_power[i] = numerics_taylor_power(condition_differential(condition,index_constraint[c]),i);
+			for(i = 0; i < 2; i ++) taylor_power[i] = numerics_taylor_power(constraint_differential[v][c],i);
 			for(i = 0; i < n_int_bases[v]; i ++)
-				numerics_basis(n_gauss,&A[i][n_adj_bases[v]],y,face->centre,face->size,face_taylor[i],taylor_power);
+				numerics_basis(n_gauss,&A[i][n_adj_bases[v]],y,face->centre,0.5*face->size,face_taylor[i],taylor_power);
 
 			for(i = 0; i < n_gauss; i ++)
 				for(j = 0; j < n_int_bases[v]; j ++)
 					B[j][i+c*n_gauss+n_adj_bases[v]] = B[i+c*n_gauss+n_adj_bases[v]][j] = (i+c*n_gauss+n_adj_bases[v]) == j;
 		}
 
-		//if(n_constraints)
+		//if(condition)
 		//{
+		//	printf("\nface %i variable %i\n",face->index,v);
 		//	for(i = 0; i < n_gauss; i ++) { printf("(%lf %lf)",face->X[0][i],face->X[1][i]); } printf("\n");
 		//	for(i = 0; i < n_int_bases[v]; i ++) { printf("(%i,%i)",numerics_taylor_power(face_taylor[i],0),numerics_taylor_power(face_taylor[i],1)); } printf("\n");
 		//	for(i = 0; i < n_int_bases[v]*9-1; i ++) { printf("-"); } printf("\n");
@@ -301,11 +309,11 @@ int face_interpolation_calculate(FACE face)
 		for(i = 0; i < n_bases[v]; i ++)
 		{
 			for(j = 0; j < 2; j ++) taylor_power[j] = numerics_taylor_power(i,j);
-			for(j = 0; j < n_int_bases[v]; j ++) numerics_basis(n_gauss,F[j],y,face->centre,face->size,face_taylor[j],taylor_power);
+			for(j = 0; j < n_int_bases[v]; j ++) numerics_basis(n_gauss,F[j],y,face->centre,0.5*face->size,face_taylor[j],taylor_power);
 			dgemm_(&trans[0],&trans[0],&n_gauss,&n_int_bases[v],&n_int_bases[v],&double_1,F[0],&ldf,B[0],&ldb,&double_0,D[i][0],&ldd);
 		}
 
-		// transform from face to cartesian coordinates
+		/*// transform from face to cartesian coordinates
 		for(i = 0; i < n_interpolations; i ++)
 		{
 			if(interpolation_variable[i] == v)
@@ -320,7 +328,7 @@ int face_interpolation_calculate(FACE face)
 					}
 				}
 			}
-		}
+		}*/
 
 		// transform from face to cartesian coordinates
 		n = n_int_bases[v]*face->n_quadrature;
@@ -328,7 +336,7 @@ int face_interpolation_calculate(FACE face)
 			if(interpolation_variable[i] == v)
 				dgemv_(&trans[0],&n,&n_bases[v],&double_1,D[0][0],&sizef,T[interpolation_differential[i]],&int_1,&double_0,face->Q[i][0],&int_1);
 
-		//if(n_constraints)
+		//if(condition)
 		//{
 		//	for(i = 0; i < n_bases[v]; i ++) {
 		//		for(j = 0; j < n_bases[v]; j ++) {
@@ -347,6 +355,7 @@ int face_interpolation_calculate(FACE face)
 		//}
 	}
 
+	//if(condition)
 	//{
 	//	for(i = 0; i < n_interpolations; i ++) {
 	//		for(j = 0; j < n_gauss; j ++) {

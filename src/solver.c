@@ -2,12 +2,10 @@
 
 #include <math.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include "numerics.h"
 #include "solver.h"
-
-#define MAX_STRING_LENGTH 128
-#define MAX_N_VARIABLES 5
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -19,7 +17,7 @@ void solver_residual(double *u, double **r) { residual(u,r); }
 void solver_jacobian(double *u, double ***j) { jacobian(u,j); }
 
 static int variable_max_order = 0;
-static int variable_n_bases[] = { 0 , 0 , 0 };
+static int *variable_n_bases;
 static int variable_max_n_bases = 0;
 static int variable_sum_n_bases = 0;
 
@@ -28,9 +26,13 @@ static int n_hammer = 0;
 
 ////////////////////////////////////////////////////////////////////////////////
 
-void solver_initialise()
+int solver_start()
 {
 	int i;
+
+	variable_n_bases = (int *)malloc(n_variables * sizeof(int));
+	if(variable_n_bases == NULL) return SOLVER_MEMORY_ERROR;
+
 	for(i = 0; i < n_variables; i ++)
 	{
 		variable_max_order = variable_max_order > variable_order[i] ? variable_max_order : variable_order[i];
@@ -38,8 +40,15 @@ void solver_initialise()
 		variable_max_n_bases = variable_max_n_bases > variable_n_bases[i] ? variable_max_n_bases : variable_n_bases[i];
 		variable_sum_n_bases += variable_n_bases[i];
 	}
+
 	n_gauss = numerics_n_gauss(variable_max_order);
 	n_hammer = numerics_n_hammer(variable_max_order);
+
+	return SOLVER_SUCCESS;
+}
+void solver_end()
+{
+	free(variable_n_bases);
 }
 
 int solver_n_variables() { return n_variables; }

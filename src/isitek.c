@@ -36,7 +36,7 @@ int main(int argc, char *argv[])
 	//-------------------------------------------------------------------//
 	
 	// initialise the solver
-	solver_initialise();
+	exit_if_false(solver_start() == SOLVER_SUCCESS,"initialising the solver");
 	
 	//-------------------------------------------------------------------//
 
@@ -140,9 +140,9 @@ int main(int argc, char *argv[])
 	for(i = 0; i < n_elements; i ++) element_add_border(element[i]);
 
 	// face geometry
+	for(i = 0; i < n_faces; i ++) face_calculate_size(face[i]);
 	for(i = 0; i < n_faces; i ++) exit_if_false(face_calculate_normal(face[i]) == FACE_SUCCESS,"calculating a face normal");
 	for(i = 0; i < n_faces; i ++) exit_if_false(face_calculate_centre(face[i]) == FACE_SUCCESS,"calculating a face centre");
-	for(i = 0; i < n_faces; i ++) face_calculate_size(face[i]);
 
 	// quadrature
 	for(i = 0; i < n_faces; i ++) exit_if_false(face_calculate_quadrature(face[i]) == ELEMENT_SUCCESS,"calculating a face quadrature");
@@ -165,20 +165,25 @@ int main(int argc, char *argv[])
 	for(i = 0; i < n_faces; i ++) exit_if_false(face_interpolation_calculate(face[i]) == ELEMENT_SUCCESS,"calculating a face interpolation");
 	face_interpolation_end();
 
-	/*// initialise system
+	// initialise system
 	SPARSE system = sparse_new(NULL);
 	exit_if_false(system != NULL,"allocating the system");
 	for(i = 0; i < n_elements; i ++) exit_if_false(element_add_to_system(element[i],system),"adding an element to the system");
 	for(i = 0; i < n_faces; i ++) exit_if_false(face_add_to_system(face[i],system),"adding a face to the system");
-	exit_if_false(sparse_order_sub_matrices(system) == SPARSE_SUCCESS,"ordering the system");*/
+	exit_if_false(sparse_order_sub_matrices(system) == SPARSE_SUCCESS,"ordering the system");
 
-	// loop
-	// // zero the system
-	// // calculate local matrices
-	// // add local matrices into the system
-	// // solve the system
+	// modularise system assembly
+	// // interpolation onto point value lists
+	// // calculation of point residual and jacobians
+	// // construction of local matrices
+	// // addition into system
 
 	//-------------------------------------------------------------------//
+	
+	node_print(node[0]);
+	face_print(face[0]);
+	element_print(element[0]);
+	boundary_print(boundary[0]);
 	
 	//for(i = 0; i < n_nodes; i ++) node_print(node[i]);
 	//for(i = 0; i < n_faces; i ++) face_print(face[i]);
@@ -196,6 +201,7 @@ int main(int argc, char *argv[])
 	//-------------------------------------------------------------------//
 
 	// clean up
+	solver_end();
 	for(i = 0; i < n_nodes; i ++) node_free(node[i]);
 	free(node);
 	for(i = 0; i < n_faces; i ++) face_free(face[i]);
@@ -206,7 +212,7 @@ int main(int argc, char *argv[])
 	free(boundary);
 	for(i = 0; i < solver_n_variables(); i ++) expression_free(initial[i]);
 	free(initial);
-	//sparse_free(system);
+	sparse_free(system);
 
 	return 0;
 }

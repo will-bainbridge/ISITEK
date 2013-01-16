@@ -36,7 +36,7 @@ FACE face_new(int index)
 	face->X = NULL;
 	face->W = NULL;
 
-	face->system_index = 0;
+	face->system_index = -1;
 
 	face->Q = NULL;
 
@@ -125,6 +125,7 @@ void face_calculate_size(FACE face)
 {
 	int i;
 	double dx;
+	face->size = 0;
 	for(i = 0; i < 2; i ++)
 	{
 		dx = node_x(face->node[1],i) - node_x(face->node[0],i);
@@ -150,7 +151,7 @@ int face_calculate_centre(FACE face)
 	int i;
 	for(i = 0; i < 2; i ++)
 	{
-		face->centre[i] = 0.5 * ( node_x(face->node[1],i) +  node_x(face->node[0],i) );
+		face->centre[i] = 0.5*(node_x(face->node[1],i) + node_x(face->node[0],i));
 	}
 
 	return FACE_SUCCESS;
@@ -173,6 +174,9 @@ int face_calculate_normal(FACE face)
 
 	face->normal[0] = - node_x(face->node[1],1) + node_x(face->node[0],1);
 	face->normal[1] = + node_x(face->node[1],0) - node_x(face->node[0],0);
+
+	int i;
+	for(i = 0; i < 2; i ++) face->normal[i] /= face->size;
 
 	return FACE_SUCCESS;
 }
@@ -285,41 +289,73 @@ void face_print(FACE face)
 {
 	printf("face %i\n",face->index);
 
-	int i, j;
+	int i, j, k;
+
+	int *n_bases = (int *)malloc(solver_n_variables() * sizeof(int));
+	int *interpolation_variable = (int *)malloc(solver_n_interpolations() * sizeof(int));
+	int *n_constraints = (int *)calloc(solver_n_variables(), sizeof(int));
+	int *constraint_temporary = (int *)malloc(condition_max_n_variables() * sizeof(int));
+
+	solver_variable_n_bases(n_bases);
+	solver_interpolation_variable(interpolation_variable);
+	if(face->boundary) condition_variable(boundary_condition(face->boundary),constraint_temporary);
+	if(face->boundary) for(i = 0; i < condition_n_variables(boundary_condition(face->boundary)); i ++) n_constraints[constraint_temporary[i]]++;
+
 	if(face->node)
 	{
-		printf("    face->node   ");
+		printf("    face->node\n       ");
 		for(i = 0; i < 2; i ++) printf(" %i",node_index(face->node[i]));
 		printf("\n");
 	}
 	if(face->border)
 	{
-		printf("    face->border ");
+		printf("    face->border\n       ");
 		for(i = 0; i < face->n_borders; i ++) printf(" %i",element_index(face->border[i]));
 		printf("\n");
 	}
 	if(face->normal)
 	{
-		printf("    face->normal ");
+		printf("    face->normal\n       ");
 		for(i = 0; i < 2; i ++) printf(" %g",face->normal[i]);
 		printf("\n");
 	}
 	if(face->centre)
 	{
-		printf("    face->centre ");
+		printf("    face->centre\n       ");
 		for(i = 0; i < 2; i ++) printf(" %g",face->centre[i]);
 		printf("\n");
 	}
-	printf("    face->size    %g\n",face->size);
+	if(face->size != 0.0)
+		printf("    face->size\n        %g\n",face->size);
 	if(face->X && face->W)
 	{
 		printf("    face->X");
-		for(i = 0; i < face->n_quadrature; i ++) { printf("\n   "); for(j = 0; j < 2; j ++) printf(" %e",face->X[j][i]); }
+		for(i = 0; i < face->n_quadrature; i ++) { printf("\n       "); for(j = 0; j < 2; j ++) { printf(" %+e",face->X[j][i]); } }
 		printf("\n");
 		printf("    face->W");
-		for(i = 0; i < face->n_quadrature; i ++) printf("\n    %e",face->W[i]);
+		for(i = 0; i < face->n_quadrature; i ++) printf("\n        %+e",face->W[i]);
 		printf("\n");
 	}
+	if(face->system_index != -1)
+		printf("    face->system_index\n        %i\n",face->system_index);
+	if(face->Q)
+	{
+		printf("    face->Q");
+		for(i = 0; i < solver_n_interpolations(); i ++) {
+			for(j = 0; j < face->n_borders*n_bases[interpolation_variable[i]] + n_constraints[interpolation_variable[i]]*face->n_quadrature; j ++) {
+				printf("\n       ");
+				for(k = 0; k < face->n_quadrature; k ++) {
+					printf(" %+e",face->Q[i][j][k]);
+				}
+			}
+			printf("\n");
+		}
+	}
+
+	free(n_bases);
+	free(interpolation_variable);
+	free(n_constraints);
+	free(constraint_temporary);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

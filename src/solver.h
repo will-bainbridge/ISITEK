@@ -1,10 +1,14 @@
 #ifndef SOLVER_H
 #define SOLVER_H
 
+#define SOLVER_SUCCESS 1
+#define SOLVER_MEMORY_ERROR 0
+
 void solver_residual(double *u, double **r);
 void solver_jacobian(double *u, double ***j);
 
-void solver_initialise();
+int solver_start();
+void solver_end();
 
 int solver_n_variables();
 void solver_variable_order(int *order);

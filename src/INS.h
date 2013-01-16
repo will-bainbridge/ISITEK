@@ -1,5 +1,5 @@
 static int n_variables = 3;
-static char variable_name[][MAX_STRING_LENGTH] = { "pressure" , "x-velocity" , "y-velocity" };
+static char variable_name[][128] = { "pressure" , "x-velocity" , "y-velocity" };
 static int variable_order[] = { 2 , 3 , 3 };
 
 static int n_interpolations = 7;
@@ -8,7 +8,7 @@ static int interpolation_differential[] = { 0 , 0 , 0 , 1 , 2 , 1 , 2 };
 static char interpolation_method[] = "iiiiiii";
 
 static int n_constants = 2;
-static char constant_name[][MAX_STRING_LENGTH] = { "density" , "viscosity" };
+static char constant_name[][128] = { "density" , "viscosity" };
 static double constant_value[] = { 0 , 0 };
 static int constant_set[] = { 0 , 0 };
 
