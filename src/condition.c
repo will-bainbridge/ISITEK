@@ -35,7 +35,7 @@ CONDITION condition_condition(char *name)
 }
 
 char * condition_name(CONDITION condition) { return condition->name; }
-int condition_n_variables(CONDITION condition) { return condition->n_variables; }
+int condition_n_variables(CONDITION condition) { return condition ? condition->n_variables : 0; }
 int condition_max_n_variables()
 {
 	int i, max_n_variables = 0;

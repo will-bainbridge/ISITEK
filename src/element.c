@@ -237,6 +237,13 @@ void element_calculate_size(ELEMENT element)
 
 ////////////////////////////////////////////////////////////////////////////////
 
+double element_size(ELEMENT element)
+{
+	return element->size;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
 int element_calculate_centre(ELEMENT element)
 {
 	element->centre = (double *)malloc(2*sizeof(double));
@@ -248,6 +255,14 @@ int element_calculate_centre(ELEMENT element)
 	for(i = 0; i < 2; i ++) element->centre[i] /= element->size;
 
 	return ELEMENT_SUCCESS;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+void element_centre(ELEMENT element, double *x)
+{
+	int i;
+	for(i = 0; i < 2; i ++) x[i] = element->centre[i];
 }
 
 ////////////////////////////////////////////////////////////////////////////////
