@@ -508,20 +508,17 @@ int update_face_numerics(int n_variables_old, int n_variables, int *variable_ord
 						B[j][i+b*n_gauss+n_adj_bases] = B[i+b*n_gauss+n_adj_bases][j] = (i+b*n_gauss+n_adj_bases) == j;
 			}
 
-			/*if(n_bnd)
-			{
-				printf("\nface %i variable %i\n\n",f,v);
-
-				for(i = 0; i < n_gauss; i ++) { printf("(%lf %lf) ",face[f].X[0][i],face[f].X[1][i]); } printf("\n\n");
-
-				for(i = 0; i < n_int_bases; i ++) { printf("(%i,%i) ",taylor_powers[face_taylor[i]][0],taylor_powers[face_taylor[i]][1]); } printf("\n\n");
-
-				for(i = 0; i < n_int_bases; i ++) { for(j = 0; j < n_int_bases; j ++) { printf("%+.1e ",A[j][i]); } printf("\n"); }
-				for(i = 0; i < n_int_bases*9-1; i ++) { printf("-"); } printf("\n");
-				for(i = 0; i < n_int_bases; i ++) { for(j = 0; j < n_int_terms; j ++) { printf("%+.1e ",B[j][i]); } printf("\n"); } printf("\n");
-				
-				getchar();
-			}*/
+			//if(face[f].n_borders == 1)
+			//{
+			//	printf("\nface %i variable %i\n",f,v);
+			//	for(i = 0; i < n_gauss; i ++) { printf("(%lf %lf) ",face[f].X[0][i],face[f].X[1][i]); } printf("\n");
+			//	for(i = 0; i < n_int_bases; i ++) { printf("(%i,%i) ",taylor_powers[face_taylor[i]][0],taylor_powers[face_taylor[i]][1]); } printf("\n");
+			//	for(i = 0; i < n_int_bases*9-1; i ++) { printf("-"); } printf("\n");
+			//	for(i = 0; i < n_int_bases; i ++) { for(j = 0; j < n_int_bases; j ++) { printf("%+.1e ",A[j][i]); } printf("\n"); }
+			//	for(i = 0; i < n_int_bases*9-1; i ++) { printf("-"); } printf("\n");
+			//	for(i = 0; i < n_int_bases; i ++) { for(j = 0; j < n_int_terms; j ++) { printf("%+.1e ",B[j][i]); } printf("\n"); } printf("\n");
+			//	getchar();
+			//}
 
 			// solve interpolation problem
 			dgesv_(&n_int_bases,&n_int_terms,A[0],&lda,pivot,B[0],&ldb,&info);
@@ -539,18 +536,43 @@ int update_face_numerics(int n_variables_old, int n_variables, int *variable_ord
 				for(j = 0; j < n_gauss; j ++)
 					dgemv_(&trans[1],&n_basis[v],&n_basis[v],&d_one,T[0],&max_n_basis,&D[0][i][j],&incd,&d_zero,&face[f].Q[v][0][i][j],&incq);
 
-			/*if(n_bnd)
-			{
-				for(j = 0; j < n_gauss; j ++) {
-					for(i = 0; i < n_int_terms; i ++) {
-						printf("%+.1e ",D[0][i][j]);
-					} printf("\n");
-				} printf("\n");
-				getchar();
-			}*/
+			//if(face[f].n_borders == 1)
+			//{
+			//	for(i = 0; i < n_basis[v]; i ++) {
+			//		for(j = 0; j < n_basis[v]; j ++) {
+			//			printf("%+.1e ",T[i][j]);
+			//		} printf("\n");
+			//	} printf("\n");
+			//	for(i = 0; i < n_basis[v]; i ++) {
+			//		for(j = 0; j < n_gauss; j ++) {
+			//			int k;
+			//			for(k = 0; k < n_int_bases; k ++) {
+			//				printf("%+.1e ",D[i][k][j]);
+			//			} printf("\n");
+			//		} printf("\n");
+			//	} printf("\n");
+			//	getchar();
+			//}
 
 			updated ++;
 		}
+
+		//if(face[f].n_borders == 1)
+		//{
+		//	int k;
+		//	for(v = 0; v < n_variables; v ++)
+		//	{
+		//		for(i = 0; i < n_basis[v]; i ++) {
+		//			for(j = 0; j < n_gauss; j ++) {
+		//				for(k = 0; k < face[f].n_borders*n_basis[v] + face[f].n_boundaries[v]*n_gauss; k ++) {
+		//					printf("%+.1e ",face[f].Q[v][i][k][j]);
+		//				} printf("\n");
+		//			} printf("\n");
+		//		} printf("\n");
+		//	}
+		//	getchar();
+		//}
+
 	}
 
 	// clean up
