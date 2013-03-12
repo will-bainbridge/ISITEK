@@ -1,8 +1,8 @@
 BOUNDARIES 4
 north 1 604:618 velocity 0.0 0.0
 east 1 618:632 pressure 1.0
-south 1 632:646 empty
-west 1 646:660 normal_velocity 0.2
+south 1 632:646 velocity 0.0 0.0
+west 1 646:660 normal_velocity 0.1
 
 CONSTANTS
 density 1.0

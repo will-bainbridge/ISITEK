@@ -8,6 +8,7 @@
 #include "numerics.h"
 #include "quadrature.h"
 #include "solver.h"
+#include "utility.h"
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -284,7 +285,7 @@ int element_calculate_unknowns(ELEMENT element, int n_elements)
 	if(element->unknown[0] == NULL) return ELEMENT_MEMORY_ERROR;
 	for(i = 1; i < n_variables; i++) element->unknown[i] = element->unknown[i-1] + n_bases[i-1];
 
-	// number by element then variable
+	/*// number by element then variable
 	for(i = 0; i < n_variables; i ++)
 	{
 		for(j = 0; j < n_bases[i]; j ++)
@@ -292,17 +293,17 @@ int element_calculate_unknowns(ELEMENT element, int n_elements)
 			element->unknown[i][j] = offset + element->index*n_bases[i] + j;
 		}
 		offset += n_elements*n_bases[i];
-	}
+	}*/
 
 	// number by variable then element
-	/*for(i = 0; i < n_variables; i ++)
+	for(i = 0; i < n_variables; i ++)
 	{
 		for(j = 0; j < n_bases[i]; j ++)
 		{
 			element->unknown[i][j] = element->index*sum_n_bases + offset + j;
 		}
 		offset += n_bases[i];
-	}*/
+	}
 
 	free(n_bases);
 
@@ -383,7 +384,7 @@ void element_print(ELEMENT element)
 			for(j = 0; j < solver_variable_max_n_bases(); j ++) {
 				printf("\n       ");
 				for(k = 0; k < element->n_quadrature; k ++) {
-					printf(" %+e",element->P[i][j][k]);
+					printf(" %+e",X_GT_EPS(element->P[i][j][k]));
 				}
 			}
 			printf("\n");
@@ -396,7 +397,7 @@ void element_print(ELEMENT element)
 			for(j = 0; j < solver_variable_max_n_bases(); j ++) {
 				printf("\n       ");
 				for(k = 0; k < face_n_quadrature(element->face[i]); k ++) {
-					printf(" %+e",element->Q[i][j][k]);
+					printf(" %+e",X_GT_EPS(element->Q[i][j][k]));
 				}
 			}
 			printf("\n");
@@ -409,7 +410,7 @@ void element_print(ELEMENT element)
 			for(j = 0; j < element->n_quadrature; j ++) {
 				printf("\n       ");
 				for(k = 0; k < n_bases[i]; k ++) {
-					printf(" %+e",element->I[i][j][k]);
+					printf(" %+e",X_GT_EPS(element->I[i][j][k]));
 				}
 			}
 			printf("\n");
@@ -421,7 +422,7 @@ void element_print(ELEMENT element)
 		for(i = 0; i < solver_variable_max_n_bases(); i ++) {
 			printf("\n       ");
 			for(j = 0; j < element->n_faces; j ++) {
-				printf(" %+e",element->V[i][j]);
+				printf(" %+e",X_GT_EPS(element->V[i][j]));
 			}
 		}
 		printf("\n");
@@ -434,7 +435,7 @@ void element_print(ELEMENT element)
 			for(j = 0; j < n_bases[i]; j ++) {
 				printf("\n       ");
 				for(k = 0; k < n_bases[i]; k ++) {
-					printf(" %+e",element->L[i][j][k]);
+					printf(" %+e",X_GT_EPS(element->L[i][j][k]));
 				}
 			}
 			printf("\n");

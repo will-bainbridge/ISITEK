@@ -7,6 +7,7 @@
 #include "memory.h"
 #include "quadrature.h"
 #include "solver.h"
+#include "utility.h"
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -186,8 +187,8 @@ int face_calculate_normal(FACE face)
 	double x[2][2];
 	for(i = 0; i < 2; i ++) node_x(face->node[i],x[i]);
 
-	face->normal[0] = - x[1][1] + x[0][1];
-	face->normal[1] = + x[1][0] - x[0][0];
+	face->normal[0] = (- x[1][1] + x[0][1])/face->size;
+	face->normal[1] = (+ x[1][0] - x[0][0])/face->size;
 
 	return FACE_SUCCESS;
 }
@@ -330,7 +331,7 @@ void face_print(FACE face)
 	if(face->normal)
 	{
 		printf("    face->normal\n       ");
-		for(i = 0; i < 2; i ++) printf(" %g",face->normal[i]);
+		for(i = 0; i < 2; i ++) printf(" %g",X_GT_EPS(face->normal[i]));
 		printf("\n");
 	}
 	if(face->centre)
@@ -359,7 +360,7 @@ void face_print(FACE face)
 			for(j = 0; j < face->n_borders*n_bases[interpolation_variable[i]] + n_constraints[interpolation_variable[i]]*face->n_quadrature; j ++) {
 				printf("\n       ");
 				for(k = 0; k < face->n_quadrature; k ++) {
-					printf(" %+e",face->Q[i][j][k]);
+					printf(" %+e",X_GT_EPS(face->Q[i][j][k]));
 				}
 			}
 			printf("\n");
@@ -409,7 +410,7 @@ void face_plot(FACE face)
 	printf("\ne\n");
 
 	for(i = 0; i < 2; i ++) printf("%e ",face->centre[i]);
-	for(i = 0; i < 2; i ++) printf("%e ",0.1*face->normal[i]);
+	for(i = 0; i < 2; i ++) printf("%e ",0.1*face->size*face->normal[i]);
 	printf("\ne\n");
 
 	for(i = 0; i < face->n_borders; i ++)
