@@ -76,7 +76,7 @@ int update_element_integration(int n_variables_old, int n_variables, int *variab
 			// triangulate
 			f ++;
 			while(element[e].face[f]->node[0] == element[e].face[0]->node[0] || element[e].face[f]->node[1] == element[e].face[0]->node[0]) f ++;
-			o = element[e].face[f]->border[0] == &element[e];
+			o = element[e].face[f]->border[0] != &element[e];
 			for(j = 0; j < 2; j ++)
 				for(k = 0; k < 2; k ++)
 					dx[j][k] = element[e].face[f]->node[j == o]->x[k] - element[e].face[0]->node[0]->x[k];

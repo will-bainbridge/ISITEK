@@ -1010,10 +1010,10 @@ void write_display(FILE *file, int n_variables, char **variable_name, int *varia
 
 			for(j = 0; j < element[e].n_faces; j ++)
 			{
-				if(j == i) continue;
+				if(j == f) continue;
 				if(
 						element[e].face[j]->node[element[e].face[j]->border[0] != &element[e]] ==
-						element[e].face[i]->node[element[e].face[i]->border[0] == &element[e]]
+						element[e].face[f]->node[element[e].face[f]->border[0] == &element[e]]
 				  )
 				{
 					f = j;

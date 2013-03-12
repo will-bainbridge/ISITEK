@@ -217,6 +217,13 @@ int main(int argc, char *argv[])
 
 	//-------------------------------------------------------------------//
 	
+	//#include "debug.h"
+	//for(i = 0; i < n_faces; i ++) face_print(i);
+	//for(i = 0; i < n_elements; i ++) element_print(i);
+	//exit(1);
+	
+	//-------------------------------------------------------------------//
+	
 	// allocate and initialise the system
 	print_info("allocating and initialising the system");
 	SPARSE system = NULL;
