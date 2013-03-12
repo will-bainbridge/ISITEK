@@ -124,12 +124,17 @@ void face_border(FACE face, ELEMENT *border)
 void face_calculate_size(FACE face)
 {
 	int i;
+
+	double x[2][2];
+	for(i = 0; i < 2; i ++) node_x(face->node[i],x[i]);
+
 	double dx;
 	for(i = 0; i < 2; i ++)
 	{
-		dx = node_x(face->node[1],i) - node_x(face->node[0],i);
+		dx = x[1][i] - x[0][i];
 		face->size += dx*dx;
 	}
+
 	face->size = sqrt(face->size);
 }
 
@@ -148,9 +153,13 @@ int face_calculate_centre(FACE face)
 	if(face->centre == NULL) return FACE_MEMORY_ERROR;
 
 	int i;
+
+	double x[2][2];
+	for(i = 0; i < 2; i ++) node_x(face->node[i],x[i]);
+
 	for(i = 0; i < 2; i ++)
 	{
-		face->centre[i] = 0.5 * ( node_x(face->node[1],i) +  node_x(face->node[0],i) );
+		face->centre[i] = 0.5*(x[1][i] + x[0][i]);
 	}
 
 	return FACE_SUCCESS;
@@ -171,8 +180,13 @@ int face_calculate_normal(FACE face)
 	face->normal = (double *)malloc(2*sizeof(double));
 	if(face->normal == NULL) return FACE_MEMORY_ERROR;
 
-	face->normal[0] = - node_x(face->node[1],1) + node_x(face->node[0],1);
-	face->normal[1] = + node_x(face->node[1],0) - node_x(face->node[0],0);
+	int i;
+
+	double x[2][2];
+	for(i = 0; i < 2; i ++) node_x(face->node[i],x[i]);
+
+	face->normal[0] = - x[1][1] + x[0][1];
+	face->normal[1] = + x[1][0] - x[0][0];
 
 	return FACE_SUCCESS;
 }
@@ -206,13 +220,16 @@ int face_calculate_quadrature(FACE face)
 	face->W = (double *)malloc(face->n_quadrature * sizeof(double));
 	if(face->W == NULL) return FACE_MEMORY_ERROR;
 
+	double x[2][2];
+	for(i = 0; i < 2; i ++) node_x(face->node[i],x[i]);
+
 	for(i = 0; i < solver_n_gauss(); i ++)
 	{
 		for(j = 0; j < 2; j ++)
 		{
 			face->X[j][i] =
-				0.5 * (1.0 - quadrature_gauss_location(solver_n_gauss()-1,i)) * node_x(face->node[0],j) +
-				0.5 * (1.0 + quadrature_gauss_location(solver_n_gauss()-1,i)) * node_x(face->node[1],j);
+				0.5 * (1.0 - quadrature_gauss_location(solver_n_gauss()-1,i)) * x[0][j] +
+				0.5 * (1.0 + quadrature_gauss_location(solver_n_gauss()-1,i)) * x[1][j];
 		}
 		face->W[i] = 0.5 * face->size * quadrature_gauss_weight(solver_n_gauss()-1,i);
 	}
@@ -335,9 +352,12 @@ void face_plot(FACE face)
 	for(i = 0; i < face->n_borders; i ++) printf(", '-' w l title 'border %i'",i);
 	printf("\n");
 
+	double x[2][2];
+	for(i = 0; i < 2; i ++) node_x(face->node[i],x[i]);
+
 	for(i = 0; i < 2; i ++)
 	{
-		for(j = 0; j < 2; j ++) printf("%e ",node_x(face->node[i],j));
+		for(j = 0; j < 2; j ++) printf("%e ",x[i][j]);
 		printf("\n");
 	}
 	printf("e\n");
@@ -367,11 +387,14 @@ void face_plot(FACE face)
 			if(f[j] != face)
 			{
 				face_node(f[j],n);
+
+				for(k = 0; k < 2; k ++) node_x(n[k],x[k]);
+
 				for(k = 0; k < 2; k ++)
 				{
 					for(l = 0; l < 2; l ++)
 					{
-						printf("%e ",node_x(n[k],l));
+						printf("%e ",x[k][l]);
 					}               
 					printf("\n");
 				}       

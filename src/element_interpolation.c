@@ -87,6 +87,7 @@ int element_interpolation_calculate(ELEMENT element)
 	int i, j;
 	int taylor_power[2];
 	int sum_face_n_quadrature = 0;
+	double x[2];
 	for(i = 0; i < element->n_faces; i ++) sum_face_n_quadrature += face_n_quadrature(element->face[i]);
 	NODE node[2];
 	ELEMENT border[2];
@@ -100,7 +101,8 @@ int element_interpolation_calculate(ELEMENT element)
 	{
 		face_node(element->face[i],node);
 		face_border(element->face[i],border);
-		for(j = 0; j < 2; j ++) vertex_x[j][i] = node_x(node[border[0] != element],j);
+		node_x(node[border[0] != element],x);
+		for(j = 0; j < 2; j ++) vertex_x[j][i] = x[j];
 	}
 
 	// internal interpolation

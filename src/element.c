@@ -120,11 +120,13 @@ int element_add_border(ELEMENT element)
 	}
 
 	// check area and flip all orientations if -ve
-	double a = 0;
+	double x[2][2], a = 0;
 	for(i = 0; i < element->n_faces; i ++)
 	{
 		face_node(f[i],n);
-		a += node_x(n[!o[i]],0)*node_x(n[o[i]],1) - node_x(n[o[i]],0)*node_x(n[!o[i]],1);
+		for(j = 0; j < 2; j ++) node_x(n[j],x[j]);
+		a += x[!o[i]][0]*x[o[i]][1] - x[o[i]][0]*x[!o[i]][1];
+		//a += node_x(n[!o[i]],0)*node_x(n[o[i]],1) - node_x(n[o[i]],0)*node_x(n[!o[i]],1);
 	}
 	if(a < 0) for(i = 0; i < element->n_faces; i ++) o[i] = !o[i];
 
@@ -145,7 +147,7 @@ int element_add_border(ELEMENT element)
 int element_calculate_quadrature(ELEMENT element)
 {
 	int i, j, k;
-	double x[2], dx[2][2], size;
+	double x[3][2], dx[2][2], size;
 	NODE n[3], temp;
 	FACE *f = &element->face[0];
 	ELEMENT e[2];
@@ -159,7 +161,7 @@ int element_calculate_quadrature(ELEMENT element)
 
 	// triangulation base point
 	face_node(*f,n);
-	for(i = 0; i < 2; i ++) x[i] = node_x(n[0],i);
+	node_x(n[0],x[0]);
 
 	// opposite edges
 	i = 0;
@@ -174,9 +176,10 @@ int element_calculate_quadrature(ELEMENT element)
 		if(e[0] == element) { temp = n[1]; n[1] = n[2]; n[2] = temp; }
 
 		// edge vectors
+		for(j = 0; j < 2; j ++) node_x(n[j+1],x[j+1]);
 		for(j = 0; j < 2; j ++)
 			for(k = 0; k < 2; k ++)
-				dx[j][k] = node_x(n[j+1],k) - x[k];
+				dx[j][k] = x[j+1][k] - x[0][k];
 
 		// size
 		size = dx[0][0]*dx[1][1] - dx[0][1]*dx[1][0];
@@ -186,7 +189,7 @@ int element_calculate_quadrature(ELEMENT element)
 		{
 			for(k = 0; k < 2; k ++)
 			{
-				element->X[k][i*solver_n_hammer()+j] = x[k] +
+				element->X[k][i*solver_n_hammer()+j] = x[0][k] +
 					quadrature_hammer_location(solver_n_hammer()-1,0,j)*dx[0][k] +
 					quadrature_hammer_location(solver_n_hammer()-1,1,j)*dx[1][k];
 			}
@@ -374,20 +377,22 @@ void element_print(ELEMENT element)
 void element_plot(ELEMENT element)
 {
 	int i, j, k;
-	NODE node[2];
+	double x[2][2];
+	NODE n[2];
 
 	printf("set size ratio -1;\n");
 	printf("plot '-' w lp title 'boundary', '-' w p title 'quadrature', '-' w p title 'centre'\n");
 
 	for(i = 0; i < element->n_faces; i ++)
 	{
-		face_node(element->face[i],node);
+		face_node(element->face[i],n);
+		for(j = 0; j < 2; j ++) node_x(n[j],x[j]);
 
 		for(j = 0; j < 2; j ++)
 		{
 			for(k = 0; k < 2; k ++)
 			{
-				printf("%e ",node_x(node[j],k));
+				printf("%e ",x[j][k]);
 			}
 			printf("\n");
 		}

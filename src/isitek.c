@@ -185,10 +185,10 @@ int main(int argc, char *argv[])
 	//for(i = 0; i < n_elements; i ++) element_print(element[i]);
 	//for(i = 0; i < n_boundaries; i ++) boundary_print(boundary[i]);
 	
-	//printf("set term wxt 0\n");
-	//face_plot(face[10]);
-	//printf("set term wxt 1\n");
-	//element_plot(element[10]);
+	printf("set term wxt 0\n");
+	face_plot(face[10]);
+	printf("set term wxt 1\n");
+	element_plot(element[10]);
 	
 	//sparse_print(system);
 	//sparse_spy(system,20,20);
