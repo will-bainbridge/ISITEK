@@ -122,13 +122,13 @@ void boundary_print(BOUNDARY boundary)
 	printf("boundary %i\n",boundary->index);
 
 	int i;
-	if(boundary->name) printf("    boundary->name            %s\n",boundary->name);
+	if(boundary->name) printf("    boundary->name\n        %s\n",boundary->name);
 
-	printf("    boundary->condition->name %s\n",condition_name(boundary->condition));
+	printf("    boundary->condition->name\n        %s\n",condition_name(boundary->condition));
 
 	if(boundary->parameter)
 	{
-		printf("    boundary->parameter      ");
+		printf("    boundary->parameter\n       ");
 		for(i = 0; i < boundary->n_parameters; i ++) printf(" %g",boundary->parameter[i]);
 		printf("\n");
 	}

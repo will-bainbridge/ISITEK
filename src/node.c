@@ -66,7 +66,7 @@ void node_print(NODE node)
 	int i;
 	if(node->x)
 	{
-		printf("    node->x ");
+		printf("    node->x\n       ");
 		for(i = 0; i < 2; i ++) printf("%g ",node->x[i]);
 		printf("\n");
 	}

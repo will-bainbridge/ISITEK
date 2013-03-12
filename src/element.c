@@ -34,7 +34,7 @@ ELEMENT element_new(int index)
 
 	element->unknown = NULL;
 
-	element->system_index = 0;
+	element->system_index = -1;
 
 	element->P = NULL;
 	element->Q = NULL;
@@ -225,8 +225,7 @@ void element_quadrature_x(ELEMENT element, double **x)
 void element_quadrature_w(ELEMENT element, double *w)
 {
         int i;
-        for(i = 0; i < element->n_quadrature; i ++)
-                w[i] = element->W[i];
+        for(i = 0; i < element->n_quadrature; i ++) w[i] = element->W[i];
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -236,6 +235,7 @@ void element_calculate_size(ELEMENT element)
 	int i;
 	element->size = 0;
 	for(i = 0; i < element->n_quadrature; i ++) element->size += element->W[i];
+	element->size = sqrt(element->size);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -255,7 +255,7 @@ int element_calculate_centre(ELEMENT element)
 	int i, j;
 	for(i = 0; i < 2; i ++) element->centre[i] = 0;
 	for(i = 0; i < element->n_quadrature; i ++) for(j = 0; j < 2; j ++) element->centre[j] += element->W[i] * element->X[j][i];
-	for(i = 0; i < 2; i ++) element->centre[i] /= element->size;
+	for(i = 0; i < 2; i ++) element->centre[i] /= element->size*element->size;
 
 	return ELEMENT_SUCCESS;
 }
@@ -341,35 +341,107 @@ void element_print(ELEMENT element)
 {
 	printf("element %i\n",element->index);
 
-	int i, j;
+	int *n_bases = (int *)malloc(solver_n_variables() * sizeof(int));
+	solver_variable_n_bases(n_bases);
+
+	int i, j, k;
 	if(element->face)
 	{
-		printf("    element->face   ");
+		printf("    element->face\n       ");
 		for(i = 0; i < element->n_faces; i ++) printf(" %i",face_index(element->face[i]));
 		printf("\n");
 	}
 	if(element->X && element->W)
 	{
-		printf("    element->X      ");
-		for(i = 0; i < element->n_quadrature; i ++) { printf("\n   "); for(j = 0; j < 2; j ++) printf(" %e",element->X[j][i]); }
+		printf("    element->X");
+		for(i = 0; i < element->n_quadrature; i ++) { printf("\n       "); for(j = 0; j < 2; j ++) printf(" %+e",element->X[j][i]); }
 		printf("\n");
-		printf("    element->W      ");
-		for(i = 0; i < element->n_quadrature; i ++) printf("\n    %e",element->W[i]);
+		printf("    element->W");
+		for(i = 0; i < element->n_quadrature; i ++) printf("\n        %+e",element->W[i]);
 		printf("\n");
 	}
-	printf("    element->size    %g\n",element->size);
+	if(element->size != 0.0)
+		printf("    element->size\n        %g\n",element->size);
 	if(element->centre)
 	{
-		printf("    element->centre ");
+		printf("    element->centre\n       ");
 		for(i = 0; i < 2; i ++) printf(" %g",element->centre[i]);
 		printf("\n");
 	}
 	if(element->unknown)
 	{
 		printf("    element->unknown");
-		//for(i = 0; i < solver_n_variables(); i ++) { printf("\n   "); for(j = 0; j < solver_variable_n_bases(i); j ++) printf(" %i",element->unknown[i][j]); }
+		for(i = 0; i < solver_n_variables(); i ++) { printf("\n       "); for(j = 0; j < n_bases[i]; j ++) printf(" %i",element->unknown[i][j]); }
 		printf("\n");
 	}
+	if(element->system_index != -1)
+		printf("    element->system_index\n        %i\n",element->system_index);
+	if(element->P)
+	{
+		printf("    element->P");
+		for(i = 0; i < solver_variable_max_n_bases(); i ++) {
+			for(j = 0; j < solver_variable_max_n_bases(); j ++) {
+				printf("\n       ");
+				for(k = 0; k < element->n_quadrature; k ++) {
+					printf(" %+e",element->P[i][j][k]);
+				}
+			}
+			printf("\n");
+		}
+	}
+	if(element->Q)
+	{
+		printf("    element->Q");
+		for(i = 0; i < element->n_faces; i ++) {
+			for(j = 0; j < solver_variable_max_n_bases(); j ++) {
+				printf("\n       ");
+				for(k = 0; k < face_n_quadrature(element->face[i]); k ++) {
+					printf(" %+e",element->Q[i][j][k]);
+				}
+			}
+			printf("\n");
+		}
+	}
+	if(element->I)
+	{
+		printf("    element->I");
+		for(i = 0; i < solver_n_variables(); i ++) {
+			for(j = 0; j < element->n_quadrature; j ++) {
+				printf("\n       ");
+				for(k = 0; k < n_bases[i]; k ++) {
+					printf(" %+e",element->I[i][j][k]);
+				}
+			}
+			printf("\n");
+		}
+	}
+	if(element->V)
+	{
+		printf("    element->V");
+		for(i = 0; i < solver_variable_max_n_bases(); i ++) {
+			printf("\n       ");
+			for(j = 0; j < element->n_faces; j ++) {
+				printf(" %+e",element->V[i][j]);
+			}
+		}
+		printf("\n");
+	}
+
+	if(element->L)
+	{
+		printf("    element->L");
+		for(i = 0; i < solver_n_variables(); i ++) {
+			for(j = 0; j < n_bases[i]; j ++) {
+				printf("\n       ");
+				for(k = 0; k < n_bases[i]; k ++) {
+					printf(" %+e",element->L[i][j][k]);
+				}
+			}
+			printf("\n");
+		}
+	}
+
+	free(n_bases);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

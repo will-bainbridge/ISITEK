@@ -35,15 +35,15 @@ CONDITION condition_condition(char *name)
 }
 
 char * condition_name(CONDITION condition) { return condition->name; }
-int condition_n_variables(CONDITION condition) { return condition ? condition->n_variables : 0; }
+int condition_n_variables(CONDITION condition) { return condition->n_variables; }
 int condition_max_n_variables()
 {
 	int i, max_n_variables = 0;
 	for(i = 0; i < n_conditions; i ++) max_n_variables = max_n_variables > condition[i].n_variables ? max_n_variables : condition[i].n_variables;
 	return max_n_variables;
 }
-int condition_variable(CONDITION condition, int index) { return condition->variable[index]; }
-int condition_differential(CONDITION condition, int index) { return condition->differential[index]; }
+void condition_variable(CONDITION condition, int *variable) { int i; for(i = 0; i < condition->n_variables; i ++) variable[i] = condition->variable[i]; }
+void condition_differential(CONDITION condition, int *differential) { int i; for(i = 0; i < condition->n_variables; i ++) differential[i] = condition->differential[i]; }
 int condition_n_parameters(CONDITION condition) { return condition->n_parameters; }
 void (* condition_value(CONDITION condition))(double *, double *, double *, double *) { return condition->value; }
 
