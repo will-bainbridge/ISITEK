@@ -17,7 +17,7 @@
 
 static int n_variables, *n_bases, max_n_bases, sum_n_bases, sum_n_bases_squared;
 
-static double ***edge_x, **vertex_x;
+static double **vertex_x;
 
 static int lds, ldm, ldd, lda, sizem;
 static double **S, **M, **D, **A;
@@ -43,9 +43,8 @@ int element_interpolation_start()
 	for(i = 0; i < n_variables; i ++) sum_n_bases_squared += n_bases[i]*n_bases[i];
 
 	// locations
-	edge_x = tensor_double_new(NULL,ELEMENT_MAX_N_FACES,2,numerics_n_gauss(solver_variable_max_order()));
 	vertex_x = matrix_double_new(NULL,2,ELEMENT_MAX_N_FACES);
-	if(edge_x == NULL || vertex_x == NULL) return ELEMENT_MEMORY_ERROR;
+	if(vertex_x == NULL) return ELEMENT_MEMORY_ERROR;
 
 	// working matrices
 	lds = max_n_bases;
@@ -71,7 +70,6 @@ int element_interpolation_start()
 void element_interpolation_end()
 {
 	free(n_bases);
-	tensor_free((void *)edge_x);
 	matrix_free((void *)vertex_x);
 	matrix_free((void *)S);
 	matrix_free((void *)M);
@@ -87,22 +85,15 @@ int element_interpolation_calculate(ELEMENT element)
 	int i, j;
 	int taylor_power[2];
 	int sum_face_n_quadrature = 0;
-	double x[2];
 	for(i = 0; i < element->n_faces; i ++) sum_face_n_quadrature += face_n_quadrature(element->face[i]);
-	NODE node[2];
-	ELEMENT border[2];
 
 	// locations
 	for(i = 0; i < element->n_faces; i ++)
 	{
-		face_quadrature_x(element->face[i],edge_x[i]);
-	}
-	for(i = 0; i < element->n_faces; i ++)
-	{
-		face_node(element->face[i],node);
-		face_border(element->face[i],border);
-		node_x(node[border[0] != element],x);
-		for(j = 0; j < 2; j ++) vertex_x[j][i] = x[j];
+		for(j = 0; j < 2; j ++)
+		{
+			vertex_x[j][i] = node_x(face_node(element->face[i])[face_border(element->face[i])[0] != element])[j];
+		}
 	}
 
 	// internal interpolation
@@ -131,7 +122,7 @@ int element_interpolation_calculate(ELEMENT element)
 	{
 		for(j = 0; j < max_n_bases; j ++)
 		{
-			numerics_basis(face_n_quadrature(element->face[i]),element->Q[i][j],edge_x[i],element->centre,element->size,j,taylor_power);
+			numerics_basis(face_n_quadrature(element->face[i]),element->Q[i][j],face_quadrature_x(element->face[i]),element->centre,element->size,j,taylor_power);
 		}
 	}
 

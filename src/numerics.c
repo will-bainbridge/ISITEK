@@ -64,7 +64,7 @@ int numerics_n_hammer(int order)
 
 //////////////////////////////////////////////////////////////////
 
-void numerics_basis(int n, double *phi, double **x, double *origin, double size, int index, int *differential)
+void numerics_basis(const int n, double * phi, const double * const * x, const double * origin, const double size, const int index, const int * differential)
 {
 	int i, j;
 
@@ -91,7 +91,7 @@ void numerics_basis(int n, double *phi, double **x, double *origin, double size,
 
 //////////////////////////////////////////////////////////////////
 
-void numerics_transformation_matrix(int order, double **T, double **R)
+void numerics_transformation_matrix(int order, double ** T, double ** R)
 {
 	int i, j, k, n = numerics_n_bases(order), row[2], col[2];
 

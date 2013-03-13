@@ -11,7 +11,7 @@ typedef struct s_NODE * NODE;
 NODE node_new(int index);
 int node_index(NODE node);
 int node_read_x(FILE *file, NODE node);
-void node_x(NODE node, double *x);
+const double * node_x(NODE node);
 void node_print(NODE node);
 void node_free(NODE node);
 

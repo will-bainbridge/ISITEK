@@ -1,7 +1,7 @@
 ################################################################################
 
-COMPILER	= gcc
-FLAG		= -g -Wall
+COMPILER	= icc
+FLAG		= -O2 -Wall
 
 HOMEPATH	= .
 BUILDPATH	= $(HOMEPATH)/src

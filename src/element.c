@@ -88,10 +88,9 @@ int element_n_faces(ELEMENT element)
 
 ////////////////////////////////////////////////////////////////////////////////
 
-void element_face(ELEMENT element, FACE * face)
+const FACE * element_face(ELEMENT element)
 {
-	int i;
-	for(i = 0; i < element->n_faces; i ++) face[i] = element->face[i];
+	return element->face;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -102,7 +101,6 @@ int element_add_border(ELEMENT element)
 	int i, j;
 
 	// get an ordered list of faces and orientations around the element 
-	NODE n[2], n_old[2];
 	FACE f[element->n_faces];
 	int o[element->n_faces];
 	f[0] = element->face[0];
@@ -113,21 +111,16 @@ int element_add_border(ELEMENT element)
 		{
 			f[i] = element->face[j];
 			if(f[i] == f[i-1]) continue;
-			face_node(f[i-1],n_old);
-			face_node(f[i],n);
-			if(n_old[o[i-1]] == n[0]) { o[i] = 1; break; }
-			if(n_old[o[i-1]] == n[1]) { o[i] = 0; break; }
+			if(face_node(f[i-1])[o[i-1]] == face_node(f[i])[0]) { o[i] = 1; break; }
+			if(face_node(f[i-1])[o[i-1]] == face_node(f[i])[1]) { o[i] = 0; break; }
 		}
 	}
 
 	// check area and flip all orientations if -ve
-	double x[2][2], a = 0;
+	double a = 0;
 	for(i = 0; i < element->n_faces; i ++)
 	{
-		face_node(f[i],n);
-		for(j = 0; j < 2; j ++) node_x(n[j],x[j]);
-		a += x[!o[i]][0]*x[o[i]][1] - x[o[i]][0]*x[!o[i]][1];
-		//a += node_x(n[!o[i]],0)*node_x(n[o[i]],1) - node_x(n[o[i]],0)*node_x(n[!o[i]],1);
+		a += node_x(face_node(f[i])[!o[i]])[0] * node_x(face_node(f[i])[o[i]])[1] - node_x(face_node(f[i])[o[i]])[0] * node_x(face_node(f[i])[!o[i]])[1];
 	}
 	if(a < 0) for(i = 0; i < element->n_faces; i ++) o[i] = !o[i];
 
@@ -148,10 +141,9 @@ int element_add_border(ELEMENT element)
 int element_calculate_quadrature(ELEMENT element)
 {
 	int i, j, k;
-	double x[3][2], dx[2][2], size;
+	double dx[2][2], size;
 	NODE n[3], temp;
 	FACE *f = &element->face[0];
-	ELEMENT e[2];
 
 	// allocation
 	element->n_quadrature = (element->n_faces-2)*solver_n_hammer();
@@ -161,8 +153,7 @@ int element_calculate_quadrature(ELEMENT element)
 	if(element->W == NULL) return ELEMENT_MEMORY_ERROR;
 
 	// triangulation base point
-	face_node(*f,n);
-	node_x(n[0],x[0]);
+	n[0] = face_node(*f)[0];
 
 	// opposite edges
 	i = 0;
@@ -171,16 +162,14 @@ int element_calculate_quadrature(ELEMENT element)
 		f += 1;
 
 		// continue if any nodes match the base point
-		face_node(*f,&n[1]);
-		face_border(*f,e);
+		for(j = 0; j < 2; j ++) n[j+1] = face_node(*f)[j];
 		if(n[1] == n[0] || n[2] == n[0]) continue;
-		if(e[0] == element) { temp = n[1]; n[1] = n[2]; n[2] = temp; }
+		if(face_border(*f)[0] == element) { temp = n[1]; n[1] = n[2]; n[2] = temp; }
 
 		// edge vectors
-		for(j = 0; j < 2; j ++) node_x(n[j+1],x[j+1]);
 		for(j = 0; j < 2; j ++)
 			for(k = 0; k < 2; k ++)
-				dx[j][k] = x[j+1][k] - x[0][k];
+				dx[j][k] = node_x(n[j+1])[k] - node_x(n[0])[k];
 
 		// size
 		size = dx[0][0]*dx[1][1] - dx[0][1]*dx[1][0];
@@ -190,7 +179,7 @@ int element_calculate_quadrature(ELEMENT element)
 		{
 			for(k = 0; k < 2; k ++)
 			{
-				element->X[k][i*solver_n_hammer()+j] = x[0][k] +
+				element->X[k][i*solver_n_hammer()+j] = node_x(n[0])[k] +
 					quadrature_hammer_location(solver_n_hammer()-1,0,j)*dx[0][k] +
 					quadrature_hammer_location(solver_n_hammer()-1,1,j)*dx[1][k];
 			}
@@ -213,20 +202,16 @@ int element_n_quadrature(ELEMENT element)
 
 ////////////////////////////////////////////////////////////////////////////////
 
-void element_quadrature_x(ELEMENT element, double **x)
+const double * const * element_quadrature_x(ELEMENT element)
 {
-        int i, j;
-        for(i = 0; i < element->n_quadrature; i ++)
-                for(j = 0; j < 2; j ++)
-                        x[j][i] = element->X[j][i];
+	return element->X;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 
-void element_quadrature_w(ELEMENT element, double *w)
+const double * element_quadrature_w(ELEMENT element)
 {
-        int i;
-        for(i = 0; i < element->n_quadrature; i ++) w[i] = element->W[i];
+	return element->W;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -263,10 +248,9 @@ int element_calculate_centre(ELEMENT element)
 
 ////////////////////////////////////////////////////////////////////////////////
 
-void element_centre(ELEMENT element, double *x)
+const double * element_centre(ELEMENT element)
 {
-	int i;
-	for(i = 0; i < 2; i ++) x[i] = element->centre[i];
+	return element->centre;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -312,19 +296,9 @@ int element_calculate_unknowns(ELEMENT element, int n_elements)
 
 ////////////////////////////////////////////////////////////////////////////////
 
-void element_unknown(ELEMENT element, int **unknown)
+const int * const * element_unknown(ELEMENT element)
 {
-	int i, j, m = solver_n_variables(), n;
-
-	solver_variable_n_bases(unknown[0]);
-
-	for(i = m - 1; i > 0; i --) unknown[i][0] = unknown[0][i];
-
-	for(i = 0; i < m; i ++)
-	{
-		n = unknown[i][0];
-		for(j = 0; j < n; j ++) unknown[i][j] = element->unknown[i][j];
-	}
+	return element->unknown;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -450,22 +424,17 @@ void element_print(ELEMENT element)
 void element_plot(ELEMENT element)
 {
 	int i, j, k;
-	double x[2][2];
-	NODE n[2];
 
 	printf("set size ratio -1;\n");
 	printf("plot '-' w lp title 'boundary', '-' w p title 'quadrature', '-' w p title 'centre'\n");
 
 	for(i = 0; i < element->n_faces; i ++)
 	{
-		face_node(element->face[i],n);
-		for(j = 0; j < 2; j ++) node_x(n[j],x[j]);
-
 		for(j = 0; j < 2; j ++)
 		{
 			for(k = 0; k < 2; k ++)
 			{
-				printf("%e ",x[j][k]);
+				printf("%e ",node_x(face_node(element->face[i])[j])[k]);
 			}
 			printf("\n");
 		}

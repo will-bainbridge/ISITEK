@@ -74,10 +74,9 @@ int face_read_nodes(FILE *file, NODE *node, FACE face)
 
 ////////////////////////////////////////////////////////////////////////////////
 
-void face_node(FACE face, NODE * node)
+const NODE * face_node(FACE face)
 {
-	int i;
-	for(i = 0; i < 2; i ++) node[i] = face->node[i];
+	return face->node;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -114,10 +113,9 @@ int face_n_borders(FACE face)
 
 ////////////////////////////////////////////////////////////////////////////////
 
-void face_border(FACE face, ELEMENT *border)
+const ELEMENT * face_border(FACE face)
 {
-	int i;
-	for(i = 0; i < face->n_borders; i ++) border[i] = face->border[i];
+	return face->border;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -125,15 +123,11 @@ void face_border(FACE face, ELEMENT *border)
 void face_calculate_size(FACE face)
 {
 	int i;
-
-	double x[2][2];
-	for(i = 0; i < 2; i ++) node_x(face->node[i],x[i]);
-
 	double dx;
 	face->size = 0;
 	for(i = 0; i < 2; i ++)
 	{
-		dx = x[1][i] - x[0][i];
+		dx = node_x(face->node[1])[i] - node_x(face->node[0])[i];
 		face->size += dx*dx;
 	}
 
@@ -155,13 +149,9 @@ int face_calculate_centre(FACE face)
 	if(face->centre == NULL) return FACE_MEMORY_ERROR;
 
 	int i;
-
-	double x[2][2];
-	for(i = 0; i < 2; i ++) node_x(face->node[i],x[i]);
-
 	for(i = 0; i < 2; i ++)
 	{
-		face->centre[i] = 0.5*(x[1][i] + x[0][i]);
+		face->centre[i] = 0.5*(node_x(face->node[1])[i] + node_x(face->node[0])[i]);
 	}
 
 	return FACE_SUCCESS;
@@ -169,10 +159,9 @@ int face_calculate_centre(FACE face)
 
 ////////////////////////////////////////////////////////////////////////////////
 
-void face_centre(FACE face, double *centre)
+const double * face_centre(FACE face)
 {
-	int i;
-	for(i = 0; i < 2; i ++) centre[i] = face->centre[i];
+	return face->centre;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -182,23 +171,17 @@ int face_calculate_normal(FACE face)
 	face->normal = (double *)malloc(2*sizeof(double));
 	if(face->normal == NULL) return FACE_MEMORY_ERROR;
 
-	int i;
-
-	double x[2][2];
-	for(i = 0; i < 2; i ++) node_x(face->node[i],x[i]);
-
-	face->normal[0] = (- x[1][1] + x[0][1])/face->size;
-	face->normal[1] = (+ x[1][0] - x[0][0])/face->size;
+	face->normal[0] = (- node_x(face->node[1])[1] + node_x(face->node[0])[1])/face->size;
+	face->normal[1] = (+ node_x(face->node[1])[0] - node_x(face->node[0])[0])/face->size;
 
 	return FACE_SUCCESS;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 
-void face_normal(FACE face, double *normal)
+const double * face_normal(FACE face)
 {
-	int i;
-	for(i = 0; i < 2; i ++) normal[i] = face->normal[i];
+	return face->normal;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -222,16 +205,13 @@ int face_calculate_quadrature(FACE face)
 	face->W = (double *)malloc(face->n_quadrature * sizeof(double));
 	if(face->W == NULL) return FACE_MEMORY_ERROR;
 
-	double x[2][2];
-	for(i = 0; i < 2; i ++) node_x(face->node[i],x[i]);
-
 	for(i = 0; i < solver_n_gauss(); i ++)
 	{
 		for(j = 0; j < 2; j ++)
 		{
 			face->X[j][i] =
-				0.5 * (1.0 - quadrature_gauss_location(solver_n_gauss()-1,i)) * x[0][j] +
-				0.5 * (1.0 + quadrature_gauss_location(solver_n_gauss()-1,i)) * x[1][j];
+				0.5 * (1.0 - quadrature_gauss_location(solver_n_gauss()-1,i)) * node_x(face->node[0])[j] +
+				0.5 * (1.0 + quadrature_gauss_location(solver_n_gauss()-1,i)) * node_x(face->node[1])[j];
 		}
 		face->W[i] = 0.5 * face->size * quadrature_gauss_weight(solver_n_gauss()-1,i);
 	}
@@ -248,21 +228,16 @@ int face_n_quadrature(FACE face)
 
 ////////////////////////////////////////////////////////////////////////////////
 
-void face_quadrature_x(FACE face, double **x)
+double const * const * face_quadrature_x(FACE face)
 {
-	int i, j;
-	for(i = 0; i < face->n_quadrature; i ++)
-		for(j = 0; j < 2; j ++)
-			x[j][i] = face->X[j][i];
+	return face->X;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 
-void face_quadrature_w(FACE face, double *w)
+const double * face_quadrature_w(FACE face)
 {
-	int i;
-	for(i = 0; i < face->n_quadrature; i ++)
-		w[i] = face->W[i];
+	return face->W;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -271,29 +246,16 @@ int face_add_to_system(FACE face, SPARSE system)
 {
 	int i, j;
 
-	int n_variables = solver_n_variables(), *n_bases = (int *)malloc(n_variables * sizeof(int)), sum_n_bases = solver_variable_sum_n_bases();
-	if(n_bases == NULL) return ELEMENT_MEMORY_ERROR;
-	solver_variable_n_bases(n_bases);
-	
-	int ***unknown;
-	unknown = (int ***)malloc(face->n_borders * sizeof(int **));
+	int **unknown = matrix_integer_new(NULL,face->n_borders,solver_variable_sum_n_bases());
 	if(unknown == NULL) return FACE_MEMORY_ERROR;
-	unknown[0] = (int **)malloc(face->n_borders * n_variables * sizeof(int *));
-	if(unknown[0] == NULL) return FACE_MEMORY_ERROR;
-	unknown[0][0] = (int *)malloc(face->n_borders * sum_n_bases * sizeof(int));
-	if(unknown[0][0] == NULL) return FACE_MEMORY_ERROR;
-	for(i = 1; i < face->n_borders; i ++) unknown[i] = unknown[i-1] + n_variables;
-	for(i = 1; i < face->n_borders; i ++) unknown[i][0] = unknown[i-1][0] + sum_n_bases;
-	for(i = 0; i < face->n_borders; i ++) for(j = 1; j < n_variables; j ++) unknown[i][j] = unknown[i][j-1] + n_bases[j-1];
 
-	for(i = 0; i < face->n_borders; i ++) element_unknown(face->border[i],unknown[i]);
+	for(i = 0; i < face->n_borders; i ++)
+		for(j = 0; j < solver_variable_sum_n_bases(); j ++)
+			unknown[i][j] = element_unknown(face->border[i])[0][j];
 
-	face->system_index = sparse_insert_sub_matrix(system,face->n_borders*sum_n_bases,unknown[0][0],face->n_borders*sum_n_bases,unknown[0][0]);
+	face->system_index = sparse_insert_sub_matrix(system,face->n_borders*solver_variable_sum_n_bases(),unknown[0],face->n_borders*solver_variable_sum_n_bases(),unknown[0]);
 
-	free(n_bases);
-	free(unknown[0][0]);
-	free(unknown[0]);
-	free(unknown);
+	matrix_free((void *)unknown);
 
 	return face->system_index >= 0 ? FACE_SUCCESS : FACE_LOGIC_ERROR;
 }
@@ -378,20 +340,15 @@ void face_print(FACE face)
 void face_plot(FACE face)
 {
 	int i, j, k, l;
-	NODE n[2];
-	FACE f[ELEMENT_MAX_N_FACES];
 
 	printf("set size ratio -1;\n");
 	printf("plot '-' w lp title 'line', '-' w p title 'quadrature', '-' w p title 'centre', '-' w vec title '10%% normal'");
 	for(i = 0; i < face->n_borders; i ++) printf(", '-' w l title 'border %i'",i);
 	printf("\n");
 
-	double x[2][2];
-	for(i = 0; i < 2; i ++) node_x(face->node[i],x[i]);
-
 	for(i = 0; i < 2; i ++)
 	{
-		for(j = 0; j < 2; j ++) printf("%e ",x[i][j]);
+		for(j = 0; j < 2; j ++) printf("%e ",node_x(face->node[i])[j]);
 		printf("\n");
 	}
 	printf("e\n");
@@ -415,20 +372,15 @@ void face_plot(FACE face)
 
 	for(i = 0; i < face->n_borders; i ++)
 	{
-		element_face(face->border[i],f);
 		for(j = 0; j < element_n_faces(face->border[i]); j ++)
 		{
-			if(f[j] != face)
+			if(element_face(face->border[i])[j] != face)
 			{
-				face_node(f[j],n);
-
-				for(k = 0; k < 2; k ++) node_x(n[k],x[k]);
-
 				for(k = 0; k < 2; k ++)
 				{
 					for(l = 0; l < 2; l ++)
 					{
-						printf("%e ",x[k][l]);
+						printf("%e ",node_x(face_node(element_face(face->border[i])[j])[k])[l]);
 					}               
 					printf("\n");
 				}       

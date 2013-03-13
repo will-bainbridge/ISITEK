@@ -34,7 +34,7 @@ CONDITION condition_condition(char *name)
 	return i < n_conditions ? &condition[i] : NULL;
 }
 
-char * condition_name(CONDITION condition) { return condition->name; }
+const char * condition_name(CONDITION condition) { return condition->name; }
 int condition_n_variables(CONDITION condition) { return condition->n_variables; }
 int condition_max_n_variables()
 {

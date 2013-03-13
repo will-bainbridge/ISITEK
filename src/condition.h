@@ -5,7 +5,7 @@ typedef struct s_CONDITION * CONDITION;
 
 CONDITION condition_empty();
 CONDITION condition_condition(char *name);
-char * condition_name(CONDITION condition);
+const char * condition_name(CONDITION condition);
 int condition_n_variables(CONDITION condition);
 int condition_max_n_variables();
 void condition_variable(CONDITION condition, int *variable);

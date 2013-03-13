@@ -152,9 +152,6 @@ int main(int argc, char *argv[])
 	for(i = 0; i < n_elements; i ++) element_calculate_size(element[i]);
 	for(i = 0; i < n_elements; i ++) exit_if_false(element_calculate_centre(element[i]) == ELEMENT_SUCCESS,"calculating an element centre");
 
-	// unknowns
-	for(i = 0; i < n_elements; i ++) exit_if_false(element_calculate_unknowns(element[i],n_elements) == ELEMENT_SUCCESS,"calculating an element unknowns");
-
 	// element numerics
 	exit_if_false(element_interpolation_start() == ELEMENT_SUCCESS,"initialising element interpolation");
 	for(i = 0; i < n_elements; i ++) exit_if_false(element_interpolation_calculate(element[i]) == ELEMENT_SUCCESS,"calculating an element interpolation");
@@ -164,6 +161,9 @@ int main(int argc, char *argv[])
 	exit_if_false(face_interpolation_start() == ELEMENT_SUCCESS,"initialising face interpolation");
 	for(i = 0; i < n_faces; i ++) exit_if_false(face_interpolation_calculate(face[i]) == ELEMENT_SUCCESS,"calculating a face interpolation");
 	face_interpolation_end();
+
+	// unknowns
+	for(i = 0; i < n_elements; i ++) exit_if_false(element_calculate_unknowns(element[i],n_elements) == ELEMENT_SUCCESS,"calculating an element unknowns");
 
 	// initialise system
 	SPARSE system = sparse_new(NULL);
@@ -191,7 +191,7 @@ int main(int argc, char *argv[])
 	//element_plot(element[10]);
 	
 	//sparse_print(system);
-	//sparse_spy(system,20,20);
+	//sparse_spy(system,40,40);
 	
 	//-------------------------------------------------------------------//
 

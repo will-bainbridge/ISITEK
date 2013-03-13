@@ -51,10 +51,9 @@ int node_read_x(FILE *file, NODE node)
 	return NODE_SUCCESS;
 }
 
-void node_x(NODE node, double *x)
+const double * node_x(NODE node)
 {
-	int i;
-	for(i = 0; i < 2; i ++) x[i] = node->x[i];
+	return node->x;
 }
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -25,7 +25,7 @@ static int n_interpolations, *interpolation_variable, *interpolation_differentia
 
 static int *n_constraints, **constraint_temporary, **constraint_differential;
 
-static double **x, **y, ***x_adj, ***y_adj, **w_adj, **c_adj;
+static double **x, **y, ***y_adj;
 
 static double **R, **inv_R, **T;
 
@@ -80,11 +80,8 @@ int face_interpolation_start()
 
 	// locations
 	y = matrix_double_new(NULL,2,n_gauss);
-	x_adj = tensor_double_new(NULL,2,2,n_hammer*(ELEMENT_MAX_N_FACES-2));
 	y_adj = tensor_double_new(NULL,2,2,n_hammer*(ELEMENT_MAX_N_FACES-2));
-	w_adj = matrix_double_new(NULL,2,n_hammer*(ELEMENT_MAX_N_FACES-2));
-	c_adj = matrix_double_new(NULL,2,2);
-	if(y == NULL || x_adj == NULL || y_adj == NULL || w_adj == NULL || c_adj == NULL) return FACE_MEMORY_ERROR;
+	if(y == NULL || y_adj == NULL) return FACE_MEMORY_ERROR;
 
 	// transformation
 	R = matrix_double_new(NULL,2,2);
@@ -139,10 +136,7 @@ void face_interpolation_end()
 	matrix_free((void *)constraint_temporary);
 	matrix_free((void *)constraint_differential);
 	matrix_free((void *)y);
-	tensor_free((void *)x_adj);
 	tensor_free((void *)y_adj);
-	matrix_free((void *)w_adj);
-	matrix_free((void *)c_adj);
 	matrix_free((void *)R);
 	matrix_free((void *)inv_R);
 	matrix_free((void *)T);
@@ -228,17 +222,14 @@ int face_interpolation_calculate(FACE face)
 	// adjacent element geometry
 	for(a = 0; a < face->n_borders; a ++)
 	{
-		element_centre(face->border[a],c_adj[a]);
-		element_quadrature_x(face->border[a],x_adj[a]);
 		for(q = 0; q < n_points[a]; q ++)
 		{
 			for(i = 0; i < 2; i ++)
 			{
 				y_adj[a][i][q] = face->centre[i];
-				for(j = 0; j < 2; j ++) y_adj[a][i][q] += R[i][j]*(x_adj[a][j][q] - face->centre[j]);
+				for(j = 0; j < 2; j ++) y_adj[a][i][q] += R[i][j]*(element_quadrature_x(face->border[a])[j][q] - face->centre[j]);
 			}
 		}
-		element_quadrature_w(face->border[a],w_adj[a]);
 	}
 
 	// for all variables
@@ -259,7 +250,7 @@ int face_interpolation_calculate(FACE face)
 		for(i = 0; i < face->n_borders*n_bases[v]; i ++) for(j = 0; j < sum_n_points[face->n_borders]; j ++) P[i][j] = 0.0;
 		for(a = 0; a < face->n_borders; a ++)
 			for(i = 0; i < n_bases[v]; i ++)
-				numerics_basis(n_points[a],&P[i+a*n_bases[v]][sum_n_points[a]],x_adj[a],c_adj[a],element_size(face->border[a]),i,taylor_power);
+				numerics_basis(n_points[a],&P[i+a*n_bases[v]][sum_n_points[a]],element_quadrature_x(face->border[a]),element_centre(face->border[a]),element_size(face->border[a]),i,taylor_power);
 
 		// face bases at the integration locations
 		for(a = 0; a < face->n_borders; a ++)
@@ -270,7 +261,7 @@ int face_interpolation_calculate(FACE face)
 		dcopy_(&sizep,P[0],&int_1,S[0],&int_1);
 		for(a = 0; a < face->n_borders; a ++)
 			for(i = 0; i < n_points[a]; i ++)
-				dscal_(&n_bases[v],&w_adj[a][i],&S[a*n_bases[v]][i+sum_n_points[a]],&lds);
+				dscal_(&n_bases[v],&element_quadrature_w(face->border[a])[i],&S[a*n_bases[v]][i+sum_n_points[a]],&lds);
 
 		// weak interpolation system
 		dgemm_(&trans[1],&trans[0],&n_adj_bases[v],&n_int_bases[v],&sum_n_points[face->n_borders],&double_1,S[0],&lds,Q[0],&ldq,&double_0,A[0],&lda);
