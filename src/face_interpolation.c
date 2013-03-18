@@ -17,7 +17,7 @@
 
 //////////////////////////////////////////////////////////////////
 
-static int n_variables, *order, max_order, *n_bases, max_n_bases, sum_n_bases;
+static int n_variables, max_n_bases, sum_n_bases;
 
 static int n_gauss, n_hammer;
 
@@ -49,13 +49,6 @@ int face_interpolation_start()
 {
 	// numbers
 	n_variables = solver_n_variables();
-	order = (int *)malloc(n_variables * sizeof(int));
-	if(order == NULL) return FACE_MEMORY_ERROR;
-	solver_variable_order(order);
-	max_order = solver_variable_max_order();
-	n_bases = (int *)malloc(n_variables * sizeof(int));
-	if(n_bases == NULL) return FACE_MEMORY_ERROR;
-	solver_variable_n_bases(n_bases);
 	max_n_bases = solver_variable_max_n_bases();
 	sum_n_bases = solver_variable_sum_n_bases();
 
@@ -128,8 +121,6 @@ int face_interpolation_start()
 
 void face_interpolation_end()
 {
-	free(order);
-	free(n_bases);
 	free(interpolation_variable);
 	free(interpolation_differential);
 	free(n_constraints);
@@ -174,7 +165,7 @@ int face_interpolation_calculate(FACE face)
 	int sum_n_adj_bases = 0, sum_n_int_bases = 0;
 	for(v = 0; v < n_variables; v ++)
 	{
-		n_adj_bases[v] = face->n_borders*n_bases[v];
+		n_adj_bases[v] = face->n_borders*solver_variable_n_bases()[v];
 		n_int_bases[v] = n_adj_bases[v] + n_constraints[v]*face->n_quadrature;
 	}
 	for(i = 0; i < n_interpolations; i ++)
@@ -200,7 +191,7 @@ int face_interpolation_calculate(FACE face)
 	double det_R = R[0][0]*R[1][1] - R[0][1]*R[1][0];
 	inv_R[0][0] = + R[1][1]/det_R; inv_R[0][1] = - R[0][1]/det_R;
 	inv_R[1][0] = - R[1][0]/det_R; inv_R[1][1] = + R[0][0]/det_R;
-	numerics_transformation_matrix(max_order,T,inv_R);
+	numerics_transformation_matrix(solver_variable_max_order(),T,inv_R);
 
 	// face integration locations
 	x = face->X;
@@ -237,9 +228,9 @@ int face_interpolation_calculate(FACE face)
 	{
 		// face basis indices
 		n = 0;
-		for(i = 0; i < face->n_borders*order[v] + n_constraints[v]; i ++)
-			for(j = 0; j < face->n_borders*order[v] + n_constraints[v]; j ++)
-				if(i + face->n_borders*j < face->n_borders*order[v] + n_constraints[v] && j < n_gauss)
+		for(i = 0; i < face->n_borders*solver_variable_order()[v] + n_constraints[v]; i ++)
+			for(j = 0; j < face->n_borders*solver_variable_order()[v] + n_constraints[v]; j ++)
+				if(i + face->n_borders*j < face->n_borders*solver_variable_order()[v] + n_constraints[v] && j < n_gauss)
 					face_taylor[n ++] = numerics_power_taylor(i,j);
 		exit_if_false(n == n_int_bases[v],"mismatched number of interpolation bases");
 
@@ -247,10 +238,10 @@ int face_interpolation_calculate(FACE face)
 		for(i = 0; i < 2; i ++) taylor_power[i] = 0;
 
 		// element bases at the integration locations
-		for(i = 0; i < face->n_borders*n_bases[v]; i ++) for(j = 0; j < sum_n_points[face->n_borders]; j ++) P[i][j] = 0.0;
+		for(i = 0; i < face->n_borders*solver_variable_n_bases()[v]; i ++) for(j = 0; j < sum_n_points[face->n_borders]; j ++) P[i][j] = 0.0;
 		for(a = 0; a < face->n_borders; a ++)
-			for(i = 0; i < n_bases[v]; i ++)
-				numerics_basis(n_points[a],&P[i+a*n_bases[v]][sum_n_points[a]],element_quadrature_x(face->border[a]),element_centre(face->border[a]),element_size(face->border[a]),i,taylor_power);
+			for(i = 0; i < solver_variable_n_bases()[v]; i ++)
+				numerics_basis(n_points[a],&P[i+a*solver_variable_n_bases()[v]][sum_n_points[a]],element_quadrature_x(face->border[a]),element_centre(face->border[a]),element_size(face->border[a]),i,taylor_power);
 
 		// face bases at the integration locations
 		for(a = 0; a < face->n_borders; a ++)
@@ -261,7 +252,7 @@ int face_interpolation_calculate(FACE face)
 		dcopy_(&sizep,P[0],&int_1,S[0],&int_1);
 		for(a = 0; a < face->n_borders; a ++)
 			for(i = 0; i < n_points[a]; i ++)
-				dscal_(&n_bases[v],&element_quadrature_w(face->border[a])[i],&S[a*n_bases[v]][i+sum_n_points[a]],&lds);
+				dscal_(&solver_variable_n_bases()[v],&element_quadrature_w(face->border[a])[i],&S[a*solver_variable_n_bases()[v]][i+sum_n_points[a]],&lds);
 
 		// weak interpolation system
 		dgemm_(&trans[1],&trans[0],&n_adj_bases[v],&n_int_bases[v],&sum_n_points[face->n_borders],&double_1,S[0],&lds,Q[0],&ldq,&double_0,A[0],&lda);
@@ -297,7 +288,7 @@ int face_interpolation_calculate(FACE face)
 		dgesv_(&n_int_bases[v],&n_int_bases[v],A[0],&lda,pivot,B[0],&ldb,&info);
 
 		// interpolate values to the face integration locations
-		for(i = 0; i < n_bases[v]; i ++)
+		for(i = 0; i < solver_variable_n_bases()[v]; i ++)
 		{
 			for(j = 0; j < 2; j ++) taylor_power[j] = numerics_taylor_power(i,j);
 			for(j = 0; j < n_int_bases[v]; j ++) numerics_basis(n_gauss,F[j],y,face->centre,0.5*face->size,face_taylor[j],taylor_power);
@@ -315,7 +306,7 @@ int face_interpolation_calculate(FACE face)
 					for(k = 0; k < face->n_quadrature; k ++)
 					{
 						face->Q[i][j][k] = 0;
-						for(l = 0; l < n_bases[v]; l ++) face->Q[i][j][k] += T[interpolation_differential[i]][l]*D[l][j][k];
+						for(l = 0; l < solver_variable_n_bases()[v]; l ++) face->Q[i][j][k] += T[interpolation_differential[i]][l]*D[l][j][k];
 					}
 				}
 			}
@@ -325,16 +316,16 @@ int face_interpolation_calculate(FACE face)
 		n = n_int_bases[v]*face->n_quadrature;
 		for(i = 0; i < n_interpolations; i ++)
 			if(interpolation_variable[i] == v)
-				dgemv_(&trans[0],&n,&n_bases[v],&double_1,D[0][0],&sizef,T[interpolation_differential[i]],&int_1,&double_0,face->Q[i][0],&int_1);
+				dgemv_(&trans[0],&n,&solver_variable_n_bases()[v],&double_1,D[0][0],&sizef,T[interpolation_differential[i]],&int_1,&double_0,face->Q[i][0],&int_1);
 
 		//if(condition)
 		//{
-		//	for(i = 0; i < n_bases[v]; i ++) {
-		//		for(j = 0; j < n_bases[v]; j ++) {
+		//	for(i = 0; i < solver_variable_n_bases()[v]; i ++) {
+		//		for(j = 0; j < solver_variable_n_bases()[v]; j ++) {
 		//			printf("%+.1e ",T[i][j]);
 		//		} printf("\n");
 		//	} printf("\n");
-		//	for(i = 0; i < n_bases[v]; i ++) {
+		//	for(i = 0; i < solver_variable_n_bases()[v]; i ++) {
 		//		for(j = 0; j < n_gauss; j ++) {
 		//			int k;
 		//			for(k = 0; k < n_int_bases[v]; k ++) {

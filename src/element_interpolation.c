@@ -15,7 +15,7 @@
 
 ////////////////////////////////////////////////////////////////////////////////
 
-static int n_variables, *n_bases, max_n_bases, sum_n_bases, sum_n_bases_squared;
+static int n_variables, max_n_bases, sum_n_bases, sum_n_bases_squared;
 
 static double **vertex_x;
 
@@ -34,13 +34,10 @@ int element_interpolation_start()
 
 	// numbers
 	n_variables = solver_n_variables();
-	n_bases = (int *)malloc(n_variables * sizeof(int));
-	if(n_bases == NULL) return ELEMENT_MEMORY_ERROR;
-	solver_variable_n_bases(n_bases);
 	max_n_bases = solver_variable_max_n_bases();
 	sum_n_bases = solver_variable_sum_n_bases();
 	sum_n_bases_squared = 0;
-	for(i = 0; i < n_variables; i ++) sum_n_bases_squared += n_bases[i]*n_bases[i];
+	for(i = 0; i < n_variables; i ++) sum_n_bases_squared += solver_variable_n_bases()[i]*solver_variable_n_bases()[i];
 
 	// locations
 	vertex_x = matrix_double_new(NULL,2,ELEMENT_MAX_N_FACES);
@@ -69,7 +66,6 @@ int element_interpolation_start()
 
 void element_interpolation_end()
 {
-	free(n_bases);
 	matrix_free((void *)vertex_x);
 	matrix_free((void *)S);
 	matrix_free((void *)M);
@@ -154,14 +150,14 @@ int element_interpolation_calculate(ELEMENT element)
 	element->I[0][0] = (double *)malloc(element->n_quadrature * sum_n_bases * sizeof(double));
 	if(element->I[0][0] == NULL) return FACE_MEMORY_ERROR;
 	for(i = 1; i < n_variables; i ++) element->I[i] = element->I[i-1] + element->n_quadrature;
-	for(i = 1; i < n_variables; i ++) element->I[i][0] = element->I[i-1][0] + element->n_quadrature * n_bases[i-1];
-	for(i = 0; i < n_variables; i ++) for(j = 1; j < element->n_quadrature; j ++) element->I[i][j] = element->I[i][j-1] + n_bases[i];
+	for(i = 1; i < n_variables; i ++) element->I[i][0] = element->I[i-1][0] + element->n_quadrature * solver_variable_n_bases()[i-1];
+	for(i = 0; i < n_variables; i ++) for(j = 1; j < element->n_quadrature; j ++) element->I[i][j] = element->I[i][j-1] + solver_variable_n_bases()[i];
 
 	for(i = 0; i < n_variables; i ++)
 	{
-		for(j = 0; j < n_bases[i]; j ++) dcopy_(&element->n_quadrature,&S[0][j],&lds,&element->I[i][0][j],&n_bases[i]);
+		for(j = 0; j < solver_variable_n_bases()[i]; j ++) dcopy_(&element->n_quadrature,&S[0][j],&lds,&element->I[i][0][j],&solver_variable_n_bases()[i]);
 		dcopy_(&sizem,M[0],&int_1,A[0],&int_1);
-		dgesv_(&n_bases[i],&element->n_quadrature,A[0],&lda,pivot,element->I[i][0],&n_bases[i],&info);
+		dgesv_(&solver_variable_n_bases()[i],&element->n_quadrature,A[0],&lda,pivot,element->I[i][0],&solver_variable_n_bases()[i],&info);
 	}
 
 	// limiting matrices
@@ -171,9 +167,9 @@ int element_interpolation_calculate(ELEMENT element)
 	if(element->L[0] == NULL) return FACE_MEMORY_ERROR;
 	element->L[0][0] = (double *)malloc(sum_n_bases_squared * sizeof(double));
 	if(element->L[0][0] == NULL) return FACE_MEMORY_ERROR;
-	for(i = 1; i < n_variables; i ++) element->L[i] = element->L[i-1] + n_bases[i-1];
-	for(i = 1; i < n_variables; i ++) element->L[i][0] = element->L[i-1][0] + n_bases[i-1]*n_bases[i-1];
-	for(i = 0; i < n_variables; i ++) for(j = 1; j < n_bases[i]; j ++) element->L[i][j] = element->L[i][j-1] + n_bases[i];
+	for(i = 1; i < n_variables; i ++) element->L[i] = element->L[i-1] + solver_variable_n_bases()[i-1];
+	for(i = 1; i < n_variables; i ++) element->L[i][0] = element->L[i-1][0] + solver_variable_n_bases()[i-1]*solver_variable_n_bases()[i-1];
+	for(i = 0; i < n_variables; i ++) for(j = 1; j < solver_variable_n_bases()[i]; j ++) element->L[i][j] = element->L[i][j-1] + solver_variable_n_bases()[i];
 	
 	if(max_n_bases > 1)
 	{
@@ -200,10 +196,10 @@ int element_interpolation_calculate(ELEMENT element)
 		// limiting matrices
 		for(i = 0; i < n_variables; i ++)
 		{
-			if(n_bases[i] == 1) continue;
+			if(solver_variable_n_bases()[i] == 1) continue;
 			dcopy_(&sizem,M[0],&int_1,A[0],&int_1);
-			for(j = 0; j < n_bases[i]; j ++) dcopy_(&n_bases[i],D[j],&int_1,element->L[i][j],&int_1);
-			dgesv_(&n_bases[i],&n_bases[i],A[0],&lda,pivot,element->L[i][0],&n_bases[i],&info);
+			for(j = 0; j < solver_variable_n_bases()[i]; j ++) dcopy_(&solver_variable_n_bases()[i],D[j],&int_1,element->L[i][j],&int_1);
+			dgesv_(&solver_variable_n_bases()[i],&solver_variable_n_bases()[i],A[0],&lda,pivot,element->L[i][0],&solver_variable_n_bases()[i],&info);
 		}
 	}
 

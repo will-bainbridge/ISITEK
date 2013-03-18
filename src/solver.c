@@ -52,9 +52,9 @@ void solver_end()
 }
 
 int solver_n_variables() { return n_variables; }
-void solver_variable_order(int *order) { int i; for(i = 0; i < n_variables; i ++) order[i] = variable_order[i]; }
+const int * solver_variable_order() { return variable_order; }
 int solver_variable_max_order() { return variable_max_order; }
-void solver_variable_n_bases(int *n_bases) { int i; for(i = 0; i < n_variables; i ++) n_bases[i] = variable_n_bases[i]; }
+const int * solver_variable_n_bases() { return variable_n_bases; }
 int solver_variable_max_n_bases() { return variable_max_n_bases; }
 int solver_variable_sum_n_bases() { return variable_sum_n_bases; }
 

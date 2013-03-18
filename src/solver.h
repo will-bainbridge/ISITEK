@@ -11,9 +11,9 @@ int solver_start();
 void solver_end();
 
 int solver_n_variables();
-void solver_variable_order(int *order);
+const int * solver_variable_order();
 int solver_variable_max_order();
-void solver_variable_n_bases(int *n_bases);
+const int * solver_variable_n_bases();
 int solver_variable_max_n_bases();
 int solver_variable_sum_n_bases();
 

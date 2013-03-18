@@ -259,37 +259,33 @@ int element_calculate_unknowns(ELEMENT element, int n_elements)
 {
 	int i, j, offset = 0;
 
-	int n_variables = solver_n_variables(), *n_bases = (int *)malloc(n_variables * sizeof(int)), sum_n_bases = solver_variable_sum_n_bases();
-	if(n_bases == NULL) return ELEMENT_MEMORY_ERROR;
-	solver_variable_n_bases(n_bases);
+	int n_variables = solver_n_variables(), sum_n_bases = solver_variable_sum_n_bases();
 
 	element->unknown = (int **)malloc(n_variables * sizeof(int *));
 	if(element->unknown == NULL) return ELEMENT_MEMORY_ERROR;
 	element->unknown[0] = (int *)malloc(sum_n_bases * sizeof(int));
 	if(element->unknown[0] == NULL) return ELEMENT_MEMORY_ERROR;
-	for(i = 1; i < n_variables; i++) element->unknown[i] = element->unknown[i-1] + n_bases[i-1];
+	for(i = 1; i < n_variables; i++) element->unknown[i] = element->unknown[i-1] + solver_variable_n_bases()[i-1];
 
 	/*// number by element then variable
 	for(i = 0; i < n_variables; i ++)
 	{
-		for(j = 0; j < n_bases[i]; j ++)
+		for(j = 0; j < solver_variable_n_bases()[i]; j ++)
 		{
-			element->unknown[i][j] = offset + element->index*n_bases[i] + j;
+			element->unknown[i][j] = offset + element->index*solver_variable_n_bases()[i] + j;
 		}
-		offset += n_elements*n_bases[i];
+		offset += n_elements*solver_variable_n_bases()[i];
 	}*/
 
 	// number by variable then element
 	for(i = 0; i < n_variables; i ++)
 	{
-		for(j = 0; j < n_bases[i]; j ++)
+		for(j = 0; j < solver_variable_n_bases()[i]; j ++)
 		{
 			element->unknown[i][j] = element->index*sum_n_bases + offset + j;
 		}
-		offset += n_bases[i];
+		offset += solver_variable_n_bases()[i];
 	}
-
-	free(n_bases);
 
 	return ELEMENT_SUCCESS;
 }
@@ -315,9 +311,6 @@ int element_add_to_system(ELEMENT element, SPARSE system)
 void element_print(ELEMENT element)
 {
 	printf("element %i\n",element->index);
-
-	int *n_bases = (int *)malloc(solver_n_variables() * sizeof(int));
-	solver_variable_n_bases(n_bases);
 
 	int i, j, k;
 	if(element->face)
@@ -346,7 +339,7 @@ void element_print(ELEMENT element)
 	if(element->unknown)
 	{
 		printf("    element->unknown");
-		for(i = 0; i < solver_n_variables(); i ++) { printf("\n       "); for(j = 0; j < n_bases[i]; j ++) printf(" %i",element->unknown[i][j]); }
+		for(i = 0; i < solver_n_variables(); i ++) { printf("\n       "); for(j = 0; j < solver_variable_n_bases()[i]; j ++) printf(" %i",element->unknown[i][j]); }
 		printf("\n");
 	}
 	if(element->system_index != -1)
@@ -383,7 +376,7 @@ void element_print(ELEMENT element)
 		for(i = 0; i < solver_n_variables(); i ++) {
 			for(j = 0; j < element->n_quadrature; j ++) {
 				printf("\n       ");
-				for(k = 0; k < n_bases[i]; k ++) {
+				for(k = 0; k < solver_variable_n_bases()[i]; k ++) {
 					printf(" %+e",X_GT_EPS(element->I[i][j][k]));
 				}
 			}
@@ -406,17 +399,15 @@ void element_print(ELEMENT element)
 	{
 		printf("    element->L");
 		for(i = 0; i < solver_n_variables(); i ++) {
-			for(j = 0; j < n_bases[i]; j ++) {
+			for(j = 0; j < solver_variable_n_bases()[i]; j ++) {
 				printf("\n       ");
-				for(k = 0; k < n_bases[i]; k ++) {
+				for(k = 0; k < solver_variable_n_bases()[i]; k ++) {
 					printf(" %+e",X_GT_EPS(element->L[i][j][k]));
 				}
 			}
 			printf("\n");
 		}
 	}
-
-	free(n_bases);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
