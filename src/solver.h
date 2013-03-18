@@ -20,9 +20,9 @@ int solver_variable_sum_n_bases();
 int solver_n_gauss();
 int solver_n_hammer();
 int solver_n_interpolations();
-void solver_interpolation_variable(int *variable);
-void solver_interpolation_differential(int *differential);
-void solver_interpolation_method(char *method);
+const int * solver_interpolation_variable();
+const int * solver_interpolation_differential();
+const char * solver_interpolation_method();
 
 int solver_n_constants();
 int solver_constant_set_value(char *name, double value);
