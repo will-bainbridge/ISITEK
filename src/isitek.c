@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "boundary.h"
+#include "condition.h"
 #include "element.h"
 #include "expression.h"
 #include "face.h"
@@ -37,6 +38,7 @@ int main(int argc, char *argv[])
 	
 	// initialise the solver
 	exit_if_false(solver_start() == SOLVER_SUCCESS,"initialising the solver");
+	condition_start();
 	
 	//-------------------------------------------------------------------//
 

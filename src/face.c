@@ -268,12 +268,6 @@ void face_print(FACE face)
 
 	int i, j, k;
 
-	int *n_constraints = (int *)calloc(solver_n_variables(), sizeof(int));
-	int *constraint_temporary = (int *)malloc(condition_max_n_variables() * sizeof(int));
-
-	if(face->boundary) condition_variable(boundary_condition(face->boundary),constraint_temporary);
-	if(face->boundary) for(i = 0; i < condition_n_variables(boundary_condition(face->boundary)); i ++) n_constraints[constraint_temporary[i]]++;
-
 	if(face->node)
 	{
 		printf("    face->node\n       ");
@@ -314,19 +308,22 @@ void face_print(FACE face)
 	if(face->Q)
 	{
 		printf("    face->Q");
-		for(i = 0; i < solver_n_interpolations(); i ++) {
-			for(j = 0; j < face->n_borders*solver_variable_n_bases()[solver_interpolation_variable()[i]] + n_constraints[solver_interpolation_variable()[i]]*face->n_quadrature; j ++) {
+		for(i = 0; i < solver_n_interpolations(); i ++)
+		{
+			int n = face->n_borders*solver_variable_n_bases()[solver_interpolation_variable()[i]];
+			if(face->boundary) n += condition_variable_n_constraints(boundary_condition(face->boundary))[solver_interpolation_variable()[i]]*face->n_quadrature;
+
+			for(j = 0; j < n; j ++)
+			{
 				printf("\n       ");
-				for(k = 0; k < face->n_quadrature; k ++) {
+				for(k = 0; k < face->n_quadrature; k ++)
+				{
 					printf(" %+e",X_GT_EPS(face->Q[i][j][k]));
 				}
 			}
 			printf("\n");
 		}
 	}
-
-	free(n_constraints);
-	free(constraint_temporary);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

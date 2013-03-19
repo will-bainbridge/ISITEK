@@ -13,9 +13,6 @@
 
 ////////////////////////////////////////////////////////////////////////////////
 
-void solver_residual(double *u, double **r) { residual(u,r); }
-void solver_jacobian(double *u, double ***j) { jacobian(u,j); }
-
 static int variable_max_order = 0;
 static int *variable_n_bases;
 static int variable_max_n_bases = 0;
@@ -46,10 +43,13 @@ int solver_start()
 
 	return SOLVER_SUCCESS;
 }
+
 void solver_end()
 {
 	free(variable_n_bases);
 }
+
+//----------------------------------------------------------------------------//
 
 int solver_n_variables() { return n_variables; }
 const int * solver_variable_order() { return variable_order; }
@@ -58,14 +58,25 @@ const int * solver_variable_n_bases() { return variable_n_bases; }
 int solver_variable_max_n_bases() { return variable_max_n_bases; }
 int solver_variable_sum_n_bases() { return variable_sum_n_bases; }
 
+//----------------------------------------------------------------------------//
+
 int solver_n_gauss() { return n_gauss; }
 int solver_n_hammer() { return n_hammer; }
+
+//----------------------------------------------------------------------------//
+
 int solver_n_interpolations() { return n_interpolations; }
 const int * solver_interpolation_variable() { return interpolation_variable; }
 const int * solver_interpolation_differential() { return interpolation_differential; }
 const char * solver_interpolation_method() { return interpolation_method; }
 
-int solver_n_constants() { return n_constants; }
+//----------------------------------------------------------------------------//
+
+int solver_n_constants()
+{
+	return n_constants;
+}
+
 int solver_constant_set_value(char *name, double value)
 {
 	int i;
@@ -80,17 +91,24 @@ int solver_constant_set_value(char *name, double value)
 	}
 	return i < n_constants;
 }
+
 int solver_constants_set()
 {
 	int i, set = 1;
 	for(i = 0; i < n_constants; i ++) set *= constant_set[i];
 	return set;
 }
+
 int solver_constants_print(char *string)
 {
 	int i;
 	for(i = 0; i < n_constants; i ++) if(sprintf(&string[strlen(string)],"%s=%g;",constant_name[i],constant_value[i]) < 0) break;
 	return i == n_constants;
 }
+
+//----------------------------------------------------------------------------//
+
+//void solver_residual(double *u, double **r) { residual(u,r); }
+//void solver_jacobian(double *u, double ***j) { jacobian(u,j); }
 
 ////////////////////////////////////////////////////////////////////////////////

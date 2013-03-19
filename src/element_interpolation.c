@@ -94,7 +94,9 @@ int element_interpolation_calculate(ELEMENT element)
 	{
 		for(j = 0; j < 2; j ++) taylor_power[j] = numerics_taylor_power(i,j);
 		for(j = 0; j < solver_variable_max_n_bases(); j ++)
-			numerics_basis(element->n_quadrature,element->P[i][j],element->X,element->centre,element->size,j,taylor_power);
+			numerics_basis(element->n_quadrature,element->P[i][j],
+					element->X,element->centre,element->size,
+					j,taylor_power);
 	}
 
 	// external interpolation
@@ -113,7 +115,9 @@ int element_interpolation_calculate(ELEMENT element)
 	{
 		for(j = 0; j < solver_variable_max_n_bases(); j ++)
 		{
-			numerics_basis(face_n_quadrature(element->face[i]),element->Q[i][j],face_quadrature_x(element->face[i]),element->centre,element->size,j,taylor_power);
+			numerics_basis(face_n_quadrature(element->face[i]),element->Q[i][j],
+					face_quadrature_x(element->face[i]),element->centre,element->size,
+					j,taylor_power);
 		}
 	}
 
@@ -123,12 +127,16 @@ int element_interpolation_calculate(ELEMENT element)
 	for(j = 0; j < 2; j ++) taylor_power[j] = 0;
 	for(i = 0; i < solver_variable_max_n_bases(); i ++)
 	{
-		numerics_basis(element->n_faces,element->V[i],vertex_x,element->centre,element->size,i,taylor_power);
+		numerics_basis(element->n_faces,element->V[i],
+				vertex_x,element->centre,element->size,
+				i,taylor_power);
 	}
 
 	// mass matrix
-	for(i = 0; i < solver_variable_max_n_bases(); i ++) dcopy_(&element->n_quadrature,element->P[numerics_power_taylor(0,0)][i],&int_1,&S[0][i],&lds);
-	for(i = 0; i < element->n_quadrature; i ++) dscal_(&max_n_bases,&element->W[i],S[i],&int_1);
+	for(i = 0; i < solver_variable_max_n_bases(); i ++)
+		dcopy_(&element->n_quadrature,element->P[numerics_power_taylor(0,0)][i],&int_1,&S[0][i],&lds);
+	for(i = 0; i < element->n_quadrature; i ++)
+		dscal_(&max_n_bases,&element->W[i],S[i],&int_1);
 	dgemm_(&trans[0],&trans[0],
 			&max_n_bases,&max_n_bases,&element->n_quadrature,
 			&dbl_1,
@@ -150,9 +158,14 @@ int element_interpolation_calculate(ELEMENT element)
 
 	for(i = 0; i < solver_n_variables(); i ++)
 	{
-		for(j = 0; j < solver_variable_n_bases()[i]; j ++) dcopy_(&element->n_quadrature,&S[0][j],&lds,&element->I[i][0][j],&solver_variable_n_bases()[i]);
+		for(j = 0; j < solver_variable_n_bases()[i]; j ++)
+			dcopy_(&element->n_quadrature,&S[0][j],&lds,&element->I[i][0][j],&solver_variable_n_bases()[i]);
 		dcopy_(&sizem,M[0],&int_1,A[0],&int_1);
-		dgesv_(&solver_variable_n_bases()[i],&element->n_quadrature,A[0],&lda,pivot,element->I[i][0],&solver_variable_n_bases()[i],&info);
+		dgesv_(&solver_variable_n_bases()[i],&element->n_quadrature,
+				A[0],&lda,
+				pivot,
+				element->I[i][0],&solver_variable_n_bases()[i],
+				&info);
 	}
 
 	// limiting matrices
@@ -169,8 +182,10 @@ int element_interpolation_calculate(ELEMENT element)
 	if(solver_variable_max_n_bases() > 1)
 	{
 		// diffusion matrix
-		for(i = 0; i < solver_variable_max_n_bases(); i ++) dcopy_(&element->n_quadrature,element->P[numerics_power_taylor(1,0)][i],&int_1,&S[0][i],&lds);
-		for(i = 0; i < element->n_quadrature; i ++) dscal_(&max_n_bases,&element->W[i],S[i],&int_1);
+		for(i = 0; i < solver_variable_max_n_bases(); i ++)
+			dcopy_(&element->n_quadrature,element->P[numerics_power_taylor(1,0)][i],&int_1,&S[0][i],&lds);
+		for(i = 0; i < element->n_quadrature; i ++)
+			dscal_(&max_n_bases,&element->W[i],S[i],&int_1);
 		dgemm_(&trans[0],&trans[0],
 				&max_n_bases,&max_n_bases,&element->n_quadrature,
 				&dbl_1,
@@ -178,8 +193,10 @@ int element_interpolation_calculate(ELEMENT element)
 				element->P[numerics_power_taylor(1,0)][0],&element->n_quadrature,
 				&dbl_0,
 				D[0],&ldd);
-		for(i = 0; i < solver_variable_max_n_bases(); i ++) dcopy_(&element->n_quadrature,element->P[numerics_power_taylor(0,1)][i],&int_1,&S[0][i],&lds);
-		for(i = 0; i < element->n_quadrature; i ++) dscal_(&max_n_bases,&element->W[i],S[i],&int_1);
+		for(i = 0; i < solver_variable_max_n_bases(); i ++)
+			dcopy_(&element->n_quadrature,element->P[numerics_power_taylor(0,1)][i],&int_1,&S[0][i],&lds);
+		for(i = 0; i < element->n_quadrature; i ++)
+			dscal_(&max_n_bases,&element->W[i],S[i],&int_1);
 		dgemm_(&trans[0],&trans[0],
 				&max_n_bases,&max_n_bases,&element->n_quadrature,
 				&dbl_1,
@@ -193,8 +210,13 @@ int element_interpolation_calculate(ELEMENT element)
 		{
 			if(solver_variable_n_bases()[i] == 1) continue;
 			dcopy_(&sizem,M[0],&int_1,A[0],&int_1);
-			for(j = 0; j < solver_variable_n_bases()[i]; j ++) dcopy_(&solver_variable_n_bases()[i],D[j],&int_1,element->L[i][j],&int_1);
-			dgesv_(&solver_variable_n_bases()[i],&solver_variable_n_bases()[i],A[0],&lda,pivot,element->L[i][0],&solver_variable_n_bases()[i],&info);
+			for(j = 0; j < solver_variable_n_bases()[i]; j ++)
+				dcopy_(&solver_variable_n_bases()[i],D[j],&int_1,element->L[i][j],&int_1);
+			dgesv_(&solver_variable_n_bases()[i],&solver_variable_n_bases()[i],
+					A[0],&lda,
+					pivot,
+					element->L[i][0],&solver_variable_n_bases()[i],
+					&info);
 		}
 	}
 
