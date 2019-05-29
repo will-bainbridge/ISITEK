@@ -26,9 +26,9 @@ EXECUTABLES	= $(MAINFILES:.c=)
 LIBRARY += -lm -lrt
 
 $(BUILDPATH)/sparse.o depend: FLAG += -DSOLVE_UMFPACK
-$(BUILDPATH)/sparse.o depend: INCLUDE += -I$(THIRDPATH)/UMFPACK/Include -I$(THIRDPATH)/AMD/Include -I$(THIRDPATH)/UFconfig
-LIBRARY += -L$(THIRDPATH)/UMFPACK/Lib -L$(THIRDPATH)/AMD/Lib -lumfpack -lamd
-LIBRARY += -L$(THIRDPATH)/GotoBLAS2 -Wl,-R$(THIRDFULLPATH)/GotoBLAS2 -lgoto2 -lgfortran
+$(BUILDPATH)/sparse.o depend: INCLUDE += -I$(THIRDPATH)/SuiteSparse/SuiteSparse_config -I$(THIRDPATH)/SuiteSparse/AMD/Include -I$(THIRDPATH)/SuiteSparse/UMFPACK/Include
+LIBRARY += -L$(THIRDPATH)/SuiteSparse/lib -Wl,-R$(THIRDFULLPATH)/SuiteSparse/lib -lmetis -lsuitesparseconfig -lamd -lcamd -lcolamd -lccolamd -lcholmod -lumfpack
+LIBRARY += -L$(THIRDPATH)/OpenBLAS -Wl,-R$(THIRDFULLPATH)/OpenBLAS -lopenblas -lgfortran
 
 #$(BUILDPATH)/sparse.o depend: FLAG += -DSOLVE_PARDISO
 #$(BUILDPATH)/sparse.o depend: INCLUDE += -I/opt/intel/mkl/include
