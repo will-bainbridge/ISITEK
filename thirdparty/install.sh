@@ -16,5 +16,5 @@ tar -xf SuiteSparse-5.4.0.tar.gz
 (cd SuiteSparse/CAMD && make)
 (cd SuiteSparse/COLAMD && make)
 (cd SuiteSparse/CCOLAMD && make)
-(cd SuiteSparse/CHOLMOD && make)
-(cd SuiteSparse/UMFPACK && make)
+(cd SuiteSparse/CHOLMOD && make BLAS="-L../../../OpenBLAS -lopenblas")
+(cd SuiteSparse/UMFPACK && make BLAS="-L../../../OpenBLAS -lopenblas")

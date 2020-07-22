@@ -25,7 +25,7 @@ DESCRIPTION
 INSTALLATION
 ------------
 
-Use the install script in the third party directory to obtain and build the necessary linear algebra packages, GotoBLAS and UMFPACK
+Use the install script in the third party directory to obtain and build the necessary linear algebra packages, OpenBLAS and UMFPACK
 
 	cd thirdparty
 	./install.sh
